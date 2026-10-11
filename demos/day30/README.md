@@ -25,8 +25,17 @@ Browser / Remote Client → Spring Boot API → Auth + Rate limit → ChatServic
 
 | Переменная | По умолчанию | Назначение |
 |-----------|--------------|-----------|
-| `CHAT_PORT` | 8081 | порт |
-| `CHAT_BIND_ADDRESS` | 127.0.0.1 | интерфейс (только доверенная сеть) |
+| `CHAT_PORT` | 8081 | порт (в проде 8080) |
+| `CHAT_BIND_ADDRESS` | 127.0.0.1 | интерфейс (в проде 0.0.0.0 — только доверенная сеть) |
 | `OLLAMA_BASE_URL` | http://localhost:11434 | локальная Ollama |
 | `CHAT_MODEL` | qwen3:1.7b | модель |
+| `CHAT_TIMEOUT` | 2m | таймаут генерации |
+| `CHAT_THINK` | false | reasoning Qwen3 (на CPU выключать) |
 | `CHAT_API_KEY` | (пусто) | API-ключ; пусто = без аутентификации |
+| `CHAT_TRUST_FORWARDED_FOR` | false | доверять `X-Forwarded-For` только за trusted proxy |
+
+## Реальный деплой
+
+Day 30 реально развёрнут на LXC `private-ai` (`203.0.113.10`): CPU-инференс
+`qwen3:1.7b`, systemd-сервисы, LAN-доступ только на `:8080`, Ollama — loopback.
+Отчёт: `docs/DAY30_REAL_DEPLOYMENT_REPORT.md`.
