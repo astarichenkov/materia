@@ -38,4 +38,4 @@ Browser / Remote Client → Spring Boot API → Auth + Rate limit → ChatServic
 
 Day 30 реально развёрнут на LXC `private-ai` (`203.0.113.10`): CPU-инференс
 `qwen3:1.7b`, systemd-сервисы, LAN-доступ только на `:8080`, Ollama — loopback.
-Отчёт: `docs/DAY30_REAL_DEPLOYMENT_REPORT.md`.
+Сценарий демонстрации: `demos/day30/demo-scenario.md`.

@@ -68,5 +68,5 @@ Artifacts under `target/e2e-data/lectures/<id>/`:
 | Real Ollama/Qwen3 4B generation | **PASS** (2026-10-11) |
 | Full MP4→DOCX real AI pipeline | **PASS** (job COMPLETED) |
 
-Details: `docs/DAY27_REAL_INTEGRATION_REPORT.md` and `docs/day27-runtime-audit.md`.
-A mock/test double is no longer used for verification.
+Verified against the local toolchain (Ollama 0.40.2 + `qwen3:4b`); a mock/test
+double is no longer used for verification.

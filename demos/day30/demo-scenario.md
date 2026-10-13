@@ -111,4 +111,4 @@ LAN client → :8080 Spring Boot (auth, limits, 1 worker + bounded queue)
 - 5 concurrent requests: all 200, serialized (queue drains), service stays up.
 - Cold ~7 s, warm ~4 s; llama-server uses ~5.5–6 cores; RAM ~2 GB with model loaded.
 
-Full numbers: `docs/DAY30_REAL_DEPLOYMENT_REPORT.md`.
+Full numbers: `demos/day30/test-results.md`.

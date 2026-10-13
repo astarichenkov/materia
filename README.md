@@ -40,11 +40,4 @@
 ./mvnw -pl private-ai-chat spring-boot:run
 ```
 
-Подробности по каждому дню — в `docs/` и `demos/`.
-
-## Документация
-
-- `docs/IMPLEMENTATION_STATUS.md` — текущий прогресс.
-- `docs/day27-report.md` … `docs/day30-report.md` — отчёты по дням.
-- `docs/WEEK6_FINAL_REPORT.md` — итоговый отчёт.
-- `AGENTS.md` — правила работы агентов и Gitea-доступ.
+Демонстрационные сценарии и результаты по дням — в `demos/`.

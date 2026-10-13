@@ -11,7 +11,7 @@ Group=private-ai
 WorkingDirectory=/opt/private-ai
 EnvironmentFile=/etc/private-ai/private-ai.env
 
-# CPU-only host: small bounded heap is sufficient. See docs/DAY30_REAL_DEPLOYMENT_REPORT.md.
+# CPU-only host: small bounded heap is sufficient.
 ExecStart=/opt/java/current/bin/java -Xms128m -Xmx512m -XX:+UseSerialGC -jar /opt/private-ai/private-ai-chat.jar --spring.config.additional-location=file:/etc/private-ai/
 
 SuccessExitStatus=143

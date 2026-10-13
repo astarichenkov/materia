@@ -44,6 +44,10 @@ logs/
 *.local
 secrets.properties
 
+# Internal working docs / agent instructions (kept locally, never published)
+AGENTS.md
+docs/
+
 # SQLite databases
 *.db
 *.sqlite

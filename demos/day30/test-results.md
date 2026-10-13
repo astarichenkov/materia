@@ -87,5 +87,4 @@ msg2: "Какой язык я только что назвал? Ответь о�
 
 ## Homelab deployment
 
-Status: **DONE and VERIFIED** on `203.0.113.10`. See
-`docs/DAY30_REAL_DEPLOYMENT_REPORT.md`.
+Status: **DONE and VERIFIED** on `203.0.113.10` (CPU-only LAN host).

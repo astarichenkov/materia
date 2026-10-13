@@ -117,5 +117,4 @@ model loaded for 10 minutes (`OLLAMA_KEEP_ALIVE=10m`).
 ## 6. Optional Docker Compose (not used in the real deployment)
 
 `compose.yaml` and `Dockerfile` are kept for a container-based alternative. The
-verified Day 30 deployment is native systemd; see
-`docs/DAY30_REAL_DEPLOYMENT_REPORT.md`.
+verified Day 30 deployment is native systemd.
