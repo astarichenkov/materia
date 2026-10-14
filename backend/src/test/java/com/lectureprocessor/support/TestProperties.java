@@ -1,6 +1,7 @@
 package com.lectureprocessor.support;
 
 import java.time.Duration;
+import java.util.Map;
 
 import com.lectureprocessor.config.AppProperties;
 
@@ -21,6 +22,9 @@ public final class TestProperties {
                 new AppProperties.Ollama("http://localhost:11434", "fake-model", "fake-embed", 32,
                         Duration.ofMinutes(1), true),
                 new AppProperties.Slides(30.0, 10, 6),
-                new AppProperties.Chat(4, 2000, 5, 0.0));
+                new AppProperties.Chat(4, 2000, 5, 0.0),
+                new AppProperties.Llm(Map.of(
+                        "ollama", new AppProperties.Provider(true, "Ollama (local)"),
+                        "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"))));
     }
 }

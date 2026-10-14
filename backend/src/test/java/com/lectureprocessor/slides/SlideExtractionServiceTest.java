@@ -79,6 +79,8 @@ class SlideExtractionServiceTest {
                 new AppProperties.Processing(1, 1, 300, 60, 300, 60, 50),
                 new AppProperties.Ollama("http://localhost:11434", "m", "e", 768, Duration.ofMinutes(1), true),
                 new AppProperties.Slides(2.0, 10, 6),
-                new AppProperties.Chat(4, 2000, 5, 0.2));
+                new AppProperties.Chat(4, 2000, 5, 0.2),
+                new AppProperties.Llm(java.util.Map.of(
+                        "ollama", new AppProperties.Provider(true, "Ollama (local)"))));
     }
 }
