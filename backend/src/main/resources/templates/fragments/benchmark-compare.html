@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="comparison">
+    <p th:if="${comparison == null}">Выберите ровно два запуска (чекбоксы в таблице истории).</p>
+    <div th:if="${comparison != null}">
+        <h3>Baseline #<span th:text="${comparison.baseline.id}"></span>
+            → Optimized #<span th:text="${comparison.optimized.id}"></span></h3>
+        <p><b>Speedup (LLM stage):</b> <span th:text="${comparison.llmSpeedup}"></span>x
+            &nbsp; <b>Full conversion speedup:</b> <span th:text="${comparison.totalSpeedup}"></span>x</p>
+        <table>
+            <thead>
+            <tr><th>Метрика</th><th>Baseline</th><th>Optimized</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+            <tr><td>Модель</td><td th:text="${comparison.baseline.model}"></td>
+                <td th:text="${comparison.optimized.model}"></td><td></td></tr>
+            <tr><td>Temperature</td><td th:text="${comparison.baseline.temperature}"></td>
+                <td th:text="${comparison.optimized.temperature}"></td><td></td></tr>
+            <tr><td>Context</td><td th:text="${comparison.baseline.contextWindow}"></td>
+                <td th:text="${comparison.optimized.contextWindow}"></td><td></td></tr>
+            <tr><td>Max tokens</td><td th:text="${comparison.baseline.maxTokens}"></td>
+                <td th:text="${comparison.optimized.maxTokens}"></td><td></td></tr>
+            <tr><td>Thinking</td><td th:text="${comparison.baseline.thinking}"></td>
+                <td th:text="${comparison.optimized.thinking}"></td><td></td></tr>
+            <tr><td>Prompt</td><td th:text="${comparison.baseline.promptTemplate}"></td>
+                <td th:text="${comparison.optimized.promptTemplate}"></td><td></td></tr>
+            <tr><td>LLM time, мс</td><td th:text="${comparison.baseline.llmDurationMs}"></td>
+                <td th:text="${comparison.optimized.llmDurationMs}"></td><td></td></tr>
+            <tr><td>Full conversion, мс</td><td th:text="${comparison.baseline.totalDurationMs}"></td>
+                <td th:text="${comparison.optimized.totalDurationMs}"></td><td></td></tr>
+            <tr><td>Output tokens</td><td th:text="${comparison.baseline.outputTokens}"></td>
+                <td th:text="${comparison.optimized.outputTokens}"></td><td></td></tr>
+            <tr><td>Tokens/sec</td><td th:text="${comparison.baseline.tokensPerSecond}"></td>
+                <td th:text="${comparison.optimized.tokensPerSecond}"></td><td></td></tr>
+            <tr><td>Quality</td><td th:text="${comparison.baseline.qualityScore}"></td>
+                <td th:text="${comparison.optimized.qualityScore}"></td>
+                <td th:text="${comparison.qualityDelta}"></td></tr>
+            <tr><td>Peak RAM, МБ</td><td th:text="${comparison.baseline.peakRamMb} ?: 'N/A'"></td>
+                <td th:text="${comparison.optimized.peakRamMb} ?: 'N/A'"></td>
+                <td th:text="${comparison.ramDeltaMb} ?: 'N/A'"></td></tr>
+            <tr><td>Peak VRAM, МБ</td><td th:text="${comparison.baseline.peakVramMb} ?: 'N/A'"></td>
+                <td th:text="${comparison.optimized.peakVramMb} ?: 'N/A'"></td>
+                <td th:text="${comparison.vramDeltaMb} ?: 'N/A'"></td></tr>
+            </tbody>
+        </table>
+        <p th:text="${comparison.summary}"></p>
+    </div>
+</div>
+</body>
+</html>

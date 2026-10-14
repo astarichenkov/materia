@@ -12,12 +12,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.lectureprocessor.benchmark.BenchmarkRunService;
 import com.lectureprocessor.benchmark.BenchmarkService;
 import com.lectureprocessor.chat.LectureChatService;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.job.LectureJobService;
 import com.lectureprocessor.lecture.InvalidUploadException;
 import com.lectureprocessor.lecture.LectureService;
+import com.lectureprocessor.llm.LlmRunConfig;
+import com.lectureprocessor.llm.LlmSettingsService;
 
 /**
  * Minimal Thymeleaf + HTMX UI: upload, monitor status, download results, chat
@@ -30,13 +33,18 @@ public class LectureWebController {
     private final LectureJobService jobService;
     private final LectureChatService chatService;
     private final BenchmarkService benchmarkService;
+    private final BenchmarkRunService benchmarkRuns;
+    private final LlmSettingsService llmSettings;
 
     public LectureWebController(LectureService lectureService, LectureJobService jobService,
-            LectureChatService chatService, BenchmarkService benchmarkService) {
+            LectureChatService chatService, BenchmarkService benchmarkService,
+            BenchmarkRunService benchmarkRuns, LlmSettingsService llmSettings) {
         this.lectureService = lectureService;
         this.jobService = jobService;
         this.chatService = chatService;
         this.benchmarkService = benchmarkService;
+        this.benchmarkRuns = benchmarkRuns;
+        this.llmSettings = llmSettings;
     }
 
     @GetMapping("/")
@@ -114,6 +122,91 @@ public class LectureWebController {
     @GetMapping("/benchmarks")
     public String benchmarks(Model model) {
         model.addAttribute("config", benchmarkService.loadDefaultConfig());
+        model.addAttribute("lectures", lectureService.findAll());
+        model.addAttribute("providers", benchmarkRuns.providers());
+        model.addAttribute("prompts", benchmarkRuns.promptTemplates());
+        model.addAttribute("presets", benchmarkRuns.presets());
+        model.addAttribute("settings", benchmarkRuns.currentSettings());
+        model.addAttribute("history", benchmarkRuns.history(25));
+        model.addAttribute("recommended", benchmarkRuns.recommended().orElse(null));
         return "benchmarks";
+    }
+
+    @GetMapping("/benchmarks/history")
+    public String benchmarkHistory(Model model) {
+        model.addAttribute("history", benchmarkRuns.history(25));
+        model.addAttribute("recommended", benchmarkRuns.recommended().orElse(null));
+        return "fragments/benchmark-history :: history";
+    }
+
+    @PostMapping("/benchmarks/run")
+    public String runBenchmark(@RequestParam("lectureId") String lectureId,
+            @RequestParam(name = "fixtureKey", required = false) String fixtureKey,
+            @RequestParam(name = "provider", defaultValue = "ollama") String provider,
+            @RequestParam("model") String model,
+            @RequestParam(name = "temperature", defaultValue = "0.1") double temperature,
+            @RequestParam(name = "maxTokens", defaultValue = "1536") int maxTokens,
+            @RequestParam(name = "contextWindow", defaultValue = "4096") int contextWindow,
+            @RequestParam(name = "thinking", defaultValue = "false") boolean thinking,
+            @RequestParam("promptTemplate") String promptTemplate,
+            RedirectAttributes redirect) {
+        try {
+            LlmRunConfig config = new LlmRunConfig(provider, model, temperature, maxTokens,
+                    contextWindow, thinking, promptTemplate);
+            var run = benchmarkRuns.submit(new com.lectureprocessor.benchmark.BenchmarkRunRequest(
+                    lectureId, fixtureKey, config, null));
+            redirect.addFlashAttribute("message", "Benchmark #" + run.id() + " поставлен в очередь");
+        } catch (RuntimeException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/benchmarks";
+    }
+
+    @PostMapping("/benchmarks/{id}/recommend")
+    public String recommendBenchmark(@PathVariable long id, RedirectAttributes redirect) {
+        try {
+            benchmarkRuns.recommend(id);
+            redirect.addFlashAttribute("message", "Конфигурация из run #" + id + " сохранена как recommended");
+        } catch (RuntimeException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/benchmarks";
+    }
+
+    @GetMapping("/benchmarks/compare")
+    public String compareBenchmarks(@RequestParam(name = "selected", required = false) List<Long> selected,
+            Model model) {
+        if (selected != null && selected.size() >= 2) {
+            model.addAttribute("comparison", benchmarkRuns.compare(selected.get(0), selected.get(1)));
+        }
+        return "fragments/benchmark-compare :: comparison";
+    }
+
+    @GetMapping("/settings")
+    public String settings(Model model) {
+        model.addAttribute("current", llmSettings.current());
+        model.addAttribute("providers", benchmarkRuns.providers());
+        model.addAttribute("prompts", benchmarkRuns.promptTemplates());
+        model.addAttribute("lectures", lectureService.findAll());
+        return "settings";
+    }
+
+    @PostMapping("/settings")
+    public String saveSettings(@RequestParam(name = "provider", defaultValue = "ollama") String provider,
+            @RequestParam("model") String model,
+            @RequestParam(name = "temperature", defaultValue = "0.1") double temperature,
+            @RequestParam(name = "maxTokens", defaultValue = "1536") int maxTokens,
+            @RequestParam(name = "contextWindow", defaultValue = "4096") int contextWindow,
+            @RequestParam(name = "thinking", defaultValue = "false") boolean thinking,
+            @RequestParam("promptTemplate") String promptTemplate,
+            RedirectAttributes redirect) {
+        try {
+            llmSettings.save(new LlmRunConfig(provider, model, temperature, maxTokens,
+                    contextWindow, thinking, promptTemplate));
+            redirect.addFlashAttribute("message", "Настройки LLM сохранены");
+        } catch (RuntimeException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/settings";
     }
 }

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="history">
+    <div th:if="${recommended != null}" class="msg">
+        <b>Recommended:</b> run #<span th:text="${recommended.id}"></span> —
+        <span th:text="${recommended.model}"></span>,
+        temp <span th:text="${recommended.temperature}"></span>,
+        ctx <span th:text="${recommended.contextWindow}"></span>,
+        max <span th:text="${recommended.maxTokens}"></span>,
+        prompt <span th:text="${recommended.promptTemplate}"></span>
+    </div>
+    <table>
+        <thead>
+        <tr>
+            <th>Сравнить</th><th>#</th><th>Модель</th><th>Quant</th><th>Temp</th><th>Ctx</th><th>Max tok</th>
+            <th>Thinking</th><th>Prompt</th><th>LLM, с</th><th>Full, с</th><th>Out tok</th><th>tok/s</th>
+            <th>RAM/VRAM, МБ</th><th>Quality</th><th>Статус</th><th>Recommended</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="r : ${history}" th:classappend="${r.recommended} ? 'recommended'">
+            <td><input type="checkbox" name="selected" form="compare-form" th:value="${r.id}"></td>
+            <td th:text="${r.id}"></td>
+            <td th:text="${r.model}"></td>
+            <td th:text="${r.quantization} ?: 'N/A'"></td>
+            <td th:text="${r.temperature}"></td>
+            <td th:text="${r.contextWindow}"></td>
+            <td th:text="${r.maxTokens}"></td>
+            <td th:text="${r.thinking}"></td>
+            <td th:text="${r.promptTemplate}"></td>
+            <td th:text="${r.llmDurationMs != null} ? ${#numbers.formatDecimal(r.llmDurationMs / 1000.0, 1, 2)} : 'N/A'"></td>
+            <td th:text="${r.totalDurationMs != null} ? ${#numbers.formatDecimal(r.totalDurationMs / 1000.0, 1, 2)} : 'N/A'"></td>
+            <td th:text="${r.outputTokens} ?: 'N/A'"></td>
+            <td th:text="${r.tokensPerSecond} ?: 'N/A'"></td>
+            <td th:text="((${r.peakRamMb} ?: 'N/A') + ' / ' + (${r.peakVramMb} ?: 'N/A'))"></td>
+            <td th:text="${r.qualityScore} ?: 'N/A'"></td>
+            <td th:classappend="'status-' + ${r.status}" th:text="${r.status}"></td>
+            <td>
+                <form th:if="${!r.recommended}" method="post"
+                      th:action="@{/benchmarks/{id}/recommend(id=${r.id})}">
+                    <button type="submit">Use as recommended</button>
+                </form>
+                <span th:if="${r.recommended}">✔</span>
+            </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(history)}"><td colspan="17">Пока нет запусков. Выберите параметры и нажмите «Запустить benchmark».</td></tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

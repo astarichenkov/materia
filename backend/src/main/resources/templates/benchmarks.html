@@ -2,32 +2,159 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Бенчмарки LLM</title>
+    <title>LLM Benchmark</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; }
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1200px; }
+        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+        th, td { border: 1px solid #ccc; padding: .35rem .5rem; text-align: left; font-size: .9rem; }
+        .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem 1rem; }
+        fieldset { border: 1px solid #ccc; padding: 1rem; }
+        label { display: block; font-size: .8rem; color: #444; }
+        input, select { width: 100%; box-sizing: border-box; padding: .25rem; }
+        .actions { grid-column: 1 / -1; }
+        button { padding: .5rem 1rem; cursor: pointer; }
+        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
+        .err { background: #fee; color: #b00020; }
+        .status-QUEUED { color: #8a6d00; }
+        .status-RUNNING { color: #0057b8; font-weight: 600; }
+        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
+        .status-FAILED { color: #b00020; font-weight: 600; }
+        .recommended { background: #fffbe6; }
+        h2 { margin-top: 2rem; }
+        code { background: #f4f4f4; padding: 0 .2rem; }
     </style>
 </head>
 <body>
-<h1>Бенчмарки локальных LLM</h1>
-<a href="/">← К лекциям</a>
-<p th:text="'Источник: ' + ${config.sourceName}"></p>
-<table>
-    <thead>
-    <tr><th>ID</th><th>Модель</th><th>Контекст</th><th>Prompt</th><th>Описание</th></tr>
-    </thead>
-    <tbody>
-    <tr th:each="c : ${config.configurations}">
-        <td th:text="${c.id}"></td>
-        <td th:text="${c.model}"></td>
-        <td th:text="${c.numCtx}"></td>
-        <td th:text="${c.promptTemplate}"></td>
-        <td th:text="${c.description}"></td>
-    </tr>
-    </tbody>
-</table>
-<p>Запуск: <code>POST /api/benchmarks/run?lectureId=&lt;id&gt;</code>. Результаты сохраняются в
-    <code>&lt;storage&gt;/benchmarks/&lt;timestamp&gt;/</code> (JSON/CSV/Markdown).</p>
+<h1>LLM Benchmark / Optimization Console</h1>
+<a href="/">← К лекциям</a> · <a href="/settings">Настройки LLM</a>
+
+<div th:if="${message}" class="msg" th:text="${message}"></div>
+<div th:if="${error}" class="msg err" th:text="${error}"></div>
+
+<fieldset>
+    <legend>Запуск бенчмарка (LLM-стадия)</legend>
+    <form method="post" action="/benchmarks/run">
+        <div class="grid">
+            <div>
+                <label>Лекция / тестовый вход</label>
+                <select name="lectureId" required>
+                    <option th:each="l : ${lectures}"
+                            th:value="${l.id}"
+                            th:text="${l.originalFilename + ' (' + l.status + ')'}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Provider</label>
+                <select name="provider" id="provider">
+                    <option th:each="p : ${providers}"
+                            th:value="${p.id}"
+                            th:disabled="${!p.available}"
+                            th:selected="${p.id == settings.provider}"
+                            th:text="${p.displayName + (p.available ? '' : ' — недоступен')}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Model</label>
+                <select name="model" id="model" required>
+                    <optgroup th:each="p : ${providers}" th:if="${!p.chatModels.isEmpty()}"
+                              th:label="${p.displayName}">
+                        <option th:each="m : ${p.chatModels}"
+                                th:value="${m.name}"
+                                th:selected="${m.name == settings.model}"
+                                th:text="${m.name + ' [' + m.quantizationOrUnknown + ']'}"></option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label>Preset</label>
+                <select id="preset">
+                    <option th:each="p : ${presets}"
+                            th:value="${p.id}"
+                            th:attr="data-provider=${p.config != null ? p.config.provider : ''},
+                                     data-model=${p.config != null ? p.config.model : ''},
+                                     data-temperature=${p.config != null ? p.config.temperature : ''},
+                                     data-max-tokens=${p.config != null ? p.config.maxTokens : ''},
+                                     data-context=${p.config != null ? p.config.contextWindow : ''},
+                                     data-thinking=${p.config != null ? p.config.thinking : ''},
+                                     data-prompt=${p.config != null ? p.config.promptTemplate : ''}"
+                            th:text="${p.label}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Temperature (0.0–2.0)</label>
+                <input type="number" name="temperature" id="temperature" step="0.05" min="0" max="2"
+                       th:value="${settings.temperature}">
+            </div>
+            <div>
+                <label>Max tokens (64–8192)</label>
+                <input type="number" name="maxTokens" id="maxTokens" min="64" max="8192"
+                       th:value="${settings.maxTokens}">
+            </div>
+            <div>
+                <label>Context window (1024–32768)</label>
+                <input type="number" name="contextWindow" id="contextWindow" min="1024" max="32768"
+                       th:value="${settings.contextWindow}">
+            </div>
+            <div>
+                <label>Prompt template</label>
+                <select name="promptTemplate" id="promptTemplate">
+                    <option th:each="t : ${prompts}"
+                            th:value="${t.name}"
+                            th:selected="${t.name == settings.promptTemplate}"
+                            th:text="${t.label}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Test fixture (quality rubric)</label>
+                <input type="text" name="fixtureKey" value="default-lecture">
+            </div>
+            <div>
+                <label>&nbsp;</label>
+                <label><input type="checkbox" name="thinking" id="thinking" value="true"
+                              th:checked="${settings.thinking}"> Thinking enabled</label>
+            </div>
+            <div class="actions">
+                <button type="submit">▶ Запустить benchmark</button>
+            </div>
+        </div>
+    </form>
+</fieldset>
+
+<h2>Последние результаты</h2>
+<div id="history" hx-get="/benchmarks/history" hx-trigger="load, every 5s" hx-swap="innerHTML">
+    <p>Загрузка…</p>
+</div>
+
+<h2>Сравнение</h2>
+<form id="compare-form" hx-get="/benchmarks/compare" hx-target="#comparison" hx-swap="innerHTML">
+    <p>Отметьте два запуска в таблице выше (колонка «Сравнить») и нажмите:</p>
+    <button type="submit">Сравнить выбранные</button>
+</form>
+<div id="comparison"></div>
+
+<script>
+    document.getElementById('preset').addEventListener('change', function () {
+        const opt = this.options[this.selectedIndex];
+        const map = {
+            'data-provider': 'provider',
+            'data-model': 'model',
+            'data-temperature': 'temperature',
+            'data-max-tokens': 'maxTokens',
+            'data-context': 'contextWindow',
+            'data-prompt': 'promptTemplate'
+        };
+        for (const [attr, id] of Object.entries(map)) {
+            const value = opt.getAttribute(attr);
+            if (value !== null && value !== '') {
+                document.getElementById(id).value = value;
+            }
+        }
+        const thinking = opt.getAttribute('data-thinking');
+        if (thinking !== null && thinking !== '') {
+            document.getElementById('thinking').checked = (thinking === 'true');
+        }
+    });
+</script>
 </body>
 </html>
