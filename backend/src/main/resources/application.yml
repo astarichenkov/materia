@@ -61,6 +61,14 @@ app:
     max-question-chars: 2000
     retrieval-top-k: 5
     min-similarity: 0.2
+  llm:
+    providers:
+      ollama:
+        enabled: true
+        display-name: "Ollama (local)"
+      openai:
+        enabled: false
+        display-name: "OpenAI (не настроен)"
 
 management:
   endpoints:

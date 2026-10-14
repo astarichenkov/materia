@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Настройки LLM</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+        .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem 1rem; }
+        label { display: block; font-size: .8rem; color: #444; }
+        input, select { width: 100%; box-sizing: border-box; padding: .3rem; }
+        fieldset { border: 1px solid #ccc; padding: 1rem; }
+        button { padding: .5rem 1rem; }
+        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
+        .err { background: #fee; color: #b00020; }
+    </style>
+</head>
+<body>
+<h1>Настройки LLM (по умолчанию для новых jobs)</h1>
+<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a>
+
+<div th:if="${message}" class="msg" th:text="${message}"></div>
+<div th:if="${error}" class="msg err" th:text="${error}"></div>
+
+<fieldset>
+    <form method="post" action="/settings">
+        <div class="grid">
+            <div>
+                <label>Provider</label>
+                <select name="provider">
+                    <option th:each="p : ${providers}" th:value="${p.id}" th:disabled="${!p.available}"
+                            th:selected="${p.id == current.provider}"
+                            th:text="${p.displayName + (p.available ? '' : ' — недоступен')}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Model</label>
+                <select name="model">
+                    <optgroup th:each="p : ${providers}" th:if="${!p.chatModels.isEmpty()}"
+                              th:label="${p.displayName}">
+                        <option th:each="m : ${p.chatModels}"
+                                th:value="${m.name}" th:selected="${m.name == current.model}"
+                                th:text="${m.name + ' [' + m.quantizationOrUnknown + ']'}"></option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label>Default prompt</label>
+                <select name="promptTemplate">
+                    <option th:each="t : ${prompts}" th:value="${t.name}"
+                            th:selected="${t.name == current.promptTemplate}"
+                            th:text="${t.label}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Temperature</label>
+                <input type="number" step="0.05" min="0" max="2" name="temperature"
+                       th:value="${current.temperature}">
+            </div>
+            <div>
+                <label>Max tokens</label>
+                <input type="number" min="64" max="8192" name="maxTokens" th:value="${current.maxTokens}">
+            </div>
+            <div>
+                <label>Context window</label>
+                <input type="number" min="1024" max="32768" name="contextWindow" th:value="${current.contextWindow}">
+            </div>
+            <div>
+                <label>&nbsp;</label>
+                <label><input type="checkbox" name="thinking" value="true"
+                              th:checked="${current.thinking}"> Thinking enabled</label>
+            </div>
+        </div>
+        <p><button type="submit">Сохранить как default</button></p>
+    </form>
+</fieldset>
+<p>Эти параметры используются при обработке <b>новых</b> лекций (Day 27–29 pipeline).
+Параметры уже запущенных jobs не меняются.</p>
+</body>
+</html>

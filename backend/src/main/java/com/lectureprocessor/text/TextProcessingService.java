@@ -38,10 +38,15 @@ public class TextProcessingService {
 
     /** Mode 1: conservative ASR cleanup, preserving meaning and terminology. */
     public String cleanTranscript(List<TranscriptSegment> segments, LlmOptions options) {
+        return cleanTranscript(segments, options, PromptTemplates.CLEAN_TRANSCRIPT);
+    }
+
+    /** Mode 1 with an explicit prompt template (used by recommended settings). */
+    public String cleanTranscript(List<TranscriptSegment> segments, LlmOptions options, String promptTemplate) {
         List<SegmentChunk> chunks = chunksOf(segments);
         StringBuilder result = new StringBuilder();
         for (SegmentChunk chunk : chunks) {
-            String cleaned = llm.chat(prompts.get(PromptTemplates.CLEAN_TRANSCRIPT), chunk.text(), options);
+            String cleaned = llm.chat(prompts.get(promptTemplate), chunk.text(), options);
             result.append(validate(cleaned, "очистку транскрипта")).append("\n\n");
         }
         return result.toString().strip();
@@ -49,12 +54,18 @@ public class TextProcessingService {
 
     /** Mode 2: structured notes with headings, definitions and a summary. */
     public StructuredNotes generateStructuredNotes(List<TranscriptSegment> segments, LlmOptions options) {
+        return generateStructuredNotes(segments, options, PromptTemplates.STRUCTURED_NOTES);
+    }
+
+    /** Mode 2 with an explicit prompt template (used by recommended settings). */
+    public StructuredNotes generateStructuredNotes(List<TranscriptSegment> segments, LlmOptions options,
+            String promptTemplate) {
         List<SegmentChunk> chunks = chunksOf(segments);
         List<NoteSection> sections = new ArrayList<>();
         int index = 0;
         for (SegmentChunk chunk : chunks) {
             String user = "Фрагмент " + (++index) + " из " + chunks.size() + ":\n\n" + chunk.text();
-            String part = llm.chat(prompts.get(PromptTemplates.STRUCTURED_NOTES), user, options);
+            String part = llm.chat(prompts.get(promptTemplate), user, options);
             sections.add(new NoteSection(index, chunk.startMs(), chunk.endMs(),
                     validate(part, "структурирование конспекта")));
         }

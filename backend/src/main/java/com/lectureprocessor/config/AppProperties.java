@@ -1,6 +1,7 @@
 package com.lectureprocessor.config;
 
 import java.time.Duration;
+import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -17,7 +18,8 @@ public record AppProperties(
         Processing processing,
         Ollama ollama,
         Slides slides,
-        Chat chat) {
+        Chat chat,
+        Llm llm) {
 
     public record Tools(
             String ffmpegPath,
@@ -64,5 +66,16 @@ public record AppProperties(
             int maxQuestionChars,
             int retrievalTopK,
             double minSimilarity) {
+    }
+
+    /**
+     * LLM provider declarations. Local providers are backed by real beans; cloud
+     * providers are declared (disabled by default) so the benchmark UI can show
+     * them as "not configured" without shipping a cloud client yet.
+     */
+    public record Llm(Map<String, Provider> providers) {
+    }
+
+    public record Provider(boolean enabled, String displayName) {
     }
 }

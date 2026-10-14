@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,8 +38,32 @@ public class PromptTemplates {
     public static final String STRUCTURED_NOTES = "structured-notes-v1";
     public static final String SUMMARY = "summary-v1";
     public static final String RAG_ANSWER = "rag-answer-v1";
+    public static final String BASIC_SUMMARY = "basic-summary-v1";
 
     /** Day 29 optimized prompt versions (more constrained, lower verbosity). */
     public static final String CLEAN_TRANSCRIPT_V2 = "clean-transcript-v2";
     public static final String STRUCTURED_NOTES_V2 = "structured-notes-v2";
+
+    /** A versioned prompt template exposed to the benchmark UI. */
+    public record Template(String name, String label, String description) {
+    }
+
+    /** Catalog of selectable prompt templates (single source of truth). */
+    public List<Template> list() {
+        return List.of(
+                new Template(BASIC_SUMMARY, "basic-summary-v1",
+                        "Базовое краткое резюме фрагмента (без строгой структуры)."),
+                new Template(CLEAN_TRANSCRIPT, "clean-transcript-v1",
+                        "Консервативная очистка ASR с сохранением терминов (baseline)."),
+                new Template(STRUCTURED_NOTES, "structured-notes-v1",
+                        "Структурированный конспект: заголовки, определения, резюме (рекомендованный)."),
+                new Template(CLEAN_TRANSCRIPT_V2, "clean-transcript-v2",
+                        "Более строгая очистка ASR (экспериментальный оптимизированный)."),
+                new Template(STRUCTURED_NOTES_V2, "structured-notes-v2",
+                        "Сжатый структурированный конспект (экспериментальный оптимизированный)."));
+    }
+
+    public boolean exists(String name) {
+        return list().stream().anyMatch(t -> t.name().equals(name));
+    }
 }

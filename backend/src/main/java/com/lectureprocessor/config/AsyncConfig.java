@@ -27,4 +27,23 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Dedicated single-thread executor for benchmark runs: keeps the HTTP thread
+     * free, serialises LLM-heavy benchmarks and avoids competing with lecture
+     * processing jobs for the same model.
+     */
+    @Bean(name = "benchmarkExecutor")
+    public ThreadPoolTaskExecutor benchmarkExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("benchmark-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }

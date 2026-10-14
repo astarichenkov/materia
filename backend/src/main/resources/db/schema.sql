@@ -67,3 +67,52 @@ CREATE TABLE IF NOT EXISTS slide (
 );
 
 CREATE INDEX IF NOT EXISTS idx_slide_lecture ON slide(lecture_id, sequence);
+
+-- Day 29 benchmark console: persisted runs (history, comparison, recommended).
+CREATE TABLE IF NOT EXISTS benchmark_run (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    lecture_id       TEXT NOT NULL,
+    provider         TEXT NOT NULL,
+    model            TEXT NOT NULL,
+    temperature      REAL,
+    max_tokens       INTEGER,
+    context_window   INTEGER,
+    thinking         INTEGER,
+    prompt_template  TEXT,
+    quantization     TEXT,
+    input_tokens     INTEGER,
+    output_tokens    INTEGER,
+    thinking_tokens  INTEGER,
+    llm_calls        INTEGER,
+    chunk_count      INTEGER,
+    llm_duration_ms  INTEGER,
+    total_duration_ms INTEGER,
+    tokens_per_second REAL,
+    peak_ram_mb      INTEGER,
+    peak_vram_mb     INTEGER,
+    quality_score    REAL,
+    quality_notes    TEXT,
+    status           TEXT NOT NULL,
+    error            TEXT,
+    output           TEXT,
+    recommended      INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_benchmark_run_lecture ON benchmark_run(lecture_id, id);
+
+-- Recommended / default LLM configuration used by new lecture-processing jobs.
+CREATE TABLE IF NOT EXISTS app_setting (
+    setting_key   TEXT PRIMARY KEY,
+    setting_value TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
+
+-- Lightweight phase timings for the full conversion pipeline (LLM vs total).
+CREATE TABLE IF NOT EXISTS lecture_stage_timing (
+    lecture_id  TEXT NOT NULL,
+    stage       TEXT NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    PRIMARY KEY (lecture_id, stage),
+    FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
+);

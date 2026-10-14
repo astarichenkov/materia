@@ -20,9 +20,12 @@ import com.lectureprocessor.document.SlideImage;
 import com.lectureprocessor.llm.LlmException;
 import com.lectureprocessor.llm.LlmOptions;
 import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.LlmRunConfig;
+import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.rag.EmbeddingIndexService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.repository.TimingRepository;
 import com.lectureprocessor.slides.SlideExtractionService;
 import com.lectureprocessor.storage.FileStorageService;
 import com.lectureprocessor.text.StructuredNotes;
@@ -54,11 +57,14 @@ public class LectureProcessingService {
     private final SlideExtractionService slideExtraction;
     private final EmbeddingIndexService embeddingIndex;
     private final LlmProvider llm;
+    private final LlmSettingsService llmSettings;
+    private final TimingRepository timings;
 
     public LectureProcessingService(LectureRepository lectureRepository, SegmentRepository segmentRepository,
             FileStorageService storage, FfmpegService ffmpeg, TranscriptionService transcription,
             TextProcessingService textProcessing, MarkdownBuilder markdownBuilder, DocxExporter docxExporter,
-            SlideExtractionService slideExtraction, EmbeddingIndexService embeddingIndex, LlmProvider llm) {
+            SlideExtractionService slideExtraction, EmbeddingIndexService embeddingIndex, LlmProvider llm,
+            LlmSettingsService llmSettings, TimingRepository timings) {
         this.lectureRepository = lectureRepository;
         this.segmentRepository = segmentRepository;
         this.storage = storage;
@@ -70,30 +76,38 @@ public class LectureProcessingService {
         this.slideExtraction = slideExtraction;
         this.embeddingIndex = embeddingIndex;
         this.llm = llm;
+        this.llmSettings = llmSettings;
+        this.timings = timings;
     }
 
     public void process(String lectureId) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Лекция не найдена: " + lectureId));
+        long totalStart = System.nanoTime();
         try {
             Path source = storage.resolve(lectureId, lecture.storedFilename());
-            LlmOptions options = LlmOptions.of(llm.defaultChatModel());
+            LlmRunConfig settings = llmSettings.current();
+            LlmOptions options = settings.toOptions();
 
             // 1. Audio extraction
             lecture = advance(lecture, JobStatus.EXTRACTING_AUDIO);
+            long ffmpegStart = System.nanoTime();
             Path audio = storage.resolve(lectureId, "audio.wav");
             ffmpeg.extractAudio(source, audio);
             long durationMs = ffmpeg.probeDurationMs(source);
             lecture = withDuration(lecture, durationMs);
+            timings.record(lectureId, TimingRepository.FFMPEG, elapsedMs(ffmpegStart));
 
             // 2. Transcription
             lecture = advance(lecture, JobStatus.TRANSCRIBING);
+            long whisperStart = System.nanoTime();
             Transcript transcript = transcription.transcribe(audio);
             if (transcript.isEmpty()) {
                 throw new IllegalStateException("Транскрипция пустая — в видео не распознана речь");
             }
             persistTranscript(lectureId, transcript);
             lecture = withRawTranscript(lecture, storage.resolve(lectureId, "transcript.json"));
+            timings.record(lectureId, TimingRepository.WHISPER, elapsedMs(whisperStart));
 
             // 3. Text processing (LLM)
             if (!llm.isAvailable()) {
@@ -101,16 +115,23 @@ public class LectureProcessingService {
                         + "модель (переменные OLLAMA_BASE_URL / OLLAMA_CHAT_MODEL).");
             }
             lecture = advance(lecture, JobStatus.PROCESSING_TEXT);
+            long llmStart = System.nanoTime();
+            String notesPrompt = settings.promptTemplate() == null
+                    ? com.lectureprocessor.text.PromptTemplates.STRUCTURED_NOTES
+                    : settings.promptTemplate();
             String cleaned = lecture.cleanTranscript()
                     ? textProcessing.cleanTranscript(transcript.segments(), options)
                     : null;
-            StructuredNotes notes = textProcessing.generateStructuredNotes(transcript.segments(), options);
+            StructuredNotes notes = textProcessing.generateStructuredNotes(transcript.segments(), options,
+                    notesPrompt);
+            timings.record(lectureId, TimingRepository.LLM, elapsedMs(llmStart));
 
             // 4. Local RAG index (non-fatal: chat can be rebuilt later)
             indexSafely(lectureId, transcript);
 
             // 5. Export documents
             lecture = advance(lecture, JobStatus.EXPORTING);
+            long exportStart = System.nanoTime();
             Path transcriptMd = storage.resolve(lectureId, "transcript.md");
             writeString(transcriptMd, markdownBuilder.rawTranscriptMarkdown(lecture, transcript));
             Path notesMd = storage.resolve(lectureId, "notes.md");
@@ -122,6 +143,8 @@ public class LectureProcessingService {
             }
             Path docx = storage.resolve(lectureId, "notes.docx");
             docxExporter.export(docx, "Конспект: " + lecture.originalFilename(), notes, slideImages);
+            timings.record(lectureId, TimingRepository.EXPORT, elapsedMs(exportStart));
+            timings.record(lectureId, TimingRepository.TOTAL, elapsedMs(totalStart));
 
             lecture = withResults(lecture, cleaned, notes.markdown(), docx);
             lecture = advance(lecture, JobStatus.COMPLETED);
@@ -209,5 +232,9 @@ public class LectureProcessingService {
         } catch (IOException e) {
             throw new IllegalStateException("Не удалось записать файл: " + path, e);
         }
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
     }
 }
