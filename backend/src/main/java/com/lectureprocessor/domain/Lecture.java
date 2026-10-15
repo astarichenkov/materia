@@ -35,4 +35,23 @@ public record Lecture(
                 JobStatus.FAILED, message, durationMs, cleanTranscript, extractSlides,
                 rawTranscriptPath, cleanedText, notesMarkdown, docxPath, createdAt, Instant.now());
     }
+
+    public Lecture withDuration(Long newDurationMs) {
+        return new Lecture(id, originalFilename, storedFilename, sizeBytes, contentType, status,
+                errorMessage, newDurationMs, cleanTranscript, extractSlides, rawTranscriptPath,
+                cleanedText, notesMarkdown, docxPath, createdAt, Instant.now());
+    }
+
+    public Lecture withStoredMedia(String newStoredFilename, long newSize, String newContentType) {
+        return new Lecture(id, originalFilename, newStoredFilename, newSize, newContentType, status,
+                errorMessage, durationMs, cleanTranscript, extractSlides, rawTranscriptPath,
+                cleanedText, notesMarkdown, docxPath, createdAt, Instant.now());
+    }
+
+    public Lecture withOutputs(String newRawTranscriptPath, String newCleanedText,
+            String newNotesMarkdown, String newDocxPath) {
+        return new Lecture(id, originalFilename, storedFilename, sizeBytes, contentType, status,
+                errorMessage, durationMs, cleanTranscript, extractSlides, newRawTranscriptPath,
+                newCleanedText, newNotesMarkdown, newDocxPath, createdAt, Instant.now());
+    }
 }

@@ -69,6 +69,16 @@ app:
       openai:
         enabled: false
         display-name: "OpenAI (не настроен)"
+  downloader:
+    yt-dlp-path: ${YTDLP_PATH:yt-dlp}
+    metadata-timeout: 2m
+    download-timeout: 2h
+    max-file-size-bytes: ${DOWNLOAD_MAX_BYTES:8589934592}
+    default-quality: 720p
+    # HTTPS-only by default; only enable in trusted local networks.
+    allow-http: ${DOWNLOAD_ALLOW_HTTP:false}
+    # Serialise CPU/GPU-heavy stages (whisper, LLM) to protect RAM/VRAM.
+    heavy-stage-permits: ${HEAVY_STAGE_PERMITS:1}
 
 management:
   endpoints:

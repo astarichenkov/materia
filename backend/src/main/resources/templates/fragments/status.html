@@ -1,9 +1,50 @@
 <!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="status" th:attr="hx-get=${lecture.status.terminal ? null : '/lectures/' + lecture.id + '/status'},
-        hx-trigger=${lecture.status.terminal ? null : 'every 3s'}, hx-swap='outerHTML'">
+<div th:fragment="status"
+     th:attr="hx-get=${lecture.status.terminal ? null : '/lectures/' + lecture.id + '/status'},
+              hx-trigger=${lecture.status.terminal ? null : 'every 3s'},
+              hx-swap='outerHTML'">
     <p>Статус: <span th:classappend="'status-' + ${lecture.status}" th:text="${lecture.status}"></span></p>
+
+    <div th:if="${job != null}">
+        <p>
+            Этап:
+            <span th:if="${job.currentStageTitle != null}" th:text="${job.currentStageTitle}">—</span>
+            <span th:unless="${job.currentStageTitle != null}" th:text="'ожидание'">ожидание</span>
+            (<span th:text="${job.stageIndex}">0</span>/<span th:text="${job.totalStages}">0</span>)
+        </p>
+        <progress th:value="${job.progressPercent}" max="100"></progress>
+        <span th:text="${job.progressPercent} + '%'"></span>
+
+        <div th:if="${job.download != null}">
+            <p>
+                Скачивание: <span th:text="${job.download.status}">—</span>
+                <span th:if="${job.download.percent != null}"
+                      th:text="' · ' + ${#numbers.formatDecimal(job.download.percent, 1, 1)} + '%'"></span>
+                <span th:if="${job.download.speedBps != null}"
+                      th:text="' · ' + ${#numbers.formatDecimal(job.download.speedBps / 1048576.0, 1, 2)} + ' МБ/с'"></span>
+                <span th:if="${job.download.etaSeconds != null}"
+                      th:text="' · ETA ' + ${job.download.etaSeconds} + ' c'"></span>
+            </p>
+        </div>
+
+        <table th:if="${job.stages != null}">
+            <thead><tr><th>Этап</th><th>Состояние</th><th>Ошибка</th></tr></thead>
+            <tbody>
+            <tr th:each="stage : ${job.stages}">
+                <td th:text="${stage.title}"></td>
+                <td th:text="${stage.state}"></td>
+                <td th:text="${stage.error}"></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <ul class="warn" th:if="${job.warnings != null and !job.warnings.isEmpty()}">
+            <li th:each="w : ${job.warnings}" th:text="${w}"></li>
+        </ul>
+    </div>
+
     <p th:if="${lecture.durationMs != null}" th:text="'Длительность: ' + ${lecture.durationMs} + ' мс'"></p>
     <p class="error" th:if="${lecture.errorMessage}" th:text="'Ошибка: ' + ${lecture.errorMessage}"></p>
 </div>

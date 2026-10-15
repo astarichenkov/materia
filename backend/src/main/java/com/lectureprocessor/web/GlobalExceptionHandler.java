@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.lectureprocessor.document.DocumentExportException;
+import com.lectureprocessor.download.MediaDownloadException;
+import com.lectureprocessor.download.UnsafeMediaUrlException;
 import com.lectureprocessor.job.JobQueueFullException;
 import com.lectureprocessor.lecture.InvalidUploadException;
 import com.lectureprocessor.lecture.LectureNotFoundException;
@@ -41,6 +43,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> badRequest(IllegalArgumentException e) {
         return response(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(UnsafeMediaUrlException.class)
+    public ResponseEntity<Map<String, Object>> unsafeUrl(UnsafeMediaUrlException e) {
+        return response(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(MediaDownloadException.class)
+    public ResponseEntity<Map<String, Object>> downloadError(MediaDownloadException e) {
+        log.error("Download error: {}", e.getMessage());
+        return response(HttpStatus.BAD_GATEWAY, e.getMessage());
     }
 
     @ExceptionHandler(JobQueueFullException.class)

@@ -85,6 +85,7 @@ public class FfmpegService {
                 "-hide_banner", "-y",
                 "-i", video.toAbsolutePath().toString(),
                 "-vf", "fps=1/" + intervalSeconds,
+                "-frames:v", Integer.toString(Math.max(1, maxFrames)),
                 "-q:v", "3",
                 outputDir.resolve("frame_%05d.jpg").toAbsolutePath().toString()),
                 properties.tools().timeout(), null);

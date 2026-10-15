@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="preview">
+    <div th:if="${error}" class="err" th:text="'Ошибка: ' + ${error}"></div>
+    <div th:if="${metadata}">
+        <p><strong th:text="${metadata.title}">Заголовок</strong></p>
+        <p>
+            <span th:text="${metadata.provider}">provider</span>
+            <span th:if="${metadata.uploader}"> · <span th:text="${metadata.uploader}"></span></span>
+            <span th:if="${metadata.durationMs != null}">
+                · <span th:text="${#numbers.formatDecimal(metadata.durationMs / 60000.0, 1, 1)} + ' мин'"></span>
+            </span>
+        </p>
+        <p th:if="${metadata.estimatedBytes > 0}"
+           th:text="'Оценка размера: ' + ${#numbers.formatDecimal(metadata.estimatedBytes / 1048576.0, 1, 1)} + ' МБ'"></p>
+    </div>
+</div>
+</body>
+</html>

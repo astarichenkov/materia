@@ -73,6 +73,34 @@ public class LectureRepository {
     }
 
     public void deleteById(String id) {
+        // Explicit cleanup (SQLite FK cascades are not guaranteed to be enabled).
+        jdbc.update("DELETE FROM stage_checkpoint WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM pipeline_job WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM download_state WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM media_source WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM lecture WHERE id = ?", id);
+    }
+
+    /** Persists the concrete stored media file after a remote download. */
+    public void updateStoredMedia(String id, String storedFilename, long sizeBytes, String contentType) {
+        jdbc.update("""
+                UPDATE lecture SET stored_filename = ?, size_bytes = ?, content_type = ?, updated_at = ?
+                WHERE id = ?
+                """, storedFilename, sizeBytes, contentType, Instant.now().toString(), id);
+    }
+
+    public void updateDuration(String id, long durationMs) {
+        jdbc.update("UPDATE lecture SET duration_ms = ?, updated_at = ? WHERE id = ?",
+                durationMs, Instant.now().toString(), id);
+    }
+
+    public void updateOutputs(String id, String rawTranscriptPath, String cleanedText,
+            String notesMarkdown, String docxPath) {
+        jdbc.update("""
+                UPDATE lecture SET raw_transcript_path = ?, cleaned_text = ?, notes_markdown = ?,
+                        docx_path = ?, updated_at = ?
+                WHERE id = ?
+                """, rawTranscriptPath, cleanedText, notesMarkdown, docxPath,
+                Instant.now().toString(), id);
     }
 }

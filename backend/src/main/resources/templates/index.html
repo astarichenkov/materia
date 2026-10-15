@@ -12,6 +12,9 @@
         .status-FAILED { color: #b00020; font-weight: 600; }
         .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
         .err { background: #fee; color: #b00020; }
+        .source-box { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .source-box h3 { margin-top: 0; }
+        fieldset { border: 1px solid #ddd; margin-bottom: 1rem; }
     </style>
 </head>
 <body>
@@ -19,12 +22,39 @@
 <div th:if="${message}" class="msg" th:text="${message}"></div>
 <div th:if="${error}" class="msg err" th:text="${error}"></div>
 
-<form method="post" action="/lectures" enctype="multipart/form-data">
-    <input type="file" name="file" accept="video/*" required>
-    <label><input type="checkbox" name="clean"> очистка транскрипта</label>
-    <label><input type="checkbox" name="slides"> извлечь слайды</label>
-    <button type="submit">Загрузить и обработать</button>
-</form>
+<div class="source-box">
+    <h3>Локальный файл</h3>
+    <form method="post" action="/lectures" enctype="multipart/form-data">
+        <input type="file" name="file" accept="video/*" required>
+        <label><input type="checkbox" name="clean"> очистка транскрипта</label>
+        <label><input type="checkbox" name="slides"> извлечь слайды</label>
+        <button type="submit">Загрузить и обработать</button>
+    </form>
+</div>
+
+<div class="source-box">
+    <h3>Видео по ссылке</h3>
+    <p>Поддерживаются YouTube, VK Видео, VK, Rutube.</p>
+    <form hx-get="/lectures/preview" hx-target="#preview" hx-swap="innerHTML"
+          onsubmit="return false;" style="margin-bottom:.6rem">
+        <input type="url" name="url" placeholder="https://..." size="60" required>
+        <button type="submit">Проверить</button>
+    </form>
+    <div id="preview"></div>
+    <form method="post" action="/lectures/from-url">
+        <input type="url" name="url" placeholder="https://..." size="60" required>
+        <select name="quality">
+            <option value="auto">Auto</option>
+            <option value="480p">480p</option>
+            <option value="720p" selected>720p</option>
+            <option value="1080p">1080p</option>
+        </select>
+        <label><input type="checkbox" name="audioOnly"> только аудио</label>
+        <label><input type="checkbox" name="clean"> очистка транскрипта</label>
+        <label><input type="checkbox" name="slides"> извлечь слайды</label>
+        <button type="submit">Скачать и обработать</button>
+    </form>
+</div>
 
 <table>
     <thead>

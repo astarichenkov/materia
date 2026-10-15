@@ -75,6 +75,16 @@ public class FileStorageService {
         return resolved;
     }
 
+    /** Relative path of an artifact inside the lecture directory (for manifests). */
+    public String relative(String lectureId, Path absolute) {
+        Path base = lectureDir(lectureId).toAbsolutePath().normalize();
+        Path normalized = absolute.toAbsolutePath().normalize();
+        if (!normalized.startsWith(base)) {
+            throw new StorageException("Путь вне workspace лекции: " + normalized);
+        }
+        return base.relativize(normalized).toString().replace('\\', '/');
+    }
+
     public void deleteLectureData(String lectureId) {
         Path dir = root.resolve("lectures").resolve(sanitize(lectureId));
         if (!Files.exists(dir)) {

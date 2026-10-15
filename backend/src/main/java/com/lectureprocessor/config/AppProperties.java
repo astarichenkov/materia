@@ -19,7 +19,8 @@ public record AppProperties(
         Ollama ollama,
         Slides slides,
         Chat chat,
-        Llm llm) {
+        Llm llm,
+        Downloader downloader) {
 
     public record Tools(
             String ffmpegPath,
@@ -77,5 +78,26 @@ public record AppProperties(
     }
 
     public record Provider(boolean enabled, String displayName) {
+    }
+
+    /**
+     * Remote media ingestion (yt-dlp) limits and safety switches.
+     *
+     * @param ytDlpPath        yt-dlp executable (or `python -m yt_dlp` via a wrapper)
+     * @param metadataTimeout   timeout for a metadata probe
+     * @param downloadTimeout   hard timeout for a single download
+     * @param maxFileSizeBytes  maximum downloaded media size
+     * @param defaultQuality    quality used when the request does not choose one
+     * @param allowHttp         allow plain-HTTP source URLs (disabled by default)
+     * @param heavyStagePermits max concurrent CPU/GPU-heavy stages (whisper + LLM)
+     */
+    public record Downloader(
+            String ytDlpPath,
+            Duration metadataTimeout,
+            Duration downloadTimeout,
+            long maxFileSizeBytes,
+            String defaultQuality,
+            boolean allowHttp,
+            int heavyStagePermits) {
     }
 }
