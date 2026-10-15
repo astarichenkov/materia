@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 public class DefaultProcessExecutor implements ProcessExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultProcessExecutor.class);
+    private static final long CANCEL_POLL_MS = 200;
 
     @Override
     public ProcessResult execute(List<String> command, Duration timeout, Path workingDirectory) {
@@ -45,23 +46,42 @@ public class DefaultProcessExecutor implements ProcessExecutor {
         CompletableFuture<String> stdout = readAsync(process.getInputStream());
         CompletableFuture<String> stderr = readAsync(process.getErrorStream());
 
-        boolean finished;
+        boolean finished = false;
+        boolean cancelled = false;
+        boolean timedOut = false;
+        CancellationToken cancellation = CancellationContext.current();
         try {
-            finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                terminate(process);
+            long deadline = System.nanoTime() + timeout.toNanos();
+            while (true) {
+                if (process.waitFor(CANCEL_POLL_MS, TimeUnit.MILLISECONDS)) {
+                    finished = true;
+                    break;
+                }
+                if (cancellation != null && cancellation.isCancelled()) {
+                    cancelled = true;
+                    break;
+                }
+                if (System.nanoTime() >= deadline) {
+                    timedOut = true;
+                    break;
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            cancelled = true;
+        }
+        if (!finished) {
             terminate(process);
-            throw new ProcessExecutionException("Процесс был прерван: " + command.getFirst(), e);
         }
 
         String out = stdout.join();
         String err = stderr.join();
         Duration duration = Duration.between(start, Instant.now());
 
-        if (!finished) {
+        if (cancelled) {
+            throw new ProcessCancelledException("Процесс отменён: " + command.getFirst());
+        }
+        if (timedOut) {
             throw new ProcessExecutionException(
                     "Превышено время выполнения процесса (" + timeout.toMinutes() + " мин): " + command.getFirst());
         }

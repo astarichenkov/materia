@@ -224,8 +224,10 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
         if (!audioOnly && ffmpegAvailable) {
             command.add("--merge-output-format");
             command.add("mp4");
-            command.add("--ffmpeg-location");
-            command.add(properties.tools().ffmpegPath());
+            if (shouldPassFfmpegLocation()) {
+                command.add("--ffmpeg-location");
+                command.add(properties.tools().ffmpegPath());
+            }
         }
         command.add(request.url());
         return command;
@@ -237,7 +239,40 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
             return false;
         }
         Path candidate = Path.of(path);
-        return Files.exists(candidate);
+        // Absolute/relative path configured explicitly.
+        if (candidate.isAbsolute() || path.contains("/") || path.contains("\\")) {
+            return Files.exists(candidate) || Files.isExecutable(candidate);
+        }
+        // Bare command name: the tool is available when it is on PATH.
+        if (Files.exists(candidate)) {
+            return true;
+        }
+        String pathEnv = System.getenv("PATH");
+        if (pathEnv == null) {
+            return false;
+        }
+        for (String dir : pathEnv.split(java.io.File.pathSeparator)) {
+            if (dir.isBlank()) {
+                continue;
+            }
+            try {
+                if (Files.exists(Path.of(dir, path)) || Files.exists(Path.of(dir, path + ".exe"))) {
+                    return true;
+                }
+            } catch (RuntimeException ignored) {
+                // malformed PATH entry
+            }
+        }
+        return false;
+    }
+
+    /** Only pass {@code --ffmpeg-location} for an explicit path yt-dlp cannot resolve itself. */
+    private boolean shouldPassFfmpegLocation() {
+        String path = properties.tools().ffmpegPath();
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        return Path.of(path).isAbsolute() || path.contains("/") || path.contains("\\");
     }
 
     Optional<Path> locateOutput(Path dir, boolean audioOnly) {

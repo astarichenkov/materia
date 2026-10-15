@@ -37,4 +37,32 @@ class DefaultProcessExecutorTest {
                 Duration.ofSeconds(30), null);
         assertThat(result.isSuccess()).isFalse();
     }
+
+    @Test
+    void cancellationStopsLongRunningProcess() throws InterruptedException {
+        boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
+        List<String> command = windows
+                ? List.of("ping", "-n", "30", "127.0.0.1")
+                : List.of("sleep", "30");
+        CancellationToken token = new CancellationToken();
+        CancellationContext.set(token);
+        try {
+            Thread canceller = new Thread(() -> {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+                token.cancel();
+            });
+            canceller.start();
+            long start = System.currentTimeMillis();
+            assertThatThrownBy(() -> executor.execute(command, Duration.ofSeconds(60), null))
+                    .isInstanceOf(ProcessCancelledException.class);
+            assertThat(System.currentTimeMillis() - start).isLessThan(10_000);
+            canceller.join(2_000);
+        } finally {
+            CancellationContext.clear();
+        }
+    }
 }

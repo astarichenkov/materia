@@ -93,10 +93,12 @@ public class PipelineCoordinator {
             return;
         }
         progressRegistry.set(JobProgress.queued(lectureId, stages.size()));
+        com.lectureprocessor.process.CancellationContext.set(token);
         if (!jobRepository.claim(lectureId, owner, Instant.now().plus(LEASE_DURATION))) {
             log.info("Lecture {} is already leased by another run; skipping", lectureId);
             tokens.remove(lectureId);
             progressRegistry.remove(lectureId);
+            com.lectureprocessor.process.CancellationContext.clear();
             return;
         }
 
@@ -177,6 +179,7 @@ public class PipelineCoordinator {
             fail(context, lectureId, e.getMessage());
         } finally {
             tokens.remove(lectureId);
+            com.lectureprocessor.process.CancellationContext.clear();
         }
     }
 
