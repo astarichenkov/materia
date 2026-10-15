@@ -25,6 +25,8 @@ public final class TestProperties {
                 new AppProperties.Chat(4, 2000, 5, 0.0),
                 new AppProperties.Llm(Map.of(
                         "ollama", new AppProperties.Provider(true, "Ollama (local)"),
-                        "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"))));
+                        "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"))),
+                new AppProperties.Downloader("yt-dlp", Duration.ofSeconds(30), Duration.ofMinutes(5),
+                        1024L * 1024L, "720p", false, 1));
     }
 }

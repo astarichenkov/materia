@@ -28,6 +28,8 @@ import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.job.LectureJobService;
 import com.lectureprocessor.lecture.LectureNotFoundException;
 import com.lectureprocessor.lecture.LectureService;
+import com.lectureprocessor.lecture.RemoteLectureService;
+import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.repository.SlideRepository;
 import com.lectureprocessor.storage.FileStorageService;
 
@@ -40,7 +42,11 @@ class LectureApiControllerTest {
     @MockitoBean
     private LectureService lectureService;
     @MockitoBean
+    private RemoteLectureService remoteLectureService;
+    @MockitoBean
     private LectureJobService jobService;
+    @MockitoBean
+    private JobStatusService jobStatusService;
     @MockitoBean
     private LectureChatService chatService;
     @MockitoBean
