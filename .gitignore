@@ -35,6 +35,9 @@ output/
 snapshots/*
 !snapshots/.gitignore
 
+# Project export archives
+lecture-processor.zip
+
 # Logs
 *.log
 logs/
