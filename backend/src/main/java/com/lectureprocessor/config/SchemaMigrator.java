@@ -34,7 +34,8 @@ public class SchemaMigrator implements ApplicationRunner {
     }
 
     private static final List<Migration> MIGRATIONS = List.of(
-            new Migration(2, "db/migration/V2__week7_ingestion.sql"));
+            new Migration(2, "db/migration/V2__week7_ingestion.sql"),
+            new Migration(3, "db/migration/V3__day31_developer_assistant.sql"));
 
     private final JdbcTemplate jdbc;
 

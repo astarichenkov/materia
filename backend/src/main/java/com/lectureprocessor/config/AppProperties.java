@@ -1,6 +1,7 @@
 package com.lectureprocessor.config;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -20,7 +21,9 @@ public record AppProperties(
         Slides slides,
         Chat chat,
         Llm llm,
-        Downloader downloader) {
+        Downloader downloader,
+        Assistant assistant,
+        Mcp mcp) {
 
     public record Tools(
             String ffmpegPath,
@@ -99,5 +102,47 @@ public record AppProperties(
             String defaultQuality,
             boolean allowHttp,
             int heavyStagePermits) {
+    }
+
+    /**
+     * Developer assistant (Day 31) configuration.
+     *
+     * @param projectRoot        explicit project root; when blank it is detected
+     *                           by walking up from the working directory
+     * @param docsPaths          project-relative documentation paths (files or
+     *                           directories) indexed into the documentation RAG
+     * @param maxFileBytes       maximum size of a documentation file to index
+     * @param chunkChars         documentation chunk target size
+     * @param chunkOverlapChars  documentation chunk overlap
+     * @param maxChunksPerDoc    safety cap on chunks per document
+     * @param retrievalTopK      documentation snippets retrieved per question
+     * @param minSimilarity      minimum cosine similarity for a docs snippet
+     * @param timeout            hard timeout for a single assistant answer
+     * @param autoIndex          index documentation on startup when the local
+     *                           embedding model is reachable
+     * @param historyMessages    recent dialogue turns kept per assistant session
+     */
+    public record Assistant(
+            String projectRoot,
+            List<String> docsPaths,
+            long maxFileBytes,
+            int chunkChars,
+            int chunkOverlapChars,
+            int maxChunksPerDoc,
+            int retrievalTopK,
+            double minSimilarity,
+            Duration timeout,
+            boolean autoIndex,
+            int historyMessages) {
+    }
+
+    /**
+     * MCP server configuration. The endpoint is read-only and local by default;
+     * setting {@code apiKey} requires the {@code X-MCP-Key} header on requests.
+     *
+     * @param apiKey         optional shared secret; blank disables the check
+     * @param maxOutputChars hard cap on any tool output returned to a client
+     */
+    public record Mcp(String apiKey, int maxOutputChars) {
     }
 }

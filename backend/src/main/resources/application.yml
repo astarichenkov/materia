@@ -80,6 +80,28 @@ app:
     # Serialise CPU/GPU-heavy stages (whisper, LLM) to protect RAM/VRAM.
     heavy-stage-permits: ${HEAVY_STAGE_PERMITS:1}
 
+  # Week 7 / Day 31 developer assistant.
+  assistant:
+    # Blank => auto-detect by walking up from the working directory.
+    project-root: ${PROJECT_ROOT:}
+    # Project-relative documentation indexed into the docs RAG.
+    docs-paths: ${ASSISTANT_DOCS_PATHS:README.md,docs}
+    max-file-bytes: 2000000
+    chunk-chars: 1200
+    chunk-overlap-chars: 150
+    max-chunks-per-doc: 400
+    retrieval-top-k: 6
+    min-similarity: 0.15
+    timeout: 2m
+    auto-index: ${ASSISTANT_AUTO_INDEX:true}
+    history-messages: 6
+
+  # Read-only MCP tool surface (JSON-RPC 2.0 over HTTP POST /mcp).
+  mcp:
+    # Optional shared secret; blank keeps the endpoint open on localhost.
+    api-key: ${MCP_API_KEY:}
+    max-output-chars: 20000
+
 management:
   endpoints:
     web:

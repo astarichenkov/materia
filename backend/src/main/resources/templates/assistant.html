@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Ассистент разработчика</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
+        .box { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .answer { border-left: 4px solid #4a6cf7; background: #f6f8ff; padding: 1rem; white-space: pre-wrap; }
+        .err { border-left-color: #b00020; background: #fee; color: #b00020; }
+        pre { background: #f4f4f4; padding: .6rem; overflow-x: auto; }
+        code { background: #eee; padding: 0 .3rem; }
+        .citations { font-size: .85rem; color: #555; margin-top: .8rem; }
+        .tools { display: flex; flex-wrap: wrap; gap: .4rem; }
+        .tools span { background: #eef; border-radius: 4px; padding: .2rem .5rem; font-size: .85rem; }
+        textarea { width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+<h1>Ассистент разработчика</h1>
+<p><a href="/">← К лекциям</a> · <a href="/mcp">MCP endpoint</a></p>
+
+<div th:if="${message}" class="box" style="background:#efe" th:text="${message}"></div>
+<div th:if="${error}" class="box" style="background:#fee;color:#b00020" th:text="${error}"></div>
+
+<div class="box">
+    <h3>Документация в RAG</h3>
+    <p>
+        Корень проекта: <code th:text="${status.projectRoot}"></code><br>
+        Источников: <b th:text="${status.sourceCount}"></b>,
+        фрагментов: <b th:text="${status.chunkCount}"></b><br>
+        Последняя индексация:
+        <span th:text="${status.lastIndexedAt ?: 'нет'}"></span>
+    </p>
+    <ul>
+        <li th:each="source : ${status.sources}" th:text="${source}"></li>
+    </ul>
+    <form method="post" action="/assistant/reindex">
+        <button type="submit">Переиндексировать документацию</button>
+    </form>
+</div>
+
+<div class="box">
+    <h3>Read-only MCP инструменты</h3>
+    <div class="tools">
+        <span th:each="tool : ${tools}" th:text="${tool.name}" th:title="${tool.description}"></span>
+    </div>
+</div>
+
+<div class="box">
+    <h3>Команда <code>/help</code></h3>
+    <form hx-post="/assistant/help" hx-target="#answer" hx-swap="innerHTML"
+          th:with="assistantSession=${#strings.randomAlphanumeric(12)}">
+        <input type="hidden" name="session" th:value="${assistantSession}"/>
+        <textarea name="question" rows="3" placeholder="/help Из чего состоит пайплайн обработки лекции?"></textarea>
+        <button type="submit">Спросить</button>
+    </form>
+</div>
+
+<div id="answer"></div>
+</body>
+</html>

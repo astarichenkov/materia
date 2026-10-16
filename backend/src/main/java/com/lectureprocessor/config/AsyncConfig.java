@@ -29,6 +29,25 @@ public class AsyncConfig {
     }
 
     /**
+     * Dedicated single-thread executor for the developer assistant: keeps the
+     * HTTP request thread free while a local LLM generates an answer, serialises
+     * assistant questions and bounds the queue.
+     */
+    @Bean(name = "assistantExecutor")
+    public ThreadPoolTaskExecutor assistantExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("assistant-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * Dedicated single-thread executor for benchmark runs: keeps the HTTP thread
      * free, serialises LLM-heavy benchmarks and avoids competing with lecture
      * processing jobs for the same model.
