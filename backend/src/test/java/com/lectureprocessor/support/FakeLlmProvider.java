@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 
+import com.lectureprocessor.llm.EmbeddingProvider;
 import com.lectureprocessor.llm.LlmModelInfo;
 import com.lectureprocessor.llm.LlmOptions;
 import com.lectureprocessor.llm.LlmProvider;
@@ -16,11 +17,12 @@ import com.lectureprocessor.util.VectorMath;
  * predictably without any external service. Also records the options and
  * user prompts of every call so tests can assert parameter propagation.
  */
-public class FakeLlmProvider implements LlmProvider {
+public class FakeLlmProvider implements LlmProvider, EmbeddingProvider {
 
     private static final int DIMENSIONS = 32;
 
     private boolean available = true;
+    private boolean cloud;
     private String id = "ollama";
     private List<LlmModelInfo> models = List.of();
     private BiFunction<String, String, String> chatFunction =
@@ -34,6 +36,15 @@ public class FakeLlmProvider implements LlmProvider {
 
     public void setAvailable(boolean available) {
         this.available = available;
+    }
+
+    public void setCloud(boolean cloud) {
+        this.cloud = cloud;
+    }
+
+    @Override
+    public boolean cloud() {
+        return cloud;
     }
 
     public void setId(String id) {

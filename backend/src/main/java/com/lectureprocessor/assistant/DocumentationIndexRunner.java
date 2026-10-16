@@ -9,7 +9,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.lectureprocessor.config.AppProperties;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
 
 /**
  * Indexes project documentation once at startup when enabled and the local
@@ -23,10 +23,10 @@ public class DocumentationIndexRunner {
 
     private final AppProperties properties;
     private final DocumentationIndexService indexService;
-    private final LlmProvider llm;
+    private final EmbeddingProvider llm;
 
     public DocumentationIndexRunner(AppProperties properties, DocumentationIndexService indexService,
-            LlmProvider llm) {
+            EmbeddingProvider llm) {
         this.properties = properties;
         this.indexService = indexService;
         this.llm = llm;

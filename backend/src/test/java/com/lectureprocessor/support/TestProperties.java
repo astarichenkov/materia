@@ -25,11 +25,17 @@ public final class TestProperties {
                 new AppProperties.Chat(4, 2000, 5, 0.0),
                 new AppProperties.Llm(Map.of(
                         "ollama", new AppProperties.Provider(true, "Ollama (local)"),
-                        "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"))),
+                        "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"),
+                        "deepseek", new AppProperties.Provider(true, "DeepSeek (Cloud)")),
+                        "ollama", false),
                 new AppProperties.Downloader("yt-dlp", Duration.ofSeconds(30), Duration.ofMinutes(5),
                         1024L * 1024L, "720p", false, 1),
                 new AppProperties.Assistant(storageRoot, java.util.List.of("README.md", "docs"),
                         1024L * 1024L, 1200, 150, 200, 5, 0.0, Duration.ofSeconds(30), false, 6),
-                new AppProperties.Mcp("", 20000));
+                new AppProperties.Mcp("", 20000),
+                new AppProperties.DeepSeek(true, "https://api.deepseek.com", "deepseek-flash",
+                        java.util.List.of("deepseek-flash"), Duration.ofSeconds(30), 2, 0.1, 1024,
+                        4096, 1, 0.0, new AppProperties.DeepSeek.Pricing(0.0, 0.0, 0.0, "USD")),
+                new AppProperties.Security("", storageRoot + "/.secrets/master.key", "LP_MASTER_KEY"));
     }
 }

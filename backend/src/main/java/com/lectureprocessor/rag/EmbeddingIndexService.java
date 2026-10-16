@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import com.lectureprocessor.config.AppProperties;
 import com.lectureprocessor.domain.LectureChunk;
 import com.lectureprocessor.domain.TranscriptSegment;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
 import com.lectureprocessor.repository.ChunkRepository;
 import com.lectureprocessor.text.SegmentChunk;
 import com.lectureprocessor.text.TextChunker;
@@ -26,11 +26,11 @@ public class EmbeddingIndexService {
     private static final int EMBED_BATCH = 16;
 
     private final TextChunker chunker;
-    private final LlmProvider llm;
+    private final EmbeddingProvider llm;
     private final ChunkRepository chunkRepository;
     private final AppProperties properties;
 
-    public EmbeddingIndexService(TextChunker chunker, LlmProvider llm, ChunkRepository chunkRepository,
+    public EmbeddingIndexService(TextChunker chunker, EmbeddingProvider llm, ChunkRepository chunkRepository,
             AppProperties properties) {
         this.chunker = chunker;
         this.llm = llm;

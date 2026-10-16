@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.config.AppProperties;
 import com.lectureprocessor.domain.LectureChunk;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
 import com.lectureprocessor.repository.ChunkRepository;
 import com.lectureprocessor.util.VectorMath;
 
@@ -20,10 +20,10 @@ import com.lectureprocessor.util.VectorMath;
 public class RetrievalService {
 
     private final ChunkRepository chunkRepository;
-    private final LlmProvider llm;
+    private final EmbeddingProvider llm;
     private final AppProperties properties;
 
-    public RetrievalService(ChunkRepository chunkRepository, LlmProvider llm, AppProperties properties) {
+    public RetrievalService(ChunkRepository chunkRepository, EmbeddingProvider llm, AppProperties properties) {
         this.chunkRepository = chunkRepository;
         this.llm = llm;
         this.properties = properties;

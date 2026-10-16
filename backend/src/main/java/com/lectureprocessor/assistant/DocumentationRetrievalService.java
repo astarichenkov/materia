@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.config.AppProperties;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
 import com.lectureprocessor.repository.DocChunkRepository;
 import com.lectureprocessor.util.VectorMath;
 
@@ -20,10 +20,10 @@ public class DocumentationRetrievalService {
     private static final int EXCERPT_LENGTH = 400;
 
     private final DocChunkRepository repository;
-    private final LlmProvider llm;
+    private final EmbeddingProvider llm;
     private final AppProperties properties;
 
-    public DocumentationRetrievalService(DocChunkRepository repository, LlmProvider llm,
+    public DocumentationRetrievalService(DocChunkRepository repository, EmbeddingProvider llm,
             AppProperties properties) {
         this.repository = repository;
         this.llm = llm;

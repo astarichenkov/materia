@@ -116,3 +116,15 @@ CREATE TABLE IF NOT EXISTS lecture_stage_timing (
     PRIMARY KEY (lecture_id, stage),
     FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
 );
+
+-- Per-installation encrypted provider credentials (Day 32). The master key that
+-- decrypts `ciphertext` lives outside the database; see ProviderCredentialService.
+CREATE TABLE IF NOT EXISTS provider_credential (
+    provider_id     TEXT PRIMARY KEY,
+    ciphertext      TEXT NOT NULL,
+    key_hint        TEXT,
+    encryption      TEXT NOT NULL DEFAULT 'aes-256-gcm-v1',
+    updated_at      TEXT NOT NULL,
+    last_success_at TEXT,
+    last_error      TEXT
+);

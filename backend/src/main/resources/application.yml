@@ -69,6 +69,15 @@ app:
       openai:
         enabled: false
         display-name: "OpenAI (не настроен)"
+      deepseek:
+        enabled: true
+        display-name: "DeepSeek (Cloud)"
+    # Provider used for embeddings. Embeddings stay local on purpose: the cloud
+    # chat provider must never be silently substituted for embedding work.
+    embedding-provider: ${EMBEDDING_PROVIDER:ollama}
+    # Optional DeepSeek -> Ollama fallback. OFF by default because a silent
+    # fallback changes result quality and is unacceptable for code review.
+    fallback-enabled: ${LLM_FALLBACK_ENABLED:false}
   downloader:
     yt-dlp-path: ${YTDLP_PATH:yt-dlp}
     metadata-timeout: 2m
@@ -101,6 +110,38 @@ app:
     # Optional shared secret; blank keeps the endpoint open on localhost.
     api-key: ${MCP_API_KEY:}
     max-output-chars: 20000
+
+  # Cloud chat provider (DeepSeek). Non-secret settings only; the API key is
+  # entered per installation in the settings UI and encrypted at rest.
+  deepseek:
+    enabled: ${DEEPSEEK_ENABLED:true}
+    # Official HTTPS endpoint. Custom endpoints require the allow-list policy.
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-flash}
+    models: ${DEEPSEEK_MODELS:deepseek-flash,deepseek-v4-flash,deepseek-chat,deepseek-reasoner}
+    timeout: ${DEEPSEEK_TIMEOUT:60s}
+    max-retries: ${DEEPSEEK_MAX_RETRIES:2}
+    temperature: 0.1
+    max-tokens: 1536
+    context-window: 8192
+    # Bounded parallelism and a soft budget warning for mass benchmark runs.
+    max-concurrent-requests: ${DEEPSEEK_MAX_CONCURRENT:1}
+    budget-warning-cost: ${DEEPSEEK_BUDGET_WARNING:0.0}
+    # Cost ESTIMATES only. Set your own tariff; values are per 1M tokens.
+    pricing:
+      input-per-million-tokens: ${DEEPSEEK_PRICE_INPUT:0.0}
+      output-per-million-tokens: ${DEEPSEEK_PRICE_OUTPUT:0.0}
+      cache-hit-per-million-tokens: ${DEEPSEEK_PRICE_CACHE_HIT:0.0}
+      currency: ${DEEPSEEK_PRICE_CURRENCY:USD}
+
+  # Credential management guard. Blank => loopback-only admin access.
+  security:
+    admin-token: ${LP_ADMIN_TOKEN:}
+    # Master key used to encrypt provider credentials at rest. The environment
+    # variable (preferred) is read first; the file is a fallback created with
+    # restricted permissions and must never be committed.
+    master-key-env: ${LP_MASTER_KEY_ENV:LP_MASTER_KEY}
+    master-key-path: ${LP_MASTER_KEY_PATH:${LECTURE_STORAGE_ROOT:./data}/.secrets/master.key}
 
 management:
   endpoints:

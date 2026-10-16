@@ -37,9 +37,6 @@ public interface LlmProvider {
                 estimateTokens(content), elapsedMs);
     }
 
-    /** Embeds a batch of texts, returning L2-normalized vectors. */
-    List<float[]> embed(List<String> texts);
-
     /** Cheap reachability check used for health reporting. */
     boolean isAvailable();
 

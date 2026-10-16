@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.config.AppProperties;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
 import com.lectureprocessor.repository.DocChunkRepository;
 
 /**
@@ -25,13 +25,13 @@ public class DocumentationIndexService {
 
     private final DocumentationCorpusService corpus;
     private final MarkdownChunker chunker;
-    private final LlmProvider llm;
+    private final EmbeddingProvider llm;
     private final DocChunkRepository repository;
     private final AppProperties properties;
     private final ProjectRootResolver roots;
 
     public DocumentationIndexService(DocumentationCorpusService corpus, MarkdownChunker chunker,
-            LlmProvider llm, DocChunkRepository repository, AppProperties properties,
+            EmbeddingProvider llm, DocChunkRepository repository, AppProperties properties,
             ProjectRootResolver roots) {
         this.corpus = corpus;
         this.chunker = chunker;

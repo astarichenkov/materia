@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -35,7 +36,8 @@ import tools.jackson.databind.ObjectMapper;
  * is not running.
  */
 @Service
-public class OllamaLlmProvider implements LlmProvider {
+@Primary
+public class OllamaLlmProvider implements LlmProvider, EmbeddingProvider {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaLlmProvider.class);
     private static final ObjectMapper JSON = new ObjectMapper();

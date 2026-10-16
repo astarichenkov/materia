@@ -23,7 +23,9 @@ public record AppProperties(
         Llm llm,
         Downloader downloader,
         Assistant assistant,
-        Mcp mcp) {
+        Mcp mcp,
+        DeepSeek deepseek,
+        Security security) {
 
     public record Tools(
             String ffmpegPath,
@@ -74,10 +76,15 @@ public record AppProperties(
 
     /**
      * LLM provider declarations. Local providers are backed by real beans; cloud
-     * providers are declared (disabled by default) so the benchmark UI can show
-     * them as "not configured" without shipping a cloud client yet.
+     * providers are declared so the benchmark UI can show them as "not configured"
+     * until a credential is saved.
+     *
+     * @param providers         per-provider enable/display metadata
+     * @param embeddingProvider provider used for embeddings (always local by default)
+     * @param fallbackEnabled   whether an unavailable primary provider may silently
+     *                          fall back to Ollama (off by default)
      */
-    public record Llm(Map<String, Provider> providers) {
+    public record Llm(Map<String, Provider> providers, String embeddingProvider, boolean fallbackEnabled) {
     }
 
     public record Provider(boolean enabled, String displayName) {
@@ -144,5 +151,66 @@ public record AppProperties(
      * @param maxOutputChars hard cap on any tool output returned to a client
      */
     public record Mcp(String apiKey, int maxOutputChars) {
+    }
+
+    /**
+     * Cloud chat provider (DeepSeek) configuration. Non-secret values only: the
+     * API key lives in {@code provider_credential} encrypted at rest and is
+     * managed exclusively through the settings UI.
+     *
+     * @param enabled        whether the provider may be used at all
+     * @param baseUrl        official HTTPS API base; custom endpoints are
+     *                       restricted to an allow-list (SSRF protection)
+     * @param model          default model id
+     * @param models         model ids offered in the UI
+     * @param timeout        request timeout for a single completion
+     * @param maxRetries     bounded number of retries for transient failures
+     * @param temperature    default temperature for cloud generation
+     * @param maxTokens      default generation budget
+     * @param contextWindow  default context window assumption
+     * @param maxConcurrentRequests limit of parallel cloud requests (protects budget)
+     * @param budgetWarningCost estimated cumulative cost above which mass runs warn
+     * @param pricing        configurable per-token pricing used for COST ESTIMATES
+     */
+    public record DeepSeek(
+            boolean enabled,
+            String baseUrl,
+            String model,
+            List<String> models,
+            Duration timeout,
+            int maxRetries,
+            Double temperature,
+            Integer maxTokens,
+            Integer contextWindow,
+            int maxConcurrentRequests,
+            double budgetWarningCost,
+            Pricing pricing) {
+
+        /**
+         * Per-million-token prices for cost ESTIMATES. Values are explicitly
+         * configuration, not hardcoded business rules; a deployment must set its
+         * own tariff. Costs shown in the UI are always labelled estimates.
+         */
+        public record Pricing(
+                double inputPerMillionTokens,
+                double outputPerMillionTokens,
+                double cacheHitPerMillionTokens,
+                String currency) {
+        }
+    }
+
+    /**
+     * Administrative security for credential management. When {@code adminToken}
+     * is blank the credential UI/API is restricted to loopback requests only;
+     * setting a token additionally requires it (header, form field or an
+     * authenticated admin session) and is the recommended production setup.
+     *
+     * @param adminToken optional shared secret guarding credential management
+     * @param masterKeyPath file that holds the AES-256-GCM master key when no
+     *                      external secret store / env variable is used
+     * @param masterKeyEnv  name of the environment variable that may supply the
+     *                      master key (preferred over the file)
+     */
+    public record Security(String adminToken, String masterKeyPath, String masterKeyEnv) {
     }
 }
