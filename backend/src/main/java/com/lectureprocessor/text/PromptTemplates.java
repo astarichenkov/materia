@@ -43,6 +43,9 @@ public class PromptTemplates {
     /** Day 31 developer assistant prompt (project documentation + MCP context). */
     public static final String DEVELOPER_HELP = "developer-help-v1";
 
+    /** Day 33 support assistant prompt (docs + diagnostics + ticket context). */
+    public static final String SUPPORT_ASSISTANT = "support-assistant-v1";
+
     /** Day 29 optimized prompt versions (more constrained, lower verbosity). */
     public static final String CLEAN_TRANSCRIPT_V2 = "clean-transcript-v2";
     public static final String STRUCTURED_NOTES_V2 = "structured-notes-v2";

@@ -15,7 +15,10 @@ public enum LlmTaskType {
     DEVELOPER_ASSISTANT("developer-assistant", "Developer Assistant"),
 
     /** Automated AI code review (Day 32 preparation). */
-    CODE_REVIEW("code-review", "Code Review");
+    CODE_REVIEW("code-review", "Code Review"),
+
+    /** User-facing support assistant (Day 33). */
+    SUPPORT_ASSISTANT("support-assistant", "Support Assistant");
 
     private final String id;
     private final String label;

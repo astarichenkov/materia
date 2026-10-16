@@ -119,6 +119,7 @@ public class LlmTaskSettingsService implements LlmTaskResolver {
             case LECTURE_PROCESSING -> lectureSettings.current();
             case DEVELOPER_ASSISTANT -> ollamaDefault(0.1, 2048, 8192, false);
             case CODE_REVIEW -> codeReviewDefault();
+            case SUPPORT_ASSISTANT -> ollamaDefault(0.1, 1536, 8192, false);
         };
     }
 
