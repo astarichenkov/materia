@@ -6,9 +6,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.support.SupportProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties(AppProperties.class)
+@EnableConfigurationProperties({AppProperties.class, SupportProperties.class})
 @EnableScheduling
 public class LectureProcessorApplication {
 

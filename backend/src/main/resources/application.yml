@@ -105,6 +105,27 @@ app:
     auto-index: ${ASSISTANT_AUTO_INDEX:true}
     history-messages: 6
 
+  # Week 7 / Day 33 support assistant. Tickets are scoped to this installation;
+  # the app has no full user system, so local trust is documented explicitly.
+  support:
+    enabled: ${SUPPORT_ENABLED:true}
+    install-scope: ${SUPPORT_INSTALL_SCOPE:local-install}
+    # install = any local session may read the install's tickets;
+    # session = additionally require the same owner cookie (horizontal isolation).
+    isolation: ${SUPPORT_ISOLATION:install}
+    assistant-prompt: support-assistant-v1
+    # Explicit read-only allow-list. Git/filesystem developer tools are excluded.
+    allowed-tools: ${SUPPORT_ALLOWED_TOOLS:get_job_status,get_stage_runs,get_job_diagnostics,get_model_health,get_ticket,list_ticket_messages,search_support_tickets,search_help_docs}
+    max-tool-calls: ${SUPPORT_MAX_TOOL_CALLS:8}
+    max-tool-result-chars: ${SUPPORT_MAX_TOOL_RESULT_CHARS:4000}
+    max-question-chars: ${SUPPORT_MAX_QUESTION_CHARS:4000}
+    max-history-messages: ${SUPPORT_MAX_HISTORY_MESSAGES:10}
+    max-context-chars: ${SUPPORT_MAX_CONTEXT_CHARS:16000}
+    max-llm-calls: ${SUPPORT_MAX_LLM_CALLS:2}
+    retrieval-top-k: ${SUPPORT_RETRIEVAL_TOP_K:6}
+    min-similarity: ${SUPPORT_MIN_SIMILARITY:0.15}
+    timeout: ${SUPPORT_TIMEOUT:2m}
+
   # Read-only MCP tool surface (JSON-RPC 2.0 over HTTP POST /mcp).
   mcp:
     # Optional shared secret; blank keeps the endpoint open on localhost.
