@@ -30,6 +30,7 @@
         <button type="submit">Отменить</button>
     </form>
     <a th:href="@{/lectures/{id}/chat(id=${lecture.id})}">Чат по лекции</a>
+    <a th:href="@{/support/lecture/{id}(id=${lecture.id})}">Помощь по этой лекции</a>
     <form method="post" th:action="@{/lectures/{id}/delete(id=${lecture.id})}">
         <button type="submit">Удалить</button>
     </form>

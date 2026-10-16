@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Support conversation fragment (HTMX target). -->
+<div th:fragment="conversation(messages, trace, selected, csrfToken)">
+    <input type="hidden" id="ticketIdField" name="ticketId"
+           th:value="${selected != null ? selected.id : ''}" hx-swap-oob="true"/>
+
+    <div th:if="${error}" class="msg err" th:text="${error}"></div>
+
+    <p class="muted" th:if="${#lists.isEmpty(messages)}">
+        Задайте вопрос — ответ появится здесь с источниками и trace инструментов.
+    </p>
+
+    <div th:each="m : ${messages}" class="msg"
+         th:classappend="'msg-' + ${m.role.name()}">
+        <div class="muted">
+            <b th:text="${m.role.name() == 'ASSISTANT' ? 'Ассистент' : 'Вы'}"></b>
+            <span th:text="${m.createdAt}"></span>
+            <span th:if="${m.provider != null}" th:text="'· ' + ${m.provider} + '/' + ${m.model}"></span>
+            <span th:if="${m.grounded != null}" th:text="${m.grounded} ? '· grounded' : '· без подтверждения'"></span>
+        </div>
+        <div th:text="${m.content}"></div>
+
+        <div class="citations" th:if="${not #lists.isEmpty(m.citations)}">
+            <b>Источники:</b>
+            <ul style="margin:.2rem 0;padding-left:1.1rem">
+                <li th:each="c : ${m.citations}">
+                    <span class="badge" th:text="${c.kind}"></span>
+                    <span th:text="${c.source}"></span>
+                    <span th:if="${c.title != null}" th:text="'— ' + ${c.title}"></span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="citations" th:if="${not #lists.isEmpty(m.tools)}">
+            <b>Tool trace:</b>
+            <span th:each="t : ${m.tools}" class="badge" th:classappend="${t.ok} ? '' : 'tool-fail'"
+                  th:text="${t.name} + (${t.ok} ? ' ✓' : ' ✗') + ' ' + ${t.durationMs} + 'ms'"></span>
+        </div>
+
+        <div th:if="${m.role.name() == 'ASSISTANT'}" style="margin-top:.4rem">
+            <form method="post" th:action="@{'/support/messages/' + ${m.id} + '/feedback'}"
+                  style="display:inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <input type="hidden" name="ticketId" th:value="${selected != null ? selected.id : ''}"/>
+                <button type="submit" name="helpful" value="1"
+                        th:disabled="${m.feedback != null && m.feedback == 1}">👍 Помогло</button>
+                <button type="submit" name="helpful" value="-1"
+                        th:disabled="${m.feedback != null && m.feedback == -1}">👎 Не помогло</button>
+            </form>
+        </div>
+    </div>
+
+    <details th:if="${not #lists.isEmpty(trace)}" style="margin-top:.8rem">
+        <summary class="muted">Журнал вызовов инструментов (за обращение)</summary>
+        <table>
+            <tr><th>Инструмент</th><th>OK</th><th>мс</th><th>Результат</th></tr>
+            <tr th:each="t : ${trace}">
+                <td th:text="${t.toolName}"></td>
+                <td th:text="${t.ok}"></td>
+                <td th:text="${t.durationMs}"></td>
+                <td th:text="${t.summary}"></td>
+            </tr>
+        </table>
+    </details>
+</div>
+</body>
+</html>

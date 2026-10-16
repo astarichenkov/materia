@@ -106,7 +106,7 @@ public class FakeLlmProvider implements LlmProvider, EmbeddingProvider {
         optionCalls.add(options);
         String content = chatFunction.apply(systemPrompt, userPrompt);
         return new LlmResult(content, inputTokensPerCall, outputTokensPerCall, 0,
-                durationMsPerCall, 100, 0, false);
+                durationMsPerCall, 100, 0, false, false, 0, 0, cloud);
     }
 
     @Override

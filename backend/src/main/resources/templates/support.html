@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Поддержка</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 1200px; }
+        .layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+        .col-left { flex: 0 0 320px; }
+        .col-right { flex: 1; min-width: 0; }
+        .box { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .muted { color: #666; font-size: .85rem; }
+        .badge { border-radius: 4px; padding: .1rem .4rem; font-size: .75rem; background: #eef; }
+        .status-OPEN { background: #e6f4ea; } .status-IN_PROGRESS { background: #fff4e5; }
+        .status-RESOLVED { background: #e8f0fe; } .status-CLOSED { background: #eee; color: #666; }
+        .tickets li { margin-bottom: .5rem; }
+        .msg { border-left: 4px solid #cbd5f5; padding: .5rem .8rem; margin: .6rem 0; white-space: pre-wrap; word-wrap: break-word; }
+        .msg-ASSISTANT { border-left-color: #4a6cf7; background: #f6f8ff; }
+        .msg-USER { border-left-color: #999; background: #fafafa; }
+        .err { border-left-color: #b00020 !important; background: #fee !important; color: #7a0016; }
+        .citations { font-size: .82rem; color: #555; margin-top: .5rem; }
+        .tools { display: flex; flex-wrap: wrap; gap: .4rem; }
+        .tools span { background: #eef; border-radius: 4px; padding: .15rem .45rem; font-size: .8rem; }
+        .tool-fail { background: #fee; color: #b00020; }
+        textarea { width: 100%; box-sizing: border-box; }
+        table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+        td, th { border-bottom: 1px solid #eee; padding: .3rem .4rem; text-align: left; vertical-align: top; }
+        .metrics span { margin-right: 1rem; }
+    </style>
+</head>
+<body>
+<h1>Поддержка Lecture Processor</h1>
+<p class="muted">
+    <a href="/">← К лекциям</a> ·
+    <a href="/assistant">Ассистент разработчика</a> ·
+    <a href="/mcp">MCP endpoint</a>
+</p>
+
+<div th:if="${message}" class="box" style="background:#efe" th:text="${message}"></div>
+<div th:if="${error}" class="box" style="background:#fee;color:#b00020" th:text="${error}"></div>
+
+<div class="box metrics">
+    <b>Метрики:</b>
+    <span>Обращений: <b th:text="${metrics.totalTickets}"></b></span>
+    <span>Открыто: <b th:text="${metrics.openTickets}"></b></span>
+    <span>Решено: <b th:text="${metrics.resolvedTickets}"></b></span>
+    <span>Ответов: <b th:text="${metrics.messages}"></b></span>
+    <span>Grounded: <b th:text="${metrics.groundedAnswers}"></b></span>
+    <span>Tool calls: <b th:text="${metrics.toolCalls}"></b>
+        (ошибок <b th:text="${metrics.toolFailures}"></b>)</span>
+    <span>Помогло / не помогло: <b th:text="${metrics.helped}"></b> / <b th:text="${metrics.notHelped}"></b></span>
+</div>
+
+<div class="layout">
+    <div class="col-left">
+        <div class="box">
+            <h3>Новое обращение</h3>
+            <form method="post" action="/support/tickets">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <input type="text" name="subject" placeholder="Тема" style="width:100%;box-sizing:border-box"/>
+                <select name="category" style="width:100%;margin-top:.4rem">
+                    <option th:each="c : ${categories}" th:value="${c}" th:text="${c.label()}"></option>
+                </select>
+                <input type="text" name="lectureId" placeholder="ID лекции (необязательно)"
+                       th:value="${lectureId}" style="width:100%;margin-top:.4rem"/>
+                <button type="submit" style="margin-top:.5rem">Создать</button>
+            </form>
+        </div>
+
+        <div class="box">
+            <h3>Обращения</h3>
+            <ul class="tickets" style="list-style:none;padding:0">
+                <li th:each="t : ${tickets}">
+                    <a th:href="@{/support/tickets/{id}(id=${t.id})}" th:text="${t.subject}"></a><br>
+                    <span class="badge" th:classappend="'status-' + ${t.status}" th:text="${t.status.label()}"></span>
+                    <span class="muted" th:text="${t.category.label()}"></span>
+                    <span class="muted" th:if="${t.lectureId}">· лекция <span th:text="${t.lectureId}"></span></span>
+                </li>
+                <li th:if="${#lists.isEmpty(tickets)}" class="muted">Обращений пока нет.</li>
+            </ul>
+        </div>
+
+        <div class="box">
+            <h3>Инструменты поддержки</h3>
+            <div class="tools">
+                <span th:each="tool : ${tools}" th:text="${tool.name}" th:title="${tool.description}"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-right">
+        <div class="box" th:if="${selected != null}">
+            <h3>
+                <span th:text="${selected.subject}"></span>
+                <span class="badge" th:classappend="'status-' + ${selected.status}"
+                      th:text="${selected.status.label()}"></span>
+            </h3>
+            <p class="muted">
+                Категория: <span th:text="${selected.category.label()}"></span> ·
+                <span th:if="${selected.lectureId}">Лекция <span th:text="${selected.lectureId}"></span> · </span>
+                создано <span th:text="${selected.createdAt}"></span>
+            </p>
+            <form method="post" th:action="@{/support/tickets/{id}/resolve(id=${selected.id})}" style="display:inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <button type="submit">Пометить решённым</button>
+            </form>
+            <form method="post" th:action="@{/support/tickets/{id}/close(id=${selected.id})}" style="display:inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <button type="submit">Закрыть</button>
+            </form>
+        </div>
+        <div class="box" th:if="${selected == null}">
+            <h3>Свободный вопрос</h3>
+            <p class="muted">Можно задать вопрос без обращения — система создаст его автоматически
+                и сохранит историю.</p>
+        </div>
+
+        <div class="box">
+            <form hx-post="/support/ask" hx-target="#conversation" hx-swap="innerHTML">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <input type="hidden" id="ticketIdField" name="ticketId"
+                       th:value="${selected != null ? selected.id : ''}"/>
+                <input type="hidden" name="lectureId" th:value="${lectureId}"/>
+                <textarea name="question" rows="3"
+                          placeholder="Почему обработка этой лекции остановилась?"></textarea>
+                <button type="submit">Спросить</button>
+                <span class="htmx-indicator muted">…обрабатываю</span>
+            </form>
+        </div>
+
+        <div class="box" id="conversation"
+             th:replace="~{fragments/support-answer :: conversation(${messages}, ${trace}, ${selected}, ${csrfToken})}">
+        </div>
+    </div>
+</div>
+</body>
+</html>
