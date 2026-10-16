@@ -157,7 +157,10 @@ public class BenchmarkRunService {
             boolean truncated = false;
             StringBuilder merged = new StringBuilder();
             long llmStart = System.nanoTime();
-            ResourceMonitor.Sampler sampler = resources.startSampler();
+            // Cloud providers report token metrics but no local GPU/RAM: never
+            // present fabricated hardware numbers for a cloud model.
+            boolean cloud = provider.cloud();
+            ResourceMonitor.Sampler sampler = cloud ? null : resources.startSampler();
             try {
                 int index = 0;
                 for (SegmentChunk chunk : chunks) {
@@ -174,7 +177,9 @@ public class BenchmarkRunService {
                     }
                 }
             } finally {
-                sampler.close();
+                if (sampler != null) {
+                    sampler.close();
+                }
             }
             long llmDurationMs = (System.nanoTime() - llmStart) / 1_000_000;
             String output = merged.toString().strip();
@@ -188,15 +193,22 @@ public class BenchmarkRunService {
                     ? round(outputTokens / (llmDurationMs / 1000.0)) : 0;
             Long totalDurationMs = estimatedFullConversion(
                     timings.findByLecture(request.lectureId()), llmDurationMs);
+            Long peakRamMb = sampler == null ? null : sampler.peakRamMb();
+            Long peakVramMb = sampler == null ? null : sampler.peakVramMb();
 
             BenchmarkRun completed = run.withResult(inputTokens, outputTokens, thinkingTokens,
                             chunks.size(), chunks.size(), llmDurationMs, tokensPerSecond,
-                            sampler.peakRamMb(), sampler.peakVramMb(), qualityResult.score(),
+                            peakRamMb, peakVramMb, qualityResult.score(),
                             qualityNotes, COMPLETED, null, truncate(output, 8000))
                     .withTotalDuration(totalDurationMs);
             runs.save(completed);
-            log.info("Benchmark run {} completed: model={} llmMs={} outTok={} quality={}",
-                    runId, config.model(), llmDurationMs, outputTokens, qualityResult.score());
+            if (cloud && properties.deepseek().budgetWarningCost() > 0) {
+                log.info("Cloud benchmark run {} completed with {} input / {} output tokens; "
+                        + "check /api/benchmarks/usage against the configured budget warning level",
+                        runId, inputTokens, outputTokens);
+            }
+            log.info("Benchmark run {} completed: model={} llmMs={} outTok={} quality={} cloud={}",
+                    runId, config.model(), llmDurationMs, outputTokens, qualityResult.score(), cloud);
         } catch (Exception e) {
             log.warn("Benchmark run {} failed: {}", runId, e.getMessage());
             runs.save(run.withResult(null, null, null, null, null, null, null, null, null, null, null,

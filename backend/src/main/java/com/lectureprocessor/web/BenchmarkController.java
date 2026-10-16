@@ -21,6 +21,7 @@ import com.lectureprocessor.benchmark.BenchmarkRun;
 import com.lectureprocessor.benchmark.BenchmarkRunRequest;
 import com.lectureprocessor.benchmark.BenchmarkRunService;
 import com.lectureprocessor.benchmark.BenchmarkService;
+import com.lectureprocessor.benchmark.BenchmarkUsageService;
 import com.lectureprocessor.lecture.LectureService;
 import com.lectureprocessor.llm.LlmModelInfo;
 import com.lectureprocessor.llm.ProviderDescriptor;
@@ -40,14 +41,17 @@ public class BenchmarkController {
 
     private final BenchmarkService benchmarkService;
     private final BenchmarkRunService runService;
+    private final BenchmarkUsageService usageService;
     private final LectureService lectureService;
     private final SegmentRepository segmentRepository;
     private final FileStorageService storage;
 
     public BenchmarkController(BenchmarkService benchmarkService, BenchmarkRunService runService,
-            LectureService lectureService, SegmentRepository segmentRepository, FileStorageService storage) {
+            BenchmarkUsageService usageService, LectureService lectureService, SegmentRepository segmentRepository,
+            FileStorageService storage) {
         this.benchmarkService = benchmarkService;
         this.runService = runService;
+        this.usageService = usageService;
         this.lectureService = lectureService;
         this.segmentRepository = segmentRepository;
         this.storage = storage;
@@ -120,6 +124,11 @@ public class BenchmarkController {
     public BenchmarkComparison compare(@RequestParam("baseline") long baseline,
             @RequestParam("optimized") long optimized) {
         return runService.compare(baseline, optimized);
+    }
+
+    @GetMapping("/usage")
+    public Map<String, Object> usage() {
+        return usageService.summary();
     }
 
     @GetMapping("/{id}")

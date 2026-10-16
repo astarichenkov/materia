@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.lectureprocessor.benchmark.BenchmarkRunService;
 import com.lectureprocessor.benchmark.BenchmarkService;
+import com.lectureprocessor.benchmark.BenchmarkUsageService;
 import com.lectureprocessor.chat.LectureChatService;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.download.MediaQuality;
@@ -39,12 +40,14 @@ public class LectureWebController {
     private final LectureChatService chatService;
     private final BenchmarkService benchmarkService;
     private final BenchmarkRunService benchmarkRuns;
+    private final BenchmarkUsageService benchmarkUsage;
     private final LlmSettingsService llmSettings;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
             LectureChatService chatService, BenchmarkService benchmarkService,
-            BenchmarkRunService benchmarkRuns, LlmSettingsService llmSettings) {
+            BenchmarkRunService benchmarkRuns, BenchmarkUsageService benchmarkUsage,
+            LlmSettingsService llmSettings) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -52,6 +55,7 @@ public class LectureWebController {
         this.chatService = chatService;
         this.benchmarkService = benchmarkService;
         this.benchmarkRuns = benchmarkRuns;
+        this.benchmarkUsage = benchmarkUsage;
         this.llmSettings = llmSettings;
     }
 
@@ -183,6 +187,7 @@ public class LectureWebController {
         model.addAttribute("settings", benchmarkRuns.currentSettings());
         model.addAttribute("history", benchmarkRuns.history(25));
         model.addAttribute("recommended", benchmarkRuns.recommended().orElse(null));
+        model.addAttribute("usage", benchmarkUsage.summary());
         return "benchmarks";
     }
 
@@ -234,33 +239,5 @@ public class LectureWebController {
             model.addAttribute("comparison", benchmarkRuns.compare(selected.get(0), selected.get(1)));
         }
         return "fragments/benchmark-compare :: comparison";
-    }
-
-    @GetMapping("/settings")
-    public String settings(Model model) {
-        model.addAttribute("current", llmSettings.current());
-        model.addAttribute("providers", benchmarkRuns.providers());
-        model.addAttribute("prompts", benchmarkRuns.promptTemplates());
-        model.addAttribute("lectures", lectureService.findAll());
-        return "settings";
-    }
-
-    @PostMapping("/settings")
-    public String saveSettings(@RequestParam(name = "provider", defaultValue = "ollama") String provider,
-            @RequestParam("model") String model,
-            @RequestParam(name = "temperature", defaultValue = "0.1") double temperature,
-            @RequestParam(name = "maxTokens", defaultValue = "1536") int maxTokens,
-            @RequestParam(name = "contextWindow", defaultValue = "4096") int contextWindow,
-            @RequestParam(name = "thinking", defaultValue = "false") boolean thinking,
-            @RequestParam("promptTemplate") String promptTemplate,
-            RedirectAttributes redirect) {
-        try {
-            llmSettings.save(new LlmRunConfig(provider, model, temperature, maxTokens,
-                    contextWindow, thinking, promptTemplate));
-            redirect.addFlashAttribute("message", "Настройки LLM сохранены");
-        } catch (RuntimeException e) {
-            redirect.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/settings";
     }
 }

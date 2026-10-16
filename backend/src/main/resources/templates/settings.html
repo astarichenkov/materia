@@ -2,78 +2,235 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Настройки LLM</title>
+    <title>AI Providers — настройки</title>
     <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1000px; }
+        h1 { margin-bottom: .2rem; }
+        h2 { margin-top: 2rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
         .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem 1rem; }
+        .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         label { display: block; font-size: .8rem; color: #444; }
-        input, select { width: 100%; box-sizing: border-box; padding: .3rem; }
-        fieldset { border: 1px solid #ccc; padding: 1rem; }
-        button { padding: .5rem 1rem; }
-        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
+        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
+        fieldset { border: 1px solid #ccc; padding: 1rem; margin: 0 0 1rem; border-radius: 6px; }
+        legend { font-weight: 600; }
+        button { padding: .5rem 1rem; cursor: pointer; }
+        .msg { padding: .6rem; background: #eef; margin: 1rem 0; border-radius: 4px; }
         .err { background: #fee; color: #b00020; }
+        .ok { color: #0a7a29; font-weight: 600; }
+        .bad { color: #b00020; font-weight: 600; }
+        .muted { color: #666; font-size: .85rem; }
+        .card-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .6rem; }
+        .notice { background: #fff8e1; border: 1px solid #f0d48a; padding: .7rem 1rem; border-radius: 6px; }
+        .inline { display: inline; }
+        .model-list { font-size: .85rem; color: #333; }
     </style>
 </head>
 <body>
-<h1>Настройки LLM (по умолчанию для новых jobs)</h1>
-<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a>
+<h1>AI Providers</h1>
+<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a> · <a href="/assistant">Ассистент</a>
 
 <div th:if="${message}" class="msg" th:text="${message}"></div>
 <div th:if="${error}" class="msg err" th:text="${error}"></div>
 
-<fieldset>
-    <form method="post" action="/settings">
+<div class="notice">
+    <b>Облачный режим отправляет текст и контекст на сервер провайдера.</b>
+    DeepSeek используется только для генерации текста. Эмбеддинги RAG остаются локальными (Ollama).
+    Ключ хранится в зашифрованном виде и никогда не возвращается через API.
+</div>
+
+<div id="catalog" th:attr="data-providers=${providersJson}"></div>
+
+<!-- ============ Section A: AI Providers ============ -->
+<h2>Провайдеры</h2>
+
+<fieldset th:each="p : ${providers}" th:if="${p.chatModels != null and !p.chatModels.isEmpty()}">
+    <legend th:text="${p.displayName} + (p.cloud ? ' — cloud' : ' — local')"></legend>
+
+    <p>
+        Статус:
+        <span th:if="${p.available}" class="ok">доступен</span>
+        <span th:unless="${p.available}" class="bad">недоступен / не настроен</span>
+        <span class="muted" th:if="${p.cloud}"> · cloud endpoint</span>
+    </p>
+
+    <p class="model-list">
+        Модели:
+        <span th:each="m, it : ${p.chatModels}">
+            <span th:text="${m.name + ' [' + m.quantizationOrUnknown + ']'}"></span>
+            <span th:unless="${it.last}">, </span>
+        </span>
+    </p>
+
+    <div th:if="${p.id == 'ollama'}">
+        <p class="muted">Endpoint: <code th:text="${ollamaEndpoint}"></code></p>
+        <form method="post" th:action="@{/settings/providers/ollama/test}">
+            <input type="hidden" name="_csrf" th:value="${csrfToken}">
+            <button type="submit">Проверить соединение</button>
+        </form>
+    </div>
+
+    <div th:if="${p.id == 'deepseek'}">
+        <p class="muted">Endpoint: <code th:text="${deepseekEndpoint}"></code> ·
+            модель по умолчанию: <code th:text="${deepseekModel}"></code></p>
+        <p>
+            API key:
+            <span th:if="${deepseekStatus.configured}" class="ok">API key configured
+                <span th:if="${deepseekStatus.keyHint}" th:text="'(' + ${deepseekStatus.keyHint} + ')'"></span>
+            </span>
+            <span th:unless="${deepseekStatus.configured}" class="bad">не настроен</span>
+        </p>
+        <p class="muted" th:if="${deepseekStatus.lastSuccessAt}">
+            Последнее успешное соединение: <span th:text="${deepseekStatus.lastSuccessAt}"></span>
+        </p>
+        <p class="muted" th:if="${deepseekStatus.lastError}">
+            Последняя ошибка: <span th:text="${deepseekStatus.lastError}"></span>
+        </p>
+
+        <form method="post" th:action="@{/settings/providers/deepseek/key}">
+            <input type="hidden" name="_csrf" th:value="${csrfToken}">
+            <label>Новый API key (оставьте пустым, чтобы не менять существующий)</label>
+            <input type="password" name="apiKey" autocomplete="off" placeholder="sk-...">
+            <div class="card-actions">
+                <button type="submit">Сохранить / заменить ключ</button>
+            </div>
+        </form>
+
+        <div class="card-actions">
+            <form method="post" th:action="@{/settings/providers/deepseek/test}" class="inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <button type="submit">Проверить соединение</button>
+            </form>
+            <form method="post" th:action="@{/settings/providers/deepseek/key/delete}" class="inline"
+                  onsubmit="return confirm('Удалить сохранённый DeepSeek API key?');">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <button type="submit" th:disabled="${!deepseekStatus.configured}">Удалить ключ</button>
+            </form>
+        </div>
+    </div>
+</fieldset>
+
+<p class="muted" th:if="${credentialMasterKeyFallback}">
+    Master key хранится в fallback-файле. Для production задайте переменную окружения
+    <code>LP_MASTER_KEY</code> (32 байта, base64).
+</p>
+
+<!-- ============ Section B: Model Assignments ============ -->
+<h2>Назначение моделей по задачам</h2>
+<p class="muted">
+    Задачи изолированы: изменение модели Code Review не влияет на обработку лекций и наоборот.
+    Новые jobs получают snapshot конфигурации и не меняются на лету.
+</p>
+
+<fieldset th:each="tv : ${taskViews}">
+    <legend th:text="${tv.type.label}"></legend>
+    <form method="post" th:action="@{/settings/tasks}">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <input type="hidden" name="task" th:value="${tv.type.id}">
         <div class="grid">
             <div>
                 <label>Provider</label>
-                <select name="provider">
-                    <option th:each="p : ${providers}" th:value="${p.id}" th:disabled="${!p.available}"
-                            th:selected="${p.id == current.provider}"
-                            th:text="${p.displayName + (p.available ? '' : ' — недоступен')}"></option>
+                <select name="provider" class="provider-select" onchange="syncModels(this)">
+                    <option th:each="p : ${providers}" th:value="${p.id}"
+                            th:selected="${p.id == tv.config.provider}"
+                            th:text="${p.displayName + (p.available ? '' : ' (недоступен)')}"></option>
                 </select>
             </div>
             <div>
                 <label>Model</label>
-                <select name="model">
-                    <optgroup th:each="p : ${providers}" th:if="${!p.chatModels.isEmpty()}"
-                              th:label="${p.displayName}">
-                        <option th:each="m : ${p.chatModels}"
-                                th:value="${m.name}" th:selected="${m.name == current.model}"
-                                th:text="${m.name + ' [' + m.quantizationOrUnknown + ']'}"></option>
-                    </optgroup>
-                </select>
+                <select name="model" class="model-select" th:attr="data-current=${tv.config.model}"></select>
             </div>
             <div>
-                <label>Default prompt</label>
+                <label>Prompt template</label>
                 <select name="promptTemplate">
                     <option th:each="t : ${prompts}" th:value="${t.name}"
-                            th:selected="${t.name == current.promptTemplate}"
+                            th:selected="${t.name == tv.config.promptTemplate}"
                             th:text="${t.label}"></option>
                 </select>
             </div>
             <div>
                 <label>Temperature</label>
                 <input type="number" step="0.05" min="0" max="2" name="temperature"
-                       th:value="${current.temperature}">
+                       th:value="${tv.config.temperature}">
             </div>
             <div>
                 <label>Max tokens</label>
-                <input type="number" min="64" max="8192" name="maxTokens" th:value="${current.maxTokens}">
+                <input type="number" min="64" max="8192" name="maxTokens" th:value="${tv.config.maxTokens}">
             </div>
             <div>
                 <label>Context window</label>
-                <input type="number" min="1024" max="32768" name="contextWindow" th:value="${current.contextWindow}">
+                <input type="number" min="1024" max="32768" name="contextWindow"
+                       th:value="${tv.config.contextWindow}">
             </div>
             <div>
                 <label>&nbsp;</label>
                 <label><input type="checkbox" name="thinking" value="true"
-                              th:checked="${current.thinking}"> Thinking enabled</label>
+                              th:checked="${tv.config.thinking}"> Thinking</label>
             </div>
         </div>
-        <p><button type="submit">Сохранить как default</button></p>
+        <p><button type="submit" th:text="'Сохранить: ' + ${tv.type.label}"></button></p>
     </form>
+    <p class="muted" th:if="${tv.type.id == 'code-review'}">
+        Day 32 подготовка: здесь задаётся модель для AI Code Review. Сам reviewer ещё не реализован.
+    </p>
 </fieldset>
-<p>Эти параметры используются при обработке <b>новых</b> лекций (Day 27–29 pipeline).
-Параметры уже запущенных jobs не меняются.</p>
+
+<p class="muted" th:if="${fallbackEnabled}">
+    Fallback DeepSeek → Ollama <b>включён</b>: при недоступности облака будет использована локальная
+    модель, и это будет явно отмечено как fallback.
+</p>
+<p class="muted" th:unless="${fallbackEnabled}">
+    Fallback DeepSeek → Ollama отключён (по умолчанию). При недоступности облака задача завершится
+    ошибкой с сохранением причины, без молчаливой подмены модели.
+</p>
+
+<script th:inline="none">
+    (function () {
+        var catalog = [];
+        try {
+            catalog = JSON.parse(document.getElementById('catalog').dataset.providers || '[]');
+        } catch (e) {
+            catalog = [];
+        }
+        function providerById(id) {
+            for (var i = 0; i < catalog.length; i++) {
+                if (catalog[i].id === id) return catalog[i];
+            }
+            return null;
+        }
+        function fillModels(providerSelect) {
+            var form = providerSelect.closest('form');
+            var modelSelect = form.querySelector('.model-select');
+            var provider = providerById(providerSelect.value);
+            var current = modelSelect.dataset.current || '';
+            modelSelect.innerHTML = '';
+            var seen = {};
+            (provider && provider.models ? provider.models : []).forEach(function (model) {
+                var option = document.createElement('option');
+                option.value = model.name;
+                option.textContent = model.name + (model.quantization && model.quantization !== 'N/A'
+                        ? ' [' + model.quantization + ']' : '');
+                modelSelect.appendChild(option);
+                seen[model.name] = true;
+            });
+            // Preserve a saved model even when unavailable, so nothing is silently lost.
+            if (current && !seen[current]) {
+                var option = document.createElement('option');
+                option.value = current;
+                option.textContent = current + ' (недоступна)';
+                modelSelect.appendChild(option);
+            }
+            if (current) {
+                modelSelect.value = current;
+            }
+        }
+        function syncModels(providerSelect) {
+            fillModels(providerSelect);
+        }
+        document.querySelectorAll('.provider-select').forEach(function (select) {
+            fillModels(select);
+        });
+        window.syncModels = syncModels;
+    })();
+</script>
 </body>
 </html>

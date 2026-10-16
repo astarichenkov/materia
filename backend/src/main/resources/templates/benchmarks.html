@@ -58,7 +58,7 @@
                 <label>Model</label>
                 <select name="model" id="model" required>
                     <optgroup th:each="p : ${providers}" th:if="${!p.chatModels.isEmpty()}"
-                              th:label="${p.displayName}">
+                              th:label="${p.displayName}" th:attr="data-provider-id=${p.id}">
                         <option th:each="m : ${p.chatModels}"
                                 th:value="${m.name}"
                                 th:selected="${m.name == settings.model}"
@@ -121,6 +121,51 @@
     </form>
 </fieldset>
 
+<h2>Облачные расходы и usage (estimate)</h2>
+<fieldset th:with="u=${usage}">
+    <p>
+        Всего запусков: <b th:text="${u.totalRequests}"></b> ·
+        cloud requests: <b th:text="${u.cloudRequests}"></b> ·
+        ошибок: <b th:text="${u.errors}"></b>
+    </p>
+    <p>
+        Реальные токены: input <b th:text="${u.inputTokens}"></b>,
+        output <b th:text="${u.outputTokens}"></b>
+    </p>
+    <p>
+        Estimated cost:
+        <b th:if="${u.priced}" th:text="${#numbers.formatDecimal(u.estimatedCost, 1, 6) + ' ' + u.currency}"></b>
+        <b th:unless="${u.priced}">unknown (тариф не задан)</b>
+        <span class="muted">— это оценка по настраиваемому тарифу, а не счёт провайдера.</span>
+    </p>
+    <p class="err" th:if="${u.budgetWarningExceeded}">
+        Превышен настроенный бюджет-предупреждение: оценка расхода выше
+        <span th:text="${u.budgetWarningCost}"></span>.
+    </p>
+    <table>
+        <thead>
+        <tr><th>Provider</th><th>Model</th><th>Cloud</th><th>Requests</th>
+            <th>Input tokens</th><th>Output tokens</th><th>Errors</th></tr>
+        </thead>
+        <tbody>
+        <tr th:each="m : ${u.byModel}">
+            <td th:text="${m.provider}"></td>
+            <td th:text="${m.model}"></td>
+            <td th:text="${m.cloud} ? 'yes' : 'local'"></td>
+            <td th:text="${m.requests}"></td>
+            <td th:text="${m.inputTokens}"></td>
+            <td th:text="${m.outputTokens}"></td>
+            <td th:text="${m.errors}"></td>
+        </tr>
+        <tr th:if="${u.byModel.isEmpty()}"><td colspan="7">Нет данных</td></tr>
+        </tbody>
+    </table>
+    <p class="muted">
+        Для облачных моделей локальные GPU/RAM/VRAM метрики не показываются —
+        это измеряется только для Ollama.
+    </p>
+</fieldset>
+
 <h2>Последние результаты</h2>
 <div id="history" hx-get="/benchmarks/history" hx-trigger="load, every 5s" hx-swap="innerHTML">
     <p>Загрузка…</p>
@@ -155,6 +200,29 @@
             document.getElementById('thinking').checked = (thinking === 'true');
         }
     });
+
+    // Only show the selected provider's own models in the model dropdown.
+    function syncBenchmarkModels() {
+        const provider = document.getElementById('provider').value;
+        const modelSelect = document.getElementById('model');
+        let firstVisible = null;
+        modelSelect.querySelectorAll('optgroup').forEach(function (group) {
+            const matches = group.getAttribute('data-provider-id') === provider;
+            group.hidden = !matches;
+            group.querySelectorAll('option').forEach(function (option) {
+                option.hidden = !matches;
+                if (matches && firstVisible === null) {
+                    firstVisible = option;
+                }
+            });
+        });
+        const current = Array.from(modelSelect.options).find(o => !o.hidden && o.selected);
+        if (!current && firstVisible) {
+            firstVisible.selected = true;
+        }
+    }
+    document.getElementById('provider').addEventListener('change', syncBenchmarkModels);
+    syncBenchmarkModels();
 </script>
 </body>
 </html>
