@@ -85,6 +85,11 @@ yt-dlp --version
 | `POST` | `/api/lectures/{id}/cancel` | отмена (немедленно останавливает внешние процессы) |
 | `POST` | `/api/lectures/{id}/resume` | повторный запуск/возобновление |
 | `POST` | `/api/lectures/{id}/process` | совместимый алиас resume |
+| `POST` | `/api/assistant/help` | ассистент разработчика (`/help`), JSON `{question, sessionId}` |
+| `GET` | `/api/assistant/status` | статус индекса документации |
+| `POST` | `/api/assistant/index` | переиндексировать документацию проекта |
+| `GET` | `/api/assistant/tools` | каталог read-only MCP-инструментов |
+| `POST` | `/mcp` | MCP JSON-RPC (`initialize`, `tools/list`, `tools/call`) |
 
 ## Resumable pipeline
 
@@ -104,6 +109,29 @@ yt-dlp --version
   FFmpeg; ошибка слайдов не скрывается: задача завершается `PARTIAL` с
   предупреждением, но документ экспортируется.
 
+## Ассистент разработчика (Day 31)
+
+Локальный ассистент по проекту: документация (`README.md`, `docs/**`) в
+отдельном RAG-индексе (`doc_chunk`) + read-only MCP-инструменты над
+существующими сервисами и git.
+
+```bash
+# backend уже запущен; команда /help доступна в UI и API
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"question":"/help Из чего состоит пайплайн?","sessionId":"s1"}' \
+  http://127.0.0.1:8080/api/assistant/help
+```
+
+- UI: `GET /assistant` (статус индекса, список инструментов, форма `/help`).
+- Документация индексируется автоматически при старте, если индекс пуст и
+  доступна embedding-модель; вручную — `POST /api/assistant/index`.
+- MCP-сервер: `POST /mcp` (JSON-RPC 2.0). Инструменты: `git_current_branch`,
+  `git_status`, `git_recent_commits`, `git_diff_stat`, `list_project_files`,
+  `get_job_status`, `get_stage_runs`, `search_help_docs` — все read-only.
+- Lecture-RAG (`lecture_chunk`) и documentation-RAG (`doc_chunk`) не смешиваются.
+- Аутентификация MCP включается переменной `MCP_API_KEY` (заголовок
+  `X-MCP-Key`). Без неё endpoint рассчитан только на localhost.
+
 ## Конфигурация (ingestion)
 
 | Переменная | Назначение | По умолчанию |
@@ -113,6 +141,10 @@ yt-dlp --version
 | `DOWNLOAD_ALLOW_HTTP` | разрешить HTTP (не рекомендуется) | `false` |
 | `HEAVY_STAGE_PERMITS` | одновременные CPU/GPU-тяжёлые стадии | `1` |
 | `LECTURE_STORAGE_ROOT` | корень данных (БД, медиа, артефакты) | `./data` |
+| `PROJECT_ROOT` | корень проекта для assistant/MCP (иначе автопоиск) | авто |
+| `ASSISTANT_DOCS_PATHS` | пути документации для RAG | `README.md,docs` |
+| `ASSISTANT_AUTO_INDEX` | индексировать документацию при старте | `true` |
+| `MCP_API_KEY` | общий секрет для `POST /mcp` (пусто = без проверки) | — |
 
 ## Тесты и проверки
 
