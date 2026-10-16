@@ -90,12 +90,12 @@ public class CodeReviewApiController {
         if (request == null || request.repository() == null || request.prNumber() == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "repository и prNumber обязательны"));
         }
-        if (request.dryRun()) {
+        if (request.dryRunRequested()) {
             ReviewResult result = reviews.preview(request.repository(), request.prNumber(), null);
             return ResponseEntity.ok(Map.of("dryRun", true, "review", result));
         }
         CodeReviewJob job = reviews.enqueueManual(request.repository(), request.prNumber(),
-                request.force());
+                request.forceRequested());
         return ResponseEntity.accepted().body(summary(job));
     }
 
@@ -155,11 +155,11 @@ public class CodeReviewApiController {
     /** Manual review request (repository must be in the allow-list). */
     public record ManualReviewRequest(String repository, Long prNumber, Boolean force, Boolean dryRun) {
 
-        public boolean force() {
+        public boolean forceRequested() {
             return Boolean.TRUE.equals(force);
         }
 
-        public boolean dryRun() {
+        public boolean dryRunRequested() {
             return Boolean.TRUE.equals(dryRun);
         }
     }
