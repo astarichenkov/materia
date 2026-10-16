@@ -65,4 +65,24 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Dedicated single-thread executor for automated AI code reviews. Reviews are
+     * serialised (one LLM-heavy job at a time) and the queue is bounded so a
+     * burst of webhooks cannot exhaust memory. The webhook endpoint never blocks
+     * on this executor.
+     */
+    @Bean(name = "codeReviewExecutor")
+    public ThreadPoolTaskExecutor codeReviewExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("code-review-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }

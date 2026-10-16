@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Review #' + ${job.id}"></title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1000px; }
+        h1 { margin-bottom: .2rem; }
+        h2 { margin-top: 1.8rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
+        fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 6px; }
+        .ok { color: #0a7a29; font-weight: 600; }
+        .bad { color: #b00020; font-weight: 600; }
+        .muted { color: #666; font-size: .85rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+        th, td { border: 1px solid #ccc; padding: .4rem .5rem; text-align: left; font-size: .88rem;
+                 vertical-align: top; }
+        .sev-CRITICAL { color: #7a0000; font-weight: 700; }
+        .sev-HIGH { color: #b00020; font-weight: 600; }
+        .sev-MEDIUM { color: #8a6d00; font-weight: 600; }
+        .sev-LOW { color: #444; }
+        code { background: #f4f4f4; padding: 0 .2rem; }
+        .msg { padding: .6rem; background: #eef; margin: 1rem 0; }
+        .err { background: #fee; color: #b00020; }
+    </style>
+</head>
+<body>
+<h1 th:text="'Review #' + ${job.id}"></h1>
+<a href="/code-review">← К списку review runs</a>
+
+<div th:if="${message}" class="msg" th:text="${message}"></div>
+
+<fieldset>
+    <p>
+        <b th:text="${job.repository + ' #' + job.prNumber}"></b>
+        · SHA <code th:text="${#strings.substring(job.headSha,0,12)}"></code>
+        · Status <b th:text="${job.status}"></b>
+        · Risk <b th:text="${job.overallRisk}"></b>
+    </p>
+    <p>
+        Provider/model: <code th:text="${job.provider + ' / ' + job.model}"></code>
+        <span th:if="${job.fallback}" class="bad">(fallback)</span>
+        · full review:
+        <span th:if="${job.partial}" class="bad">partial (diff/context truncated)</span>
+        <span th:unless="${job.partial}" class="ok">complete</span>
+    </p>
+    <p>
+        Tokens: <span th:text="${(job.inputTokens == null ? 0 : job.inputTokens) + ' / ' + (job.outputTokens == null ? 0 : job.outputTokens)}"></span>
+        · Duration: <span th:text="${job.durationMs == null ? '—' : (job.durationMs + ' ms')}"></span>
+        · LLM: <span th:text="${job.llmMs == null ? '—' : (job.llmMs + ' ms')}"></span>
+        · Retrieval: <span th:text="${job.retrievalMs == null ? '—' : (job.retrievalMs + ' ms')}"></span>
+        · Gitea: <span th:text="${job.giteaMs == null ? '—' : (job.giteaMs + ' ms')}"></span>
+    </p>
+    <p>
+        Estimated cost:
+        <b th:if="${job.estimatedCost != null}"
+           th:text="${#numbers.formatDecimal(job.estimatedCost, 1, 6) + ' ' + (job.costCurrency == null ? '' : job.costCurrency)}"></b>
+        <b th:unless="${job.estimatedCost != null}">unknown (estimate)</b>
+    </p>
+    <p class="muted" th:if="${job.skippedFiles != null and !job.skippedFiles.isBlank()}">
+        Skipped files: <span th:text="${job.skippedFiles}"></span>
+    </p>
+    <p><a th:href="${giteaBaseUrl + '/' + job.repository + '/pulls/' + job.prNumber}" target="_blank">Открыть PR в Gitea</a></p>
+
+    <form method="post" th:action="@{'/code-review/' + ${job.id} + '/retry'}">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <button type="submit">Force re-review</button>
+    </form>
+</fieldset>
+
+<div th:if="${job.error}" class="msg err" th:text="'Error: ' + ${job.error}"></div>
+
+<h2>Summary</h2>
+<p th:text="${job.summary}"></p>
+
+<h2>Findings</h2>
+<table>
+    <thead>
+    <tr><th>Severity</th><th>Category</th><th>Location</th><th>Title</th><th>Description</th><th>Suggestion</th></tr>
+    </thead>
+    <tbody>
+    <tr th:each="f : ${findings}">
+        <td th:attr="class='sev-' + ${f.severity}" th:text="${f.severity}"></td>
+        <td th:text="${f.category}"></td>
+        <td><code th:text="${f.file + (f.line == null ? '' : ':' + f.line)}"></code></td>
+        <td th:text="${f.title}"></td>
+        <td th:text="${f.description}"></td>
+        <td th:text="${f.suggestion}"></td>
+    </tr>
+    <tr th:if="${findings.isEmpty()}"><td colspan="6">Нет подтверждённых findings</td></tr>
+    </tbody>
+</table>
+</body>
+</html>

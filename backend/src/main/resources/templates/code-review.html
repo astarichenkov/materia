@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Code Review</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; }
+        h1 { margin-bottom: .2rem; }
+        h2 { margin-top: 1.8rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
+        fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
+        .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem 1rem; }
+        label { display: block; font-size: .8rem; color: #444; }
+        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
+        button { padding: .5rem 1rem; cursor: pointer; }
+        .msg { padding: .6rem; background: #eef; margin: 1rem 0; border-radius: 4px; }
+        .err { background: #fee; color: #b00020; }
+        .ok { color: #0a7a29; font-weight: 600; }
+        .bad { color: #b00020; font-weight: 600; }
+        .muted { color: #666; font-size: .85rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+        th, td { border: 1px solid #ccc; padding: .35rem .5rem; text-align: left; font-size: .88rem; }
+        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
+        .status-FAILED { color: #b00020; font-weight: 600; }
+        .status-QUEUED, .status-RUNNING { color: #8a6d00; }
+        .status-SUPERSEDED { color: #666; }
+        code { background: #f4f4f4; padding: 0 .2rem; }
+    </style>
+</head>
+<body>
+<h1>AI Code Review (Gitea)</h1>
+<a href="/">← К лекциям</a> · <a href="/assistant">Ассистент</a> · <a href="/benchmarks">Бенчмарки</a> ·
+<a href="/settings">Настройки</a>
+
+<div th:if="${message}" class="msg" th:text="${message}"></div>
+<div th:if="${error}" class="msg err" th:text="${error}"></div>
+
+<fieldset>
+    <legend>Статус интеграции</legend>
+    <p>
+        Gitea:
+        <span th:if="${giteaConfigured}" class="ok">токен настроен</span>
+        <span th:unless="${giteaConfigured}" class="bad">токен не настроен (GITEA_TOKEN)</span>
+        · <code th:text="${giteaBaseUrl}"></code>
+    </p>
+    <p>
+        Webhook secret:
+        <span th:if="${webhookConfigured}" class="ok">настроен</span>
+        <span th:unless="${webhookConfigured}" class="bad">не настроен (GITEA_WEBHOOK_SECRET)</span>
+        · endpoint: <code th:text="${webhookUrl}"></code>
+    </p>
+    <p>
+        Модель Code Review: <b th:text="${provider + ' / ' + modelName}"></b>
+        · <a href="/settings">Настройки модели</a>
+        · polling: <span th:text="${pollingEnabled}"></span>
+        · publish: <span th:text="${publish}"></span>
+    </p>
+    <p class="muted">
+        Автозапуск: webhook на события opened / reopened / synchronize. Fallback:
+        polling новых PR head SHA (если Gitea не может достучаться до Windows).
+    </p>
+</fieldset>
+
+<h2>Manual review</h2>
+<fieldset>
+    <form method="post" action="/code-review/manual">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <div class="grid">
+            <div>
+                <label>Repository (allow-list)</label>
+                <select name="repository">
+                    <option th:each="r : ${allowedRepositories}" th:value="${r}" th:text="${r}"></option>
+                </select>
+            </div>
+            <div>
+                <label>PR number</label>
+                <input type="number" name="prNumber" min="1" required>
+            </div>
+            <div>
+                <label>Mode</label>
+                <label><input type="checkbox" name="dryRun" value="true"> Dry-run (без публикации)</label>
+                <label><input type="checkbox" name="force" value="true"> Force re-review (перепубликация)</label>
+            </div>
+            <div>
+                <label>&nbsp;</label>
+                <button type="submit">Analyze PR</button>
+            </div>
+        </div>
+    </form>
+</fieldset>
+
+<h2>Сводка</h2>
+<div class="grid" th:with="t=${totals}">
+    <div><label>Всего</label><b th:text="${t.total}"></b></div>
+    <div><label>Completed</label><b th:text="${t.completed}"></b></div>
+    <div><label>Failed</label><b th:text="${t.failed}"></b></div>
+    <div><label>Findings</label><b th:text="${t.findings}"></b></div>
+    <div><label>Tokens</label><b th:text="${t.tokens}"></b></div>
+    <div>
+        <label>Estimated cost</label>
+        <b th:if="${t.priced}" th:text="${#numbers.formatDecimal(t.estimatedCost, 1, 6)}"></b>
+        <b th:unless="${t.priced}">unknown</b>
+    </div>
+</div>
+
+<h2>Последние review runs</h2>
+<table>
+    <thead>
+    <tr><th>ID</th><th>Repo</th><th>PR</th><th>SHA</th><th>Status</th><th>Trigger</th>
+        <th>Model</th><th>Findings</th><th>Tokens</th><th>Duration</th><th></th></tr>
+    </thead>
+    <tbody>
+    <tr th:each="j : ${jobs}">
+        <td th:text="${j.id}"></td>
+        <td th:text="${j.repository}"></td>
+        <td th:text="${j.prNumber}"></td>
+        <td><code th:text="${#strings.substring(j.headSha,0,8)}"></code></td>
+        <td th:attr="class='status-' + ${j.status}" th:text="${j.status}"></td>
+        <td th:text="${j.triggeredBy}"></td>
+        <td th:text="${j.model}"></td>
+        <td th:text="${j.findingsCount}"></td>
+        <td th:text="${(j.inputTokens == null ? 0 : j.inputTokens) + '/' + (j.outputTokens == null ? 0 : j.outputTokens)}"></td>
+        <td th:text="${j.durationMs == null ? '—' : (j.durationMs + ' ms')}"></td>
+        <td><a th:href="@{'/code-review/' + ${j.id}}">Детали</a></td>
+    </tr>
+    <tr th:if="${jobs.isEmpty()}"><td colspan="11">Пока нет review runs</td></tr>
+    </tbody>
+</table>
+</body>
+</html>

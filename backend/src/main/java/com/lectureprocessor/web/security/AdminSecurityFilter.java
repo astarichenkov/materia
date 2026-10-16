@@ -30,8 +30,9 @@ import jakarta.servlet.http.HttpServletResponse;
 public class AdminSecurityFilter extends OncePerRequestFilter {
 
     private static final List<String> PROTECTED_PREFIXES = List.of(
-            "/settings", "/api/providers");
-    private static final List<String> PUBLIC_PATHS = List.of("/settings/login");
+            "/settings", "/api/providers", "/code-review", "/api/code-review");
+    private static final List<String> PUBLIC_PATHS = List.of("/settings/login",
+            "/api/code-review/webhook/gitea");
 
     private final AdminAccessService access;
 
