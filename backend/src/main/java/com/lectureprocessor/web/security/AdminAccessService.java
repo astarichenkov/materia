@@ -69,8 +69,10 @@ public class AdminAccessService {
         if (constantTimeEquals(configured, request.getHeader(ADMIN_TOKEN_HEADER))) {
             return true;
         }
-        // Token supplied as a form/query parameter only for the login endpoint.
-        return constantTimeEquals(configured, request.getParameter(ADMIN_TOKEN_HEADER));
+        // Do not accept the admin token as a query/form parameter here: it would
+        // leak into URLs and access logs. The login endpoint handles the form
+        // field separately and establishes a session.
+        return false;
     }
 
     /** Validates a login attempt and marks the session authenticated on success. */
