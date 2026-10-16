@@ -210,6 +210,36 @@ Endpoint по умолчанию зафиксирован на официаль�
 - Расходы — **estimate** по настраиваемому тарифу (`DEEPSEEK_PRICE_*`);
   агрегат: `GET /api/benchmarks/usage` и раздел на странице бенчмарков.
 
+## AI Code Review для Gitea (Day 32)
+
+Автоматический AI-review pull request'ов: webhook (или polling-fallback) →
+Gitea diff + commit-consistent code RAG + documentation RAG → DeepSeek/Ollama →
+валидированные structured findings → комментарий в PR.
+
+- UI: `GET /code-review` (статус, manual review, история, метрики).
+- REST: `GET /api/code-review`, `GET /api/code-review/{id}`,
+  `POST /api/code-review` (manual/dry-run), `POST /api/code-review/{id}/retry`,
+  `GET /api/code-review/status`.
+- Webhook Gitea: `POST /api/code-review/webhook/gitea` (HMAC-SHA256,
+  `X-Gitea-Signature`; события `pull_request`: opened/reopened/synchronize).
+- Модель выбирается в `/settings → Code Review` (`LlmTaskType.CODE_REVIEW`);
+  DeepSeek — основной, Ollama — локальная альтернатива. Fallback не скрывается.
+- Безопасность: allow-list репозиториев, секрет webhook только из env,
+  prompt-injection trust boundary, SSRF-защита, нет auto-merge/approve.
+- Идемпотентность: ключ `repository#pr@headSha#configVersion`; повторная
+  доставка не создаёт дубль; старый SHA не публикуется как актуальный.
+
+Запуск и демо-сценарий — `demos/day32/demo-scenario.md`.
+
+```bash
+export JAVA_HOME=/c/tools/jdk-25.0.2-full
+export GITEA_BASE_URL=http://203.0.113.20:8108
+export GITEA_ALLOWED_REPOS=example-org/materia
+export GITEA_WEBHOOK_SECRET="$(head -c 24 /dev/urandom | base64 | tr -d '\n=+/' | head -c 32)"
+export CODE_REVIEW_POLL_SECONDS=20        # polling fallback
+./mvnw -pl backend spring-boot:run
+```
+
 ## Конфигурация (ingestion)
 
 | Переменная | Назначение | По умолчанию |
@@ -231,8 +261,17 @@ Endpoint по умолчанию зафиксирован на официаль�
 | `DEEPSEEK_PRICE_INPUT/OUTPUT/CACHE_HIT` | тариф за 1M токенов (для estimate) | `0.0` |
 | `DEEPSEEK_BUDGET_WARNING` | порог предупреждения о расходе | `0.0` (выкл) |
 | `LP_MASTER_KEY` | мастер-ключ шифрования credentials (base64, 32 байта) | fallback-файл |
-| `LP_ADMIN_TOKEN` | административный токен для `/settings` | пусто (localhost) |
+| `LP_ADMIN_TOKEN` | административный токен для `/settings` и `/code-review` | пусто (localhost) |
 | `LLM_FALLBACK_ENABLED` | DeepSeek → Ollama fallback | `false` |
+| `GITEA_BASE_URL` | Gitea base URL | `http://203.0.113.20:8108` |
+| `GITEA_TOKEN` | API-токен Gitea (только env, не коммитить) | — |
+| `GITEA_WEBHOOK_SECRET` | HMAC-секрет webhook (только env) | — |
+| `GITEA_ALLOWED_REPOS` | allow-list репозиториев `owner/repo` | `example-org/materia` |
+| `CODE_REVIEW_ENABLED` | включить AI code review | `true` |
+| `CODE_REVIEW_POLLING` | polling-fallback при недоступном webhook | `true` |
+| `CODE_REVIEW_POLL_SECONDS` | интервал polling | `60` |
+| `CODE_REVIEW_PUBLISH` | публиковать комментарий в PR (false = dry-run) | `true` |
+| `CODE_REVIEW_CODE_PATHS` | что индексировать в code RAG | `backend/src,…` |
 
 ## Тесты и проверки
 
