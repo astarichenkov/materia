@@ -27,6 +27,9 @@ public final class TestProperties {
                         "ollama", new AppProperties.Provider(true, "Ollama (local)"),
                         "openai", new AppProperties.Provider(false, "OpenAI (не настроен)"))),
                 new AppProperties.Downloader("yt-dlp", Duration.ofSeconds(30), Duration.ofMinutes(5),
-                        1024L * 1024L, "720p", false, 1));
+                        1024L * 1024L, "720p", false, 1),
+                new AppProperties.Assistant(storageRoot, java.util.List.of("README.md", "docs"),
+                        1024L * 1024L, 1200, 150, 200, 5, 0.0, Duration.ofSeconds(30), false, 6),
+                new AppProperties.Mcp("", 20000));
     }
 }

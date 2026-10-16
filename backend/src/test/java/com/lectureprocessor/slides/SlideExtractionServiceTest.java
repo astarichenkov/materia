@@ -82,6 +82,8 @@ class SlideExtractionServiceTest {
                 new AppProperties.Chat(4, 2000, 5, 0.2),
                 new AppProperties.Llm(java.util.Map.of(
                         "ollama", new AppProperties.Provider(true, "Ollama (local)"))),
-                com.lectureprocessor.support.TestProperties.defaults(root).downloader());
+                com.lectureprocessor.support.TestProperties.defaults(root).downloader(),
+                com.lectureprocessor.support.TestProperties.defaults(root).assistant(),
+                com.lectureprocessor.support.TestProperties.defaults(root).mcp());
     }
 }
