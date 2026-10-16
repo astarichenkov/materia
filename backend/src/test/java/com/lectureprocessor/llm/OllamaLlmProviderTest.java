@@ -26,7 +26,7 @@ class OllamaLlmProviderTest {
                 base.tools(), base.storage(), base.upload(), base.processing(),
                 new AppProperties.Ollama(CLOSED, "qwen3:4b", "nomic-embed-text", 768, Duration.ofSeconds(2), true),
                 base.slides(), base.chat(), base.llm(), base.downloader(),
-                base.assistant(), base.mcp(), base.deepseek(), base.security());
+                base.assistant(), base.mcp(), base.deepseek(), base.security(), base.gitea(), base.codeReview());
         return new OllamaLlmProvider(props);
     }
 

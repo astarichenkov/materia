@@ -52,7 +52,8 @@ class ProviderCredentialServiceTest {
     private static AppProperties withSecurity(AppProperties base, String keyPath, String envName) {
         return new AppProperties(base.tools(), base.storage(), base.upload(), base.processing(),
                 base.ollama(), base.slides(), base.chat(), base.llm(), base.downloader(), base.assistant(),
-                base.mcp(), base.deepseek(), new AppProperties.Security("", keyPath, envName));
+                base.mcp(), base.deepseek(), new AppProperties.Security("", keyPath, envName),
+                base.gitea(), base.codeReview());
     }
 
     private static DataSource sqlite(Path path) {

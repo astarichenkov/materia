@@ -78,10 +78,13 @@ class SchemaMigratorTest {
         // Day 32 cloud provider credentials migration.
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM schema_migration WHERE version = 4", Long.class)).isEqualTo(1L);
+        // Day 32 code review migration.
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM schema_migration WHERE version = 5", Long.class)).isEqualTo(1L);
 
         // Running the migrator again is idempotent.
         new SchemaMigrator(jdbc).run(null);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(3L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(4L);
         assertThat(Files.exists(db)).isTrue();
     }
 }

@@ -49,7 +49,7 @@ class BenchmarkUsageServiceTest {
                         "deepseek-flash", List.of("deepseek-flash"), java.time.Duration.ofSeconds(30), 0,
                         0.1, 512, 4096, 1, 0.0,
                         new AppProperties.DeepSeek.Pricing(0.5, 1.5, 0.05, "USD")),
-                base.security());
+                base.security(), base.gitea(), base.codeReview());
         service = new BenchmarkUsageService(runs, registry, new CloudCostService(properties), properties);
     }
 

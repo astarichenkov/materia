@@ -25,7 +25,9 @@ public record AppProperties(
         Assistant assistant,
         Mcp mcp,
         DeepSeek deepseek,
-        Security security) {
+        Security security,
+        Gitea gitea,
+        CodeReview codeReview) {
 
     public record Tools(
             String ffmpegPath,
@@ -212,5 +214,79 @@ public record AppProperties(
      *                      master key (preferred over the file)
      */
     public record Security(String adminToken, String masterKeyPath, String masterKeyEnv) {
+    }
+
+    /**
+     * Gitea integration for the automated AI code review (Day 32). Non-secret
+     * settings plus two externally supplied secrets: the API token and the
+     * webhook HMAC secret. Neither is ever stored in the database or returned by
+     * an API.
+     *
+     * @param baseUrl             Gitea base URL (homelab HTTP or HTTPS)
+     * @param token               API token (env {@code GITEA_TOKEN}); header only
+     * @param webhookSecret       HMAC-SHA256 webhook secret (env
+     *                            {@code GITEA_WEBHOOK_SECRET})
+     * @param allowedRepositories explicit allow-list of {@code owner/repo} names
+     * @param timeout             per-request timeout
+     * @param allowHttp           allow plain HTTP (homelab-only; never public)
+     */
+    public record Gitea(
+            String baseUrl,
+            String token,
+            String webhookSecret,
+            List<String> allowedRepositories,
+            Duration timeout,
+            boolean allowHttp) {
+
+        public boolean configured() {
+            return token != null && !token.isBlank();
+        }
+
+        public boolean webhookConfigured() {
+            return webhookSecret != null && !webhookSecret.isBlank();
+        }
+    }
+
+    /**
+     * Automated AI code review configuration (Day 32).
+     *
+     * @param enabled              master switch
+     * @param maxDiffChars         hard cap on the diff sent to the model
+     * @param maxFiles             hard cap on changed files analysed
+     * @param maxContextChars      cap on retrieved code/docs context
+     * @param maxFindings          cap on published findings
+     * @param maxLlmCalls          cap on model calls per review
+     * @param maxCodeIndexFiles    cap on source files indexed per commit
+     * @param maxCodeIndexChunks   cap on code chunks stored per commit
+     * @param codePaths            project-relative source paths to index
+     * @param excludePaths         glob patterns never indexed
+     * @param chunkChars           code chunk target size
+     * @param retrievalTopK        hybrid code retrievals per review
+     * @param minSimilarity        minimum combined similarity for code context
+     * @param autoIndex            index related code from Gitea at the head SHA
+     * @param timeout              hard timeout for one review run
+     * @param pollingEnabled       pull-based fallback when webhooks are unreachable
+     * @param pollIntervalSeconds  polling interval
+     * @param publish              publish the review as a Gitea PR comment
+     */
+    public record CodeReview(
+            boolean enabled,
+            int maxDiffChars,
+            int maxFiles,
+            int maxContextChars,
+            int maxFindings,
+            int maxLlmCalls,
+            int maxCodeIndexFiles,
+            int maxCodeIndexChunks,
+            List<String> codePaths,
+            List<String> excludePaths,
+            int chunkChars,
+            int retrievalTopK,
+            double minSimilarity,
+            boolean autoIndex,
+            Duration timeout,
+            boolean pollingEnabled,
+            int pollIntervalSeconds,
+            boolean publish) {
     }
 }

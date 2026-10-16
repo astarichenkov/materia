@@ -73,7 +73,7 @@ class DeepSeekLlmProviderTest {
                 new AppProperties.DeepSeek.Pricing(0.5, 1.5, 0.05, "USD"));
         return new AppProperties(base.tools(), base.storage(), base.upload(), base.processing(),
                 base.ollama(), base.slides(), base.chat(), base.llm(), base.downloader(), base.assistant(),
-                base.mcp(), deepSeek, base.security());
+                base.mcp(), deepSeek, base.security(), base.gitea(), base.codeReview());
     }
 
     private DeepSeekLlmProvider provider(String apiKey, int maxRetries) {

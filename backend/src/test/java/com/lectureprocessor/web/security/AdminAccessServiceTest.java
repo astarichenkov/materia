@@ -19,7 +19,8 @@ class AdminAccessServiceTest {
         AppProperties props = new AppProperties(base.tools(), base.storage(), base.upload(), base.processing(),
                 base.ollama(), base.slides(), base.chat(), base.llm(), base.downloader(), base.assistant(),
                 base.mcp(), base.deepseek(), new AppProperties.Security(adminToken,
-                        base.security().masterKeyPath(), base.security().masterKeyEnv()));
+                        base.security().masterKeyPath(), base.security().masterKeyEnv()),
+                base.gitea(), base.codeReview());
         return new AdminAccessService(props);
     }
 

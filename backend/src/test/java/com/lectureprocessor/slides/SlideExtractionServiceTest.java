@@ -86,6 +86,8 @@ class SlideExtractionServiceTest {
                 com.lectureprocessor.support.TestProperties.defaults(root).assistant(),
                 com.lectureprocessor.support.TestProperties.defaults(root).mcp(),
                 com.lectureprocessor.support.TestProperties.defaults(root).deepseek(),
-                com.lectureprocessor.support.TestProperties.defaults(root).security());
+                com.lectureprocessor.support.TestProperties.defaults(root).security(),
+                com.lectureprocessor.support.TestProperties.defaults(root).gitea(),
+                com.lectureprocessor.support.TestProperties.defaults(root).codeReview());
     }
 }

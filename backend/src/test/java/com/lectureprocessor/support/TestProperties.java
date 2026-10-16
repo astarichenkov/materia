@@ -36,6 +36,11 @@ public final class TestProperties {
                 new AppProperties.DeepSeek(true, "https://api.deepseek.com", "deepseek-flash",
                         java.util.List.of("deepseek-flash"), Duration.ofSeconds(30), 2, 0.1, 1024,
                         4096, 1, 0.0, new AppProperties.DeepSeek.Pricing(0.0, 0.0, 0.0, "USD")),
-                new AppProperties.Security("", storageRoot + "/.secrets/master.key", "LP_MASTER_KEY"));
+                new AppProperties.Security("", storageRoot + "/.secrets/master.key", "LP_MASTER_KEY"),
+                new AppProperties.Gitea("http://127.0.0.1:39999", "", "", java.util.List.of("example-org/materia"),
+                        Duration.ofSeconds(5), true),
+                new AppProperties.CodeReview(true, 120000, 40, 24000, 15, 3, 150, 1200,
+                        java.util.List.of("backend/src"), java.util.List.of("**/.env"), 1800, 8, 0.15,
+                        false, Duration.ofSeconds(30), false, 60, false));
     }
 }

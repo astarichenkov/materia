@@ -143,6 +143,39 @@ app:
     master-key-env: ${LP_MASTER_KEY_ENV:LP_MASTER_KEY}
     master-key-path: ${LP_MASTER_KEY_PATH:${LECTURE_STORAGE_ROOT:./data}/.secrets/master.key}
 
+  # Gitea integration for automated AI code review (Day 32).
+  gitea:
+    base-url: ${GITEA_BASE_URL:http://203.0.113.20:8108}
+    # Secrets: env only, never committed. Header Authorization: token <...>.
+    token: ${GITEA_TOKEN:}
+    webhook-secret: ${GITEA_WEBHOOK_SECRET:}
+    # Explicit allow-list of owner/repo that may be reviewed.
+    allowed-repositories: ${GITEA_ALLOWED_REPOS:example-org/materia}
+    timeout: ${GITEA_TIMEOUT:30s}
+    # Homelab runs plain HTTP inside the trusted LAN; never expose publicly.
+    allow-http: ${GITEA_ALLOW_HTTP:true}
+
+  code-review:
+    enabled: ${CODE_REVIEW_ENABLED:true}
+    max-diff-chars: ${CODE_REVIEW_MAX_DIFF_CHARS:120000}
+    max-files: ${CODE_REVIEW_MAX_FILES:40}
+    max-context-chars: ${CODE_REVIEW_MAX_CONTEXT_CHARS:24000}
+    max-findings: ${CODE_REVIEW_MAX_FINDINGS:15}
+    max-llm-calls: ${CODE_REVIEW_MAX_LLM_CALLS:3}
+    max-code-index-files: ${CODE_REVIEW_MAX_INDEX_FILES:150}
+    max-code-index-chunks: ${CODE_REVIEW_MAX_INDEX_CHUNKS:1200}
+    code-paths: ${CODE_REVIEW_CODE_PATHS:backend/src,private-ai-chat/src,pom.xml,backend/pom.xml,private-ai-chat/pom.xml}
+    exclude-paths: ${CODE_REVIEW_EXCLUDE_PATHS:**/.env,**/*.key,**/*.pem,**/target/**,**/build/**,**/data/**,**/*.db,**/*.sqlite,**/node_modules/**}
+    chunk-chars: 1800
+    retrieval-top-k: 8
+    min-similarity: 0.15
+    auto-index: ${CODE_REVIEW_AUTO_INDEX:true}
+    timeout: ${CODE_REVIEW_TIMEOUT:5m}
+    # Pull-based fallback: detects new PR head SHAs when Gitea cannot reach Windows.
+    polling-enabled: ${CODE_REVIEW_POLLING:true}
+    poll-interval-seconds: ${CODE_REVIEW_POLL_SECONDS:60}
+    publish: ${CODE_REVIEW_PUBLISH:true}
+
 management:
   endpoints:
     web:
