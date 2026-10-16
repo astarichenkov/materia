@@ -132,6 +132,84 @@ curl -X POST -H 'Content-Type: application/json' \
 - Аутентификация MCP включается переменной `MCP_API_KEY` (заголовок
   `X-MCP-Key`). Без неё endpoint рассчитан только на localhost.
 
+## Облачные LLM-провайдеры (DeepSeek, Day 32 preparation)
+
+Провайдеры выбираются через единый реестр `LlmProviderRegistry`, а модель
+назначается **отдельно для каждой задачи** (`LlmTaskSettingsService`):
+
+| Задача | Ключ настройки | По умолчанию |
+|--------|----------------|--------------|
+| Lecture Processing | `llm.default-config` | локальная Ollama |
+| Developer Assistant (`/help`) | `llm.task-config.developer-assistant` | локальная Ollama |
+| Code Review (Day 32) | `llm.task-config.code-review` | DeepSeek, если ключ настроен |
+
+Задачи изолированы: смена модели Code Review не меняет обработку лекций и
+наоборот. Новый job сохраняет snapshot конфигурации и не меняется на лету.
+
+### Установка отдельного DeepSeek API key (для каждой копии приложения)
+
+У каждой установки **свой** ключ, встроенного глобального ключа нет:
+
+1. Получите ключ на https://platform.deepseek.com (Billing → API keys).
+2. Откройте `GET /settings` → карточка **DeepSeek (Cloud)**.
+3. Введите ключ и нажмите «Сохранить / заменить ключ» (поле всегда пустое при
+   открытии — пустой ввод не стирает уже сохранённый ключ).
+4. Нажмите «Проверить соединение» — выполняется один короткий платный запрос.
+5. Для удаления — отдельная кнопка «Удалить ключ» с подтверждением.
+
+Endpoint по умолчанию зафиксирован на официальный `https://api.deepseek.com`
+(SSRF-защита); модель задаётся `DEEPSEEK_MODEL` (по умолчанию `deepseek-flash`).
+Если провайдер отклоняет модель, укажите её точный API id
+(например `deepseek-v4-flash`).
+
+### Хранение credentials
+
+- Ключ хранится **зашифрованным at-rest** (AES-256-GCM, уникальный nonce,
+  версионированный формат `v1:`) в таблице `provider_credential`.
+- Мастер-ключ лежит **вне БД и исходников**: переменная окружения
+  `LP_MASTER_KEY` (32 байта, base64) — предпочтительно; иначе fallback-файл
+  `<storage>/.secrets/master.key` с ограниченными правами (для production
+  обязательно задайте env).
+- Ключ **никогда** не возвращается через REST/HTML; показывается только статус
+  `API key configured` и маска последних символов.
+- Ключ не попадает в логи, benchmark-результаты и git.
+
+### Переключение Ollama → DeepSeek
+
+1. Сохраните ключ (см. выше) и убедитесь, что «Проверить соединение» успешно.
+2. В разделе **Назначение моделей** выберите Provider = `DeepSeek (Cloud)` и
+   модель для нужной задачи, затем сохраните.
+3. Действующая обработка лекций переключается только явным выбором модели;
+   после добавления ключа автоматического переключения на облако нет.
+4. Embeddings RAG всегда остаются локальными (Ollama) — облачный chat-провайдер
+   для них не используется.
+
+### Безопасность административного UI
+
+- Без `LP_ADMIN_TOKEN` страница `/settings` и `/api/providers/**` доступны
+  только с localhost (документированное ограничение до появления
+  полноценных пользователей).
+- С заданным `LP_ADMIN_TOKEN` вход — через форму `/settings/login` (сессия)
+  или заголовок `X-Admin-Token`. Для state-changing запросов обязателен
+  CSRF-токен.
+- Fallback DeepSeek → Ollama по умолчанию **выключен**
+  (`LLM_FALLBACK_ENABLED=false`), чтобы облачный сбой не подменялся молча.
+
+### Ошибки DeepSeek (классификация)
+
+`401/403` — неверный ключ; `402` — недостаток средств; `429` — rate limit;
+`400` — некорректный запрос/модель; `5xx`/timeout — провайдер недоступен;
+пустой ответ; обрезанный ответ (`finish_reason=length`). Сырой HTTP-ответ и
+ключ пользователю не показываются.
+
+### Benchmark и расходы
+
+- DeepSeek доступен в `/benchmarks` как отдельный provider; сравнение с Ollama.
+- Токены берутся из ответа провайдера (реальные `prompt_tokens`/`completion_tokens`,
+  cache hit/miss); для облака локальные GPU/RAM/VRAM-метрики не показываются.
+- Расходы — **estimate** по настраиваемому тарифу (`DEEPSEEK_PRICE_*`);
+  агрегат: `GET /api/benchmarks/usage` и раздел на странице бенчмарков.
+
 ## Конфигурация (ingestion)
 
 | Переменная | Назначение | По умолчанию |
@@ -145,6 +223,16 @@ curl -X POST -H 'Content-Type: application/json' \
 | `ASSISTANT_DOCS_PATHS` | пути документации для RAG | `README.md,docs` |
 | `ASSISTANT_AUTO_INDEX` | индексировать документацию при старте | `true` |
 | `MCP_API_KEY` | общий секрет для `POST /mcp` (пусто = без проверки) | — |
+| `DEEPSEEK_ENABLED` | включить облачный provider | `true` |
+| `DEEPSEEK_BASE_URL` | официальный endpoint DeepSeek | `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL` | модель по умолчанию | `deepseek-flash` |
+| `DEEPSEEK_MODELS` | список моделей для UI | `deepseek-flash,…` |
+| `DEEPSEEK_MAX_CONCURRENT` | лимит параллельных cloud-запросов | `1` |
+| `DEEPSEEK_PRICE_INPUT/OUTPUT/CACHE_HIT` | тариф за 1M токенов (для estimate) | `0.0` |
+| `DEEPSEEK_BUDGET_WARNING` | порог предупреждения о расходе | `0.0` (выкл) |
+| `LP_MASTER_KEY` | мастер-ключ шифрования credentials (base64, 32 байта) | fallback-файл |
+| `LP_ADMIN_TOKEN` | административный токен для `/settings` | пусто (localhost) |
+| `LLM_FALLBACK_ENABLED` | DeepSeek → Ollama fallback | `false` |
 
 ## Тесты и проверки
 
@@ -153,6 +241,13 @@ export JAVA_HOME=/c/tools/jdk-25.0.2-full
 ./mvnw -pl backend test        # unit + интеграционные тесты пайплайна
 ./mvnw verify                  # полная сборка обоих модулей
 ```
+
+DeepSeek-тесты используют локальный HTTP test double
+(`DeepSeekLlmProviderTest`) и **не** обращаются к платному API. Credentials,
+per-task routing и CSRF покрыты unit/integration тестами
+(`ProviderCredentialServiceTest`, `LlmTaskSettingsServiceTest`,
+`AdminAccessServiceTest`, `ProviderApiControllerTest`). Живой smoke-тест
+DeepSeek не выполнялся автоматически (требует отдельного ключа и разрешения).
 
 Живые smoke-тесты yt-dlp (YouTube/VK/Rutube) требуют сети и не выполняются
 автоматически в CI. См. `docs/week7-ingestion-final-report.md`.
