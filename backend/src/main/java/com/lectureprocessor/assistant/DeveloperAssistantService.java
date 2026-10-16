@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.config.AppProperties;
 import com.lectureprocessor.llm.LlmOptions;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.LlmTaskResolver;
+import com.lectureprocessor.llm.LlmTaskType;
+import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.mcp.McpTool;
 import com.lectureprocessor.mcp.McpToolRegistry;
 import com.lectureprocessor.text.PromptTemplates;
@@ -42,20 +44,20 @@ public class DeveloperAssistantService {
     private final DocumentationRetrievalService retrievalService;
     private final McpToolClient mcpClient;
     private final McpToolRegistry toolRegistry;
-    private final LlmProvider llm;
+    private final LlmTaskResolver taskResolver;
     private final PromptTemplates prompts;
     private final AppProperties properties;
     private final AssistantSessionStore sessions;
     private final ThreadPoolTaskExecutor executor;
 
     public DeveloperAssistantService(DocumentationRetrievalService retrievalService,
-            McpToolClient mcpClient, McpToolRegistry toolRegistry, LlmProvider llm,
+            McpToolClient mcpClient, McpToolRegistry toolRegistry, LlmTaskResolver taskResolver,
             PromptTemplates prompts, AppProperties properties, AssistantSessionStore sessions,
             @Qualifier("assistantExecutor") ThreadPoolTaskExecutor executor) {
         this.retrievalService = retrievalService;
         this.mcpClient = mcpClient;
         this.toolRegistry = toolRegistry;
-        this.llm = llm;
+        this.taskResolver = taskResolver;
         this.prompts = prompts;
         this.properties = properties;
         this.sessions = sessions;
@@ -68,9 +70,11 @@ public class DeveloperAssistantService {
         if (question.isBlank()) {
             return commandOverview();
         }
-        if (!llm.isAvailable()) {
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.DEVELOPER_ASSISTANT);
+        if (!resolved.provider().isAvailable()) {
             throw new AssistantUnavailableException(
-                    "Локальная модель недоступна (Ollama не отвечает) — /help не может сгенерировать ответ");
+                    "LLM provider недоступен (" + resolved.providerId()
+                            + ") — /help не может сгенерировать ответ");
         }
 
         List<DocSearchResult> retrieved = retrievalService.search(question);
@@ -80,7 +84,7 @@ public class DeveloperAssistantService {
 
         String system = prompts.get(PromptTemplates.DEVELOPER_HELP);
         String user = buildUserPrompt(sessionId, question, retrieved, branch, status);
-        String answer = generate(system, user);
+        String answer = generate(resolved, system, user);
 
         List<AssistantCitation> citations = retrieved.stream()
                 .map(result -> new AssistantCitation(
@@ -161,10 +165,10 @@ public class DeveloperAssistantService {
         return user.toString();
     }
 
-    private String generate(String system, String user) {
+    private String generate(ResolvedLlmTask resolved, String system, String user) {
         Future<String> future;
         try {
-            future = executor.submit(() -> llm.chat(system, user, assistantOptions()));
+            future = executor.submit(() -> resolved.provider().chat(system, user, assistantOptions(resolved)));
         } catch (TaskRejectedException e) {
             throw new AssistantBusyException("Ассистент занят, попробуйте позже");
         }
@@ -191,11 +195,9 @@ public class DeveloperAssistantService {
         }
     }
 
-    private LlmOptions assistantOptions() {
-        return LlmOptions.of(llm.defaultChatModel())
-                .withTemperature(0.1)
-                .withMaxTokens(2048)
-                .withNumCtx(8192);
+    private LlmOptions assistantOptions(ResolvedLlmTask resolved) {
+        LlmOptions base = resolved.options();
+        return new LlmOptions(base.model(), 0.1, 2048, 8192, base.seed(), base.thinking());
     }
 
     private String callTool(String toolName, Map<String, Object> arguments,

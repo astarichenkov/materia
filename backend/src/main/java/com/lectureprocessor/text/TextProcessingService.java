@@ -43,10 +43,25 @@ public class TextProcessingService {
 
     /** Mode 1 with an explicit prompt template (used by recommended settings). */
     public String cleanTranscript(List<TranscriptSegment> segments, LlmOptions options, String promptTemplate) {
+        return cleanTranscript(llm, segments, options, promptTemplate);
+    }
+
+    /** Mode 1 against an explicitly resolved provider (default cleanup prompt). */
+    public String cleanTranscript(LlmProvider provider, List<TranscriptSegment> segments, LlmOptions options) {
+        return cleanTranscript(provider, segments, options, PromptTemplates.CLEAN_TRANSCRIPT);
+    }
+
+    /**
+     * Mode 1 against an explicitly resolved provider (per-task model routing).
+     * Kept separate from the default provider so lecture processing can use a
+     * cloud provider without changing the embedding/local default.
+     */
+    public String cleanTranscript(LlmProvider provider, List<TranscriptSegment> segments, LlmOptions options,
+            String promptTemplate) {
         List<SegmentChunk> chunks = chunksOf(segments);
         StringBuilder result = new StringBuilder();
         for (SegmentChunk chunk : chunks) {
-            String cleaned = llm.chat(prompts.get(promptTemplate), chunk.text(), options);
+            String cleaned = provider.chat(prompts.get(promptTemplate), chunk.text(), options);
             result.append(validate(cleaned, "очистку транскрипта")).append("\n\n");
         }
         return result.toString().strip();
@@ -60,17 +75,23 @@ public class TextProcessingService {
     /** Mode 2 with an explicit prompt template (used by recommended settings). */
     public StructuredNotes generateStructuredNotes(List<TranscriptSegment> segments, LlmOptions options,
             String promptTemplate) {
+        return generateStructuredNotes(llm, segments, options, promptTemplate);
+    }
+
+    /** Mode 2 against an explicitly resolved provider (per-task model routing). */
+    public StructuredNotes generateStructuredNotes(LlmProvider provider, List<TranscriptSegment> segments,
+            LlmOptions options, String promptTemplate) {
         List<SegmentChunk> chunks = chunksOf(segments);
         List<NoteSection> sections = new ArrayList<>();
         int index = 0;
         for (SegmentChunk chunk : chunks) {
             String user = "Фрагмент " + (++index) + " из " + chunks.size() + ":\n\n" + chunk.text();
-            String part = llm.chat(prompts.get(promptTemplate), user, options);
+            String part = provider.chat(prompts.get(promptTemplate), user, options);
             sections.add(new NoteSection(index, chunk.startMs(), chunk.endMs(),
                     validate(part, "структурирование конспекта")));
         }
-        String summary = summarize(sections.stream().map(NoteSection::markdown).reduce("", (a, b) -> a + "\n\n" + b),
-                options);
+        String summary = summarize(provider,
+                sections.stream().map(NoteSection::markdown).reduce("", (a, b) -> a + "\n\n" + b), options);
         String markdown = buildMarkdown(summary, sections);
         return new StructuredNotes(markdown, summary, sections);
     }
@@ -86,13 +107,18 @@ public class TextProcessingService {
 
     /** Short summary over already-produced material, bounded to a safe size. */
     public String summarize(String material, LlmOptions options) {
+        return summarize(llm, material, options);
+    }
+
+    /** Short summary against an explicitly resolved provider. */
+    public String summarize(LlmProvider provider, String material, LlmOptions options) {
         if (material == null || material.isBlank()) {
             return "";
         }
         String bounded = material.length() > SUMMARY_INPUT_LIMIT_CHARS
                 ? material.substring(0, SUMMARY_INPUT_LIMIT_CHARS)
                 : material;
-        String summary = llm.chat(prompts.get(PromptTemplates.SUMMARY), bounded, options);
+        String summary = provider.chat(prompts.get(PromptTemplates.SUMMARY), bounded, options);
         return validate(summary, "резюме");
     }
 

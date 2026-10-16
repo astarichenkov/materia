@@ -10,7 +10,9 @@ import com.lectureprocessor.domain.RagAnswer;
 import com.lectureprocessor.domain.SourceRef;
 import com.lectureprocessor.domain.Transcript;
 import com.lectureprocessor.llm.LlmOptions;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.LlmTaskResolver;
+import com.lectureprocessor.llm.LlmTaskType;
+import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.text.PromptTemplates;
 
 /**
@@ -24,12 +26,12 @@ public class RagService {
     private static final int EXCERPT_LENGTH = 240;
 
     private final RetrievalService retrieval;
-    private final LlmProvider llm;
+    private final LlmTaskResolver taskResolver;
     private final PromptTemplates prompts;
 
-    public RagService(RetrievalService retrieval, LlmProvider llm, PromptTemplates prompts) {
+    public RagService(RetrievalService retrieval, LlmTaskResolver taskResolver, PromptTemplates prompts) {
         this.retrieval = retrieval;
-        this.llm = llm;
+        this.taskResolver = taskResolver;
         this.prompts = prompts;
     }
 
@@ -63,7 +65,9 @@ public class RagService {
         user.append("Источники из лекции:\n\n").append(context)
                 .append("\nВопрос: ").append(question);
 
-        String answer = llm.chat(prompts.get(PromptTemplates.RAG_ANSWER), user.toString(), options).strip();
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
+        String answer = resolved.provider().chat(prompts.get(PromptTemplates.RAG_ANSWER), user.toString(),
+                options).strip();
         if (answer.isBlank()) {
             return RagAnswer.noEvidence();
         }

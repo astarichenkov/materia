@@ -5,9 +5,11 @@ import org.springframework.stereotype.Component;
 import com.lectureprocessor.domain.Transcript;
 import com.lectureprocessor.llm.LlmException;
 import com.lectureprocessor.llm.LlmOptions;
-import com.lectureprocessor.llm.LlmProvider;
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
+import com.lectureprocessor.llm.LlmTaskResolver;
+import com.lectureprocessor.llm.LlmTaskType;
+import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.HeavyStageLimiter;
@@ -32,18 +34,18 @@ import com.lectureprocessor.text.TextProcessingService;
 public class TextProcessingStage implements StageExecutor {
 
     private final TextProcessingService textProcessing;
-    private final LlmProvider llm;
+    private final LlmTaskResolver taskResolver;
     private final LlmSettingsService llmSettings;
     private final FileStorageService storage;
     private final TimingRepository timings;
     private final HeavyStageLimiter limiter;
     private final PipelineDataLoader loader;
 
-    public TextProcessingStage(TextProcessingService textProcessing, LlmProvider llm,
+    public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
             HeavyStageLimiter limiter, PipelineDataLoader loader) {
         this.textProcessing = textProcessing;
-        this.llm = llm;
+        this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
         this.storage = storage;
         this.timings = timings;
@@ -71,10 +73,12 @@ public class TextProcessingStage implements StageExecutor {
     @Override
     public StageResult execute(JobContext context) {
         long start = System.currentTimeMillis();
-        if (!llm.isAvailable()) {
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
+        if (!resolved.provider().isAvailable()) {
             return StageResult.failed(id(),
-                    "Локальная модель Ollama недоступна. Запустите Ollama и загрузите модель "
-                            + "(OLLAMA_BASE_URL / OLLAMA_CHAT_MODEL).",
+                    "LLM provider недоступен: " + resolved.providerId()
+                            + ". Для локального режима запустите Ollama и загрузите модель "
+                            + "(OLLAMA_BASE_URL / OLLAMA_CHAT_MODEL); для облака добавьте API key.",
                     System.currentTimeMillis() - start);
         }
         Transcript transcript = context.transcript();
@@ -85,19 +89,23 @@ public class TextProcessingStage implements StageExecutor {
             return StageResult.failed(id(), "Транскрипция недоступна для обработки текста",
                     System.currentTimeMillis() - start);
         }
-        LlmRunConfig config = llmSettings.current();
+        // Snapshot the resolved configuration so a running job is never affected
+        // by later settings changes and its checkpoint stays reproducible.
+        LlmRunConfig config = resolved.config();
         context.setLlmConfig(config);
-        LlmOptions options = config.toOptions();
+        LlmOptions options = resolved.options();
         String notesPrompt = config.promptTemplate() == null
                 ? PromptTemplates.STRUCTURED_NOTES : config.promptTemplate();
         boolean clean = context.lecture() != null && context.lecture().cleanTranscript();
         final Transcript source = transcript;
 
         String cleaned = limiter.run(context.cancellation(),
-                () -> clean ? textProcessing.cleanTranscript(source.segments(), options) : null);
+                () -> clean ? textProcessing.cleanTranscript(resolved.provider(), source.segments(), options)
+                        : null);
         context.cancellation().throwIfCancelled();
         StructuredNotes notes = limiter.run(context.cancellation(),
-                () -> textProcessing.generateStructuredNotes(source.segments(), options, notesPrompt));
+                () -> textProcessing.generateStructuredNotes(resolved.provider(), source.segments(), options,
+                        notesPrompt));
         context.cancellation().throwIfCancelled();
 
         loader.writeNotes(context.lectureId(), notes);

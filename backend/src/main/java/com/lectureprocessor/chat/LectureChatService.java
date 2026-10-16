@@ -13,8 +13,9 @@ import com.lectureprocessor.config.AppProperties;
 import com.lectureprocessor.domain.ChatMessage;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.domain.RagAnswer;
-import com.lectureprocessor.llm.LlmOptions;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.LlmTaskResolver;
+import com.lectureprocessor.llm.LlmTaskType;
+import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.lecture.LectureService;
 import com.lectureprocessor.rag.RagService;
 import com.lectureprocessor.repository.ChatMessageRepository;
@@ -30,17 +31,17 @@ public class LectureChatService {
     private final ChatMessageRepository chatRepository;
     private final RagService ragService;
     private final LectureService lectureService;
-    private final LlmProvider llm;
+    private final LlmTaskResolver taskResolver;
     private final AppProperties properties;
     private final ObjectMapper objectMapper;
 
     public LectureChatService(ChatMessageRepository chatRepository, RagService ragService,
-            LectureService lectureService, LlmProvider llm, AppProperties properties,
+            LectureService lectureService, LlmTaskResolver taskResolver, AppProperties properties,
             ObjectMapper objectMapper) {
         this.chatRepository = chatRepository;
         this.ragService = ragService;
         this.lectureService = lectureService;
-        this.llm = llm;
+        this.taskResolver = taskResolver;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -69,8 +70,9 @@ public class LectureChatService {
             recent.add(message.role() + ": " + message.content());
         }
 
-        LlmOptions options = LlmOptions.of(llm.defaultChatModel());
-        RagAnswer answer = ragService.answer(lectureId, lecture.originalFilename(), trimmed, recent, options);
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
+        RagAnswer answer = ragService.answer(lectureId, lecture.originalFilename(), trimmed, recent,
+                resolved.options());
 
         chatRepository.save(lectureId, sessionId, ChatMessage.ROLE_ASSISTANT, answer.text(),
                 serializeSources(answer));

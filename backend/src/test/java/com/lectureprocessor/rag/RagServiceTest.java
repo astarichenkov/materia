@@ -12,13 +12,15 @@ import com.lectureprocessor.domain.LectureChunk;
 import com.lectureprocessor.domain.RagAnswer;
 import com.lectureprocessor.llm.LlmOptions;
 import com.lectureprocessor.support.FakeLlmProvider;
+import com.lectureprocessor.support.FixedTaskResolver;
 import com.lectureprocessor.text.PromptTemplates;
 
 class RagServiceTest {
 
     private final RetrievalService retrieval = mock(RetrievalService.class);
     private final FakeLlmProvider llm = new FakeLlmProvider();
-    private final RagService service = new RagService(retrieval, llm, new PromptTemplates());
+    private final RagService service = new RagService(retrieval, new FixedTaskResolver(llm),
+            new PromptTemplates());
 
     @Test
     void answersWhenEvidenceFoundAndBuildsRealSources() {

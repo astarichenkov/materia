@@ -18,6 +18,7 @@ import com.lectureprocessor.mcp.McpTool;
 import com.lectureprocessor.mcp.McpToolRegistry;
 import com.lectureprocessor.mcp.McpToolResult;
 import com.lectureprocessor.support.FakeLlmProvider;
+import com.lectureprocessor.support.FixedTaskResolver;
 import com.lectureprocessor.support.TestProperties;
 import com.lectureprocessor.text.PromptTemplates;
 
@@ -66,7 +67,7 @@ class DeveloperAssistantServiceTest {
         executor.setQueueCapacity(10);
         executor.initialize();
         service = new DeveloperAssistantService(retrieval, mcpClient, new McpToolRegistry(List.of(BRANCH_TOOL)),
-                llm, new PromptTemplates(), TestProperties.defaults("."), sessions, executor);
+                new FixedTaskResolver(llm), new PromptTemplates(), TestProperties.defaults("."), sessions, executor);
     }
 
     @AfterEach
@@ -132,7 +133,7 @@ class DeveloperAssistantServiceTest {
     void toolFailuresAreRecordedButDoNotBreakAnswer() {
         McpToolClient failing = (name, arguments) -> new McpToolCallResult(false, "git недоступен");
         DeveloperAssistantService failingService = new DeveloperAssistantService(retrieval, failing,
-                new McpToolRegistry(List.of(BRANCH_TOOL)), llm, new PromptTemplates(),
+                new McpToolRegistry(List.of(BRANCH_TOOL)), new FixedTaskResolver(llm), new PromptTemplates(),
                 TestProperties.defaults("."), sessions, executor);
         when(retrieval.search(anyString())).thenReturn(List.of());
 

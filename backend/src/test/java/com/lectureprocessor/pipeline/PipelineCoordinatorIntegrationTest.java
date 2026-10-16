@@ -25,14 +25,19 @@ import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.domain.Transcript;
 import com.lectureprocessor.domain.TranscriptSegment;
-import com.lectureprocessor.llm.LlmOptions;
-import com.lectureprocessor.llm.LlmProvider;
+import com.lectureprocessor.llm.EmbeddingProvider;
+import com.lectureprocessor.llm.LlmRunConfig;
+import com.lectureprocessor.llm.LlmTaskSettingsService;
+import com.lectureprocessor.llm.LlmTaskType;
+import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.media.MediaSource;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.MediaSourceRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 import com.lectureprocessor.storage.FileStorageService;
+import com.lectureprocessor.support.FakeLlmProvider;
+import com.lectureprocessor.text.PromptTemplates;
 import com.lectureprocessor.transcription.TranscriptionService;
 import com.lectureprocessor.video.FfmpegService;
 
@@ -73,7 +78,18 @@ class PipelineCoordinatorIntegrationTest {
     @MockitoBean
     private TranscriptionService transcription;
     @MockitoBean
-    private LlmProvider llm;
+    private EmbeddingProvider embeddingProvider;
+    @MockitoBean
+    private LlmTaskSettingsService taskResolver;
+
+    private final FakeLlmProvider llm = new FakeLlmProvider();
+
+    private ResolvedLlmTask lectureTask() {
+        LlmRunConfig config = new LlmRunConfig("ollama", "test-model", 0.1, 1536, 4096, false,
+                PromptTemplates.STRUCTURED_NOTES);
+        return new ResolvedLlmTask(LlmTaskType.LECTURE_PROCESSING, config, llm, config.toOptions(),
+                false, null, false);
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -86,12 +102,12 @@ class PipelineCoordinatorIntegrationTest {
         jdbc.update("DELETE FROM slide");
         jdbc.update("DELETE FROM lecture");
 
-        when(llm.id()).thenReturn("ollama");
-        when(llm.defaultChatModel()).thenReturn("test-model");
-        when(llm.isAvailable()).thenReturn(true);
-        when(llm.chat(anyString(), anyString(), any(LlmOptions.class)))
-                .thenReturn("## Раздел\nСодержание конспекта лекции.");
-        when(llm.embed(any())).thenAnswer(invocation -> {
+        llm.setId("ollama");
+        llm.setChatFunction((system, user) -> "## Раздел\nСодержание конспекта лекции.");
+        when(taskResolver.resolve(any(LlmTaskType.class))).thenAnswer(invocation -> lectureTask());
+        when(embeddingProvider.isAvailable()).thenReturn(true);
+        when(embeddingProvider.id()).thenReturn("ollama");
+        when(embeddingProvider.embed(any())).thenAnswer(invocation -> {
             List<String> texts = invocation.getArgument(0);
             return texts.stream().map(t -> new float[32]).toList();
         });
@@ -140,8 +156,9 @@ class PipelineCoordinatorIntegrationTest {
     @Test
     void llmFailureDoesNotRerunWhisperOnRetry() throws Exception {
         String id = createLocalLecture("it-recovery");
-        when(llm.chat(anyString(), anyString(), any(LlmOptions.class)))
-                .thenThrow(new RuntimeException("Ollama недоступна"));
+        llm.setChatFunction((system, user) -> {
+            throw new RuntimeException("Ollama недоступна");
+        });
 
         coordinator.run(id);
 
@@ -153,8 +170,7 @@ class PipelineCoordinatorIntegrationTest {
                 .isEqualTo(StageState.FAILED);
 
         // Recover: LLM works again.
-        when(llm.chat(anyString(), anyString(), any(LlmOptions.class)))
-                .thenReturn("## Раздел\nГотовый конспект.");
+        llm.setChatFunction((system, user) -> "## Раздел\nГотовый конспект.");
         coordinator.run(id);
 
         assertThat(lectureRepository.findById(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
