@@ -153,6 +153,14 @@ public class CodeReviewApiController {
     }
 
     /** Manual review request (repository must be in the allow-list). */
-    public record ManualReviewRequest(String repository, Long prNumber, boolean force, boolean dryRun) {
+    public record ManualReviewRequest(String repository, Long prNumber, Boolean force, Boolean dryRun) {
+
+        public boolean force() {
+            return Boolean.TRUE.equals(force);
+        }
+
+        public boolean dryRun() {
+            return Boolean.TRUE.equals(dryRun);
+        }
     }
 }
