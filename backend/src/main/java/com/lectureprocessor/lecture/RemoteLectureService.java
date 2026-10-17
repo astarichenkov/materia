@@ -15,6 +15,11 @@ import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.media.MediaMetadata;
 import com.lectureprocessor.media.MediaSource;
+import com.lectureprocessor.multilingual.LanguageMode;
+import com.lectureprocessor.multilingual.LectureLanguage;
+import com.lectureprocessor.multilingual.LectureLanguageRepository;
+import com.lectureprocessor.multilingual.MultilingualProperties;
+import com.lectureprocessor.multilingual.TranslationMode;
 import com.lectureprocessor.process.CancellationToken;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.MediaSourceRepository;
@@ -33,14 +38,19 @@ public class RemoteLectureService {
     private final MediaSourceRepository mediaSourceRepository;
     private final VideoMetadataService metadataService;
     private final UrlSafetyValidator validator;
+    private final LectureLanguageRepository languageRepository;
+    private final MultilingualProperties multilingual;
 
     public RemoteLectureService(LectureRepository lectureRepository,
             MediaSourceRepository mediaSourceRepository, VideoMetadataService metadataService,
-            UrlSafetyValidator validator) {
+            UrlSafetyValidator validator, LectureLanguageRepository languageRepository,
+            MultilingualProperties multilingual) {
         this.lectureRepository = lectureRepository;
         this.mediaSourceRepository = mediaSourceRepository;
         this.metadataService = metadataService;
         this.validator = validator;
+        this.languageRepository = languageRepository;
+        this.multilingual = multilingual;
     }
 
     /** Validates the platform and returns preview metadata without downloading. */
@@ -51,6 +61,17 @@ public class RemoteLectureService {
 
     public Lecture createFromUrl(String url, String quality, boolean audioOnly, boolean cleanTranscript,
             boolean extractSlides) {
+        return createFromUrl(url, quality, audioOnly, cleanTranscript, extractSlides,
+                multilingual.defaultLanguageMode(), multilingual.defaultTranslationMode(),
+                multilingual.autoTranslate(), multilingual.targetLanguage());
+    }
+
+    /**
+     * Creates a remote lecture with explicit multilingual preferences.
+     */
+    public Lecture createFromUrl(String url, String quality, boolean audioOnly, boolean cleanTranscript,
+            boolean extractSlides, String languageMode, String translationMode,
+            boolean autoTranslate, String targetLanguage) {
         VideoPlatform platform = validator.validate(url);
         MediaMetadata metadata = metadataService.probe(url, new CancellationToken());
         MediaQuality selectedQuality = MediaQuality.fromLabel(quality);
@@ -70,8 +91,12 @@ public class RemoteLectureService {
                         metadata.externalId(), metadata.title(), metadata.uploader(),
                         metadata.durationMs(), metadata.rawJson(), null);
         mediaSourceRepository.save(source);
-        log.info("Remote lecture {} created from {} ({}), quality={}, audioOnly={}",
-                id, platform.displayName(), metadata.externalId(), selectedQuality.label(), audioOnly);
+        LectureLanguage language = LectureLanguage.defaults(id, languageMode, translationMode,
+                targetLanguage, autoTranslate);
+        languageRepository.save(language);
+        log.info("Remote lecture {} created from {} ({}), quality={}, audioOnly={}, language={}",
+                id, platform.displayName(), metadata.externalId(), selectedQuality.label(), audioOnly,
+                languageMode);
         return lecture;
     }
 }

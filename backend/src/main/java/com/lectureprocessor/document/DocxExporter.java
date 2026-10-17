@@ -18,6 +18,7 @@ import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.stereotype.Component;
 
 import com.lectureprocessor.domain.Transcript;
+import com.lectureprocessor.domain.TranscriptSegment;
 import com.lectureprocessor.text.NoteSection;
 import com.lectureprocessor.text.StructuredNotes;
 
@@ -52,12 +53,94 @@ public class DocxExporter {
                 addHeading(document, "Приложение: слайды", 1);
                 pending.forEach(slide -> insertImage(document, slide));
             }
+            write(document, output);
+        } catch (IOException e) {
+            throw new DocumentExportException("Не удалось создать DOCX: " + output, e);
+        }
+    }
+
+    /**
+     * Exports a timestamped transcript as a document, inserting slides near the
+     * segments whose time span contains the slide timestamp.
+     */
+    public void exportTranscript(Path output, String title, List<TranscriptSegment> segments,
+            List<SlideImage> slides, String languageLabel) {
+        List<SlideImage> pending = new ArrayList<>(slides);
+        try (XWPFDocument document = new XWPFDocument()) {
+            addHeading(document, title, 0);
+            if (languageLabel != null && !languageLabel.isBlank()) {
+                addParagraph(document, languageLabel);
+            }
+            for (TranscriptSegment segment : segments) {
+                List<SlideImage> matching = pending.stream()
+                        .filter(s -> s.timestampMs() >= segment.startMs()
+                                && s.timestampMs() <= Math.max(segment.endMs(), segment.startMs() + 1))
+                        .toList();
+                pending.removeAll(matching);
+                matching.forEach(slide -> insertImage(document, slide));
+                addParagraph(document, "[" + Transcript.formatTimestamp(segment.startMs()) + "] "
+                        + segment.text());
+            }
+            if (!pending.isEmpty()) {
+                addHeading(document, "Приложение: слайды", 1);
+                pending.forEach(slide -> insertImage(document, slide));
+            }
+            write(document, output);
+        } catch (IOException e) {
+            throw new DocumentExportException("Не удалось создать DOCX: " + output, e);
+        }
+    }
+
+    /** Exports a bilingual document: original and translation blocks per segment. */
+    public void exportBilingual(Path output, String title, List<BilingualLine> lines,
+            List<SlideImage> slides) {
+        List<SlideImage> pending = new ArrayList<>(slides);
+        try (XWPFDocument document = new XWPFDocument()) {
+            addHeading(document, title, 0);
+            for (BilingualLine line : lines) {
+                List<SlideImage> matching = pending.stream()
+                        .filter(s -> s.timestampMs() >= line.startMs()
+                                && s.timestampMs() <= Math.max(line.endMs(), line.startMs() + 1))
+                        .toList();
+                pending.removeAll(matching);
+                matching.forEach(slide -> insertImage(document, slide));
+                addHeading(document, "[" + Transcript.formatTimestamp(line.startMs()) + "]", 3);
+                XWPFParagraph original = document.createParagraph();
+                XWPFRun originalRun = original.createRun();
+                originalRun.setItalic(true);
+                originalRun.setText("EN: " + line.original());
+                XWPFParagraph translated = document.createParagraph();
+                XWPFRun translatedRun = translated.createRun();
+                translatedRun.setText("RU: " + line.translated());
+            }
+            if (!pending.isEmpty()) {
+                addHeading(document, "Приложение: слайды", 1);
+                pending.forEach(slide -> insertImage(document, slide));
+            }
+            write(document, output);
+        } catch (IOException e) {
+            throw new DocumentExportException("Не удалось создать DOCX: " + output, e);
+        }
+    }
+
+    private static void write(XWPFDocument document, Path output) {
+        try {
+            Path parent = output.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             try (var out = Files.newOutputStream(output)) {
                 document.write(out);
             }
         } catch (IOException e) {
             throw new DocumentExportException("Не удалось создать DOCX: " + output, e);
         }
+    }
+
+    /**
+     * One bilingual line: source and translated text with the original timeline.
+     */
+    public record BilingualLine(long startMs, long endMs, String original, String translated) {
     }
 
     private static void writeMarkdown(XWPFDocument document, String markdown) {

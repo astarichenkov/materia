@@ -243,6 +243,7 @@ public class PipelineCoordinator {
             case MEDIA_VALIDATION -> JobStatus.VALIDATING;
             case AUDIO_EXTRACTION -> JobStatus.EXTRACTING_AUDIO;
             case TRANSCRIPTION -> JobStatus.TRANSCRIBING;
+            case TRANSLATION -> JobStatus.TRANSLATING;
             case TEXT_PROCESSING, RAG_INDEXING -> JobStatus.PROCESSING_TEXT;
             case SLIDE_EXTRACTION -> JobStatus.EXTRACTING_SLIDES;
             case EXPORT -> JobStatus.EXPORTING;

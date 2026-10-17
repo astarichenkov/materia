@@ -41,6 +41,11 @@ public class WhisperCppTranscriptionService implements TranscriptionService {
 
     @Override
     public Transcript transcribe(Path audio) {
+        return transcribe(audio, properties.tools().whisperLanguage());
+    }
+
+    @Override
+    public Transcript transcribe(Path audio, String language) {
         String modelPath = properties.tools().whisperModelPath();
         if (modelPath == null || modelPath.isBlank()) {
             throw new TranscriptionException(
@@ -52,7 +57,6 @@ public class WhisperCppTranscriptionService implements TranscriptionService {
                 "-m", modelPath,
                 "-f", audio.toAbsolutePath().toString(),
                 "-oj", "-of", outputBase.toString()));
-        String language = properties.tools().whisperLanguage();
         if (language != null && !language.isBlank()) {
             command.add("-l");
             command.add(language);

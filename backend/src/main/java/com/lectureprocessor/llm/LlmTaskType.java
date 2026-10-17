@@ -14,6 +14,9 @@ public enum LlmTaskType {
     /** Project developer assistant ({@code /help}, docs RAG). */
     DEVELOPER_ASSISTANT("developer-assistant", "Developer Assistant"),
 
+    /** Multilingual lecture translation (Week 8). */
+    LECTURE_TRANSLATION("lecture-translation", "Lecture Translation"),
+
     /** Automated AI code review (Day 32 preparation). */
     CODE_REVIEW("code-review", "Code Review"),
 

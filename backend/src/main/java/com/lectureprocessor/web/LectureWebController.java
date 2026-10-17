@@ -16,6 +16,8 @@ import com.lectureprocessor.benchmark.BenchmarkRunService;
 import com.lectureprocessor.benchmark.BenchmarkService;
 import com.lectureprocessor.benchmark.BenchmarkUsageService;
 import com.lectureprocessor.chat.LectureChatService;
+import com.lectureprocessor.discovery.LocalSimilarityService;
+import com.lectureprocessor.discovery.VideoDiscoveryService;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.download.MediaQuality;
 import com.lectureprocessor.job.LectureJobService;
@@ -24,6 +26,7 @@ import com.lectureprocessor.lecture.LectureService;
 import com.lectureprocessor.lecture.RemoteLectureService;
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
+import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
 
 /**
@@ -42,12 +45,16 @@ public class LectureWebController {
     private final BenchmarkRunService benchmarkRuns;
     private final BenchmarkUsageService benchmarkUsage;
     private final LlmSettingsService llmSettings;
+    private final LectureLanguageService languages;
+    private final LocalSimilarityService similarities;
+    private final VideoDiscoveryService discovery;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
             LectureChatService chatService, BenchmarkService benchmarkService,
             BenchmarkRunService benchmarkRuns, BenchmarkUsageService benchmarkUsage,
-            LlmSettingsService llmSettings) {
+            LlmSettingsService llmSettings, LectureLanguageService languages,
+            LocalSimilarityService similarities, VideoDiscoveryService discovery) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -57,6 +64,9 @@ public class LectureWebController {
         this.benchmarkRuns = benchmarkRuns;
         this.benchmarkUsage = benchmarkUsage;
         this.llmSettings = llmSettings;
+        this.languages = languages;
+        this.similarities = similarities;
+        this.discovery = discovery;
     }
 
     @GetMapping("/")
@@ -69,9 +79,14 @@ public class LectureWebController {
     public String upload(@RequestParam("file") MultipartFile file,
             @RequestParam(name = "clean", defaultValue = "false") boolean clean,
             @RequestParam(name = "slides", defaultValue = "false") boolean slides,
+            @RequestParam(name = "languageMode", defaultValue = "AUTO") String languageMode,
+            @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
+            String translationMode,
+            @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
             RedirectAttributes redirect) {
         try {
-            Lecture lecture = lectureService.create(file, clean, slides);
+            Lecture lecture = lectureService.create(file, clean, slides, languageMode,
+                    translationMode, autoTranslate, "ru");
             jobService.submit(lecture.id());
             redirect.addFlashAttribute("message", "Лекция загружена, обработка запущена");
             return "redirect:/lectures/" + lecture.id();
@@ -87,10 +102,14 @@ public class LectureWebController {
             @RequestParam(name = "audioOnly", defaultValue = "false") boolean audioOnly,
             @RequestParam(name = "clean", defaultValue = "false") boolean clean,
             @RequestParam(name = "slides", defaultValue = "false") boolean slides,
+            @RequestParam(name = "languageMode", defaultValue = "AUTO") String languageMode,
+            @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
+            String translationMode,
+            @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
             RedirectAttributes redirect) {
         try {
             Lecture lecture = remoteLectureService.createFromUrl(url, quality, audioOnly, clean,
-                    slides);
+                    slides, languageMode, translationMode, autoTranslate, "ru");
             jobService.submit(lecture.id());
             redirect.addFlashAttribute("message", "Видео принято в обработку");
             return "redirect:/lectures/" + lecture.id();
@@ -113,9 +132,44 @@ public class LectureWebController {
 
     @GetMapping("/lectures/{id}")
     public String lecture(@PathVariable String id, Model model) {
-        model.addAttribute("lecture", lectureService.getRequired(id));
+        Lecture lecture = lectureService.getRequired(id);
+        model.addAttribute("lecture", lecture);
         model.addAttribute("job", jobStatusService.view(id));
+        model.addAttribute("language", languages.get(id));
+        model.addAttribute("translation", languages.view(id));
+        try {
+            model.addAttribute("similarLectures", similarities.similar(id));
+        } catch (RuntimeException e) {
+            model.addAttribute("similarLectures", java.util.List.of());
+        }
+        model.addAttribute("discoveryProviders", discovery.providerStatuses());
         return "lecture";
+    }
+
+    @PostMapping("/lectures/{id}/language")
+    public String updateLanguage(@PathVariable String id,
+            @RequestParam(name = "languageMode", defaultValue = "AUTO") String languageMode,
+            @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
+            String translationMode,
+            @RequestParam(name = "autoTranslate", defaultValue = "false") boolean autoTranslate,
+            RedirectAttributes redirect) {
+        lectureService.getRequired(id);
+        languages.update(id, com.lectureprocessor.multilingual.LanguageMode.from(languageMode),
+                com.lectureprocessor.multilingual.TranslationMode.from(translationMode),
+                autoTranslate, "ru");
+        redirect.addFlashAttribute("message",
+                "Языковые настройки сохранены. Запустите обработку заново, чтобы применить язык.");
+        return "redirect:/lectures/" + id;
+    }
+
+    @PostMapping("/lectures/{id}/detected-language")
+    public String correctDetectedLanguage(@PathVariable String id,
+            @RequestParam("language") String language, RedirectAttributes redirect) {
+        lectureService.getRequired(id);
+        languages.correctDetected(id, language);
+        redirect.addFlashAttribute("message",
+                "Определённый язык исправлен; перевод будет пересчитан при resume.");
+        return "redirect:/lectures/" + id;
     }
 
     @PostMapping("/lectures/{id}/process")

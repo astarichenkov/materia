@@ -16,6 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.lectureprocessor.config.AppProperties;
 import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.domain.Lecture;
+import com.lectureprocessor.multilingual.LectureLanguage;
+import com.lectureprocessor.multilingual.LectureLanguageRepository;
+import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.storage.FileStorageService;
 
@@ -33,14 +36,29 @@ public class LectureService {
     private final LectureRepository repository;
     private final FileStorageService storage;
     private final AppProperties properties;
+    private final LectureLanguageRepository languageRepository;
+    private final MultilingualProperties multilingual;
 
-    public LectureService(LectureRepository repository, FileStorageService storage, AppProperties properties) {
+    public LectureService(LectureRepository repository, FileStorageService storage,
+            AppProperties properties, LectureLanguageRepository languageRepository,
+            MultilingualProperties multilingual) {
         this.repository = repository;
         this.storage = storage;
         this.properties = properties;
+        this.languageRepository = languageRepository;
+        this.multilingual = multilingual;
     }
 
     public Lecture create(MultipartFile file, boolean cleanTranscript, boolean extractSlides) {
+        return create(file, cleanTranscript, extractSlides, multilingual.defaultLanguageMode(),
+                multilingual.defaultTranslationMode(), multilingual.autoTranslate(),
+                multilingual.targetLanguage());
+    }
+
+    /** Upload with explicit multilingual preferences. */
+    public Lecture create(MultipartFile file, boolean cleanTranscript, boolean extractSlides,
+            String languageMode, String translationMode, boolean autoTranslate,
+            String targetLanguage) {
         validate(file);
         String id = UUID.randomUUID().toString();
         String original = sanitizeFilename(file.getOriginalFilename());
@@ -55,7 +73,10 @@ public class LectureService {
                 file.getContentType(), JobStatus.UPLOADED, null, null,
                 cleanTranscript, extractSlides, null, null, null, null, now, now);
         repository.save(lecture);
-        log.info("Lecture {} uploaded: {} ({} bytes)", id, original, file.getSize());
+        languageRepository.save(LectureLanguage.defaults(id, languageMode, translationMode,
+                targetLanguage, autoTranslate));
+        log.info("Lecture {} uploaded: {} ({} bytes), language={}", id, original, file.getSize(),
+                languageMode);
         return lecture;
     }
 

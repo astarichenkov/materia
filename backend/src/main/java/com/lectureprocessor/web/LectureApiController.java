@@ -80,8 +80,13 @@ public class LectureApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public Lecture upload(@RequestParam("file") MultipartFile file,
             @RequestParam(name = "clean", defaultValue = "false") boolean clean,
-            @RequestParam(name = "slides", defaultValue = "false") boolean slides) {
-        return lectureService.create(file, clean, slides);
+            @RequestParam(name = "slides", defaultValue = "false") boolean slides,
+            @RequestParam(name = "languageMode", defaultValue = "AUTO") String languageMode,
+            @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
+            String translationMode,
+            @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate) {
+        return lectureService.create(file, clean, slides, languageMode, translationMode,
+                autoTranslate, "ru");
     }
 
     @PostMapping("/{id}/process")
@@ -117,7 +122,9 @@ public class LectureApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> createFromUrl(@RequestBody FromUrlRequest request) {
         Lecture lecture = remoteLectureService.createFromUrl(request.url(), request.quality(),
-                request.audioOnlyOrDefault(), request.cleanOrDefault(), request.slidesOrDefault());
+                request.audioOnlyOrDefault(), request.cleanOrDefault(), request.slidesOrDefault(),
+                request.languageModeOrDefault(), request.translationModeOrDefault(),
+                request.autoTranslateOrDefault(), "ru");
         boolean submitted = jobService.submit(lecture.id());
         return Map.of("lectureId", lecture.id(), "submitted", submitted);
     }
@@ -183,6 +190,13 @@ public class LectureApiController {
             case "transcript.md" -> "transcript.md";
             case "notes.md" -> "notes.md";
             case "notes.docx" -> "notes.docx";
+            case "transcript.original.md" -> "transcript.original.md";
+            case "transcript.ru.md" -> "transcript.ru.md";
+            case "transcript.bilingual.md" -> "transcript.bilingual.md";
+            case "notes.original.docx" -> "notes.original.docx";
+            case "notes.ru.docx" -> "notes.ru.docx";
+            case "notes.bilingual.docx" -> "notes.bilingual.docx";
+            case "translation.json" -> "translation.json";
             default -> throw new IllegalArgumentException("Неизвестный артефакт: " + artifact);
         };
         Path path = storage.resolve(lecture.id(), relative);

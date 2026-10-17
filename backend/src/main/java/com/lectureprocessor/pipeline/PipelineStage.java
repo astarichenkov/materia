@@ -10,6 +10,7 @@ public enum PipelineStage {
     MEDIA_VALIDATION("Проверка медиа"),
     AUDIO_EXTRACTION("Извлечение аудио"),
     TRANSCRIPTION("Распознавание речи"),
+    TRANSLATION("Перевод"),
     TEXT_PROCESSING("Обработка текста LLM"),
     RAG_INDEXING("Индексация RAG"),
     SLIDE_EXTRACTION("Извлечение слайдов"),

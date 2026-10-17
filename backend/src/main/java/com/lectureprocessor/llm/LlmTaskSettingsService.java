@@ -118,6 +118,7 @@ public class LlmTaskSettingsService implements LlmTaskResolver {
         return switch (task) {
             case LECTURE_PROCESSING -> lectureSettings.current();
             case DEVELOPER_ASSISTANT -> ollamaDefault(0.1, 2048, 8192, false);
+            case LECTURE_TRANSLATION -> translationDefault();
             case CODE_REVIEW -> codeReviewDefault();
             case SUPPORT_ASSISTANT -> ollamaDefault(0.1, 1536, 8192, false);
             case FILE_AGENT -> fileAgentDefault();
@@ -135,6 +136,21 @@ public class LlmTaskSettingsService implements LlmTaskResolver {
         if (deepSeekReady) {
             return new LlmRunConfig(DeepSeekLlmProvider.PROVIDER_ID, properties.deepseek().model(), 0.1, 3072,
                     8192, false, PromptTemplates.FILE_AGENT_PROPOSAL);
+        }
+        return ollamaDefault(0.1, 3072, 8192, false);
+    }
+
+    /**
+     * Translation prefers the configured cloud provider (DeepSeek Flash) when a
+     * credential exists, otherwise the local Ollama model. Never silent: the
+     * effective provider is shown in settings and stored in the translation row.
+     */
+    private LlmRunConfig translationDefault() {
+        boolean deepSeekReady = properties.deepseek().enabled()
+                && credentials.isConfigured(DeepSeekLlmProvider.PROVIDER_ID);
+        if (deepSeekReady) {
+            return new LlmRunConfig(DeepSeekLlmProvider.PROVIDER_ID, properties.deepseek().model(), 0.1,
+                    3072, 8192, false, PromptTemplates.LECTURE_TRANSLATION);
         }
         return ollamaDefault(0.1, 3072, 8192, false);
     }

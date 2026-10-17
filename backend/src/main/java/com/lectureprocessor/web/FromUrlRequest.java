@@ -8,7 +8,23 @@ public record FromUrlRequest(
         String quality,
         Boolean audioOnly,
         Boolean clean,
-        Boolean slides) {
+        Boolean slides,
+        String languageMode,
+        String translationMode,
+        Boolean autoTranslate) {
+
+    public String languageModeOrDefault() {
+        return languageMode == null || languageMode.isBlank() ? "AUTO" : languageMode;
+    }
+
+    public String translationModeOrDefault() {
+        return translationMode == null || translationMode.isBlank()
+                ? "TRANSLATE_TO_RUSSIAN" : translationMode;
+    }
+
+    public boolean autoTranslateOrDefault() {
+        return autoTranslate == null || autoTranslate;
+    }
 
     public boolean audioOnlyOrDefault() {
         return audioOnly != null && audioOnly;

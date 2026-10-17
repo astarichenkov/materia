@@ -30,6 +30,13 @@ public class PipelineDataLoader {
     public static final String NOTES_MD = "notes.md";
     public static final String CLEANED_TXT = "cleaned.txt";
     public static final String DOCX = "notes.docx";
+    public static final String TRANSLATION_JSON = "translation.json";
+    public static final String TRANSCRIPT_ORIGINAL_MD = "transcript.original.md";
+    public static final String TRANSCRIPT_RU_MD = "transcript.ru.md";
+    public static final String TRANSCRIPT_BILINGUAL_MD = "transcript.bilingual.md";
+    public static final String NOTES_ORIGINAL_DOCX = "notes.original.docx";
+    public static final String NOTES_RU_DOCX = "notes.ru.docx";
+    public static final String NOTES_BILINGUAL_DOCX = "notes.bilingual.docx";
 
     private final FileStorageService storage;
     private final LectureRepository lectureRepository;

@@ -50,6 +50,9 @@ public class PromptTemplates {
     public static final String FILE_AGENT_PLAN = "file-agent-plan-v1";
     public static final String FILE_AGENT_PROPOSAL = "file-agent-proposal-v1";
 
+    /** Week 8 multilingual lecture translation prompt. */
+    public static final String LECTURE_TRANSLATION = "lecture-translation-v1";
+
     /** Day 29 optimized prompt versions (more constrained, lower verbosity). */
     public static final String CLEAN_TRANSCRIPT_V2 = "clean-transcript-v2";
     public static final String STRUCTURED_NOTES_V2 = "structured-notes-v2";
@@ -70,7 +73,9 @@ public class PromptTemplates {
                 new Template(CLEAN_TRANSCRIPT_V2, "clean-transcript-v2",
                         "Более строгая очистка ASR (экспериментальный оптимизированный)."),
                 new Template(STRUCTURED_NOTES_V2, "structured-notes-v2",
-                        "Сжатый структурированный конспект (экспериментальный оптимизированный)."));
+                        "Сжатый структурированный конспект (экспериментальный оптимизированный)."),
+                new Template(LECTURE_TRANSLATION, "lecture-translation-v1",
+                        "Сегментный перевод лекции с сохранением терминов и структуры (Week 8)."));
     }
 
     public boolean exists(String name) {

@@ -224,6 +224,43 @@ app:
     poll-interval-seconds: ${CODE_REVIEW_POLL_SECONDS:60}
     publish: ${CODE_REVIEW_PUBLISH:true}
 
+
+  translation:
+    enabled: ${TRANSLATION_ENABLED:true}
+    default-language-mode: ${TRANSLATION_DEFAULT_LANGUAGE_MODE:AUTO}
+    default-translation-mode: ${TRANSLATION_DEFAULT_MODE:TRANSLATE_TO_RUSSIAN}
+    target-language: ${TRANSLATION_TARGET_LANGUAGE:ru}
+    auto-translate: ${TRANSLATION_AUTO:true}
+    preserve-original: true
+    prompt-template: lecture-translation-v1
+    prompt-version: v3
+    glossary-version: v1
+    max-batch-chars: ${TRANSLATION_MAX_BATCH_CHARS:2000}
+    max-segments-per-batch: ${TRANSLATION_MAX_SEGMENTS:4}
+    max-retries: ${TRANSLATION_MAX_RETRIES:1}
+    max-llm-calls: ${TRANSLATION_MAX_LLM_CALLS:200}
+    token-budget: ${TRANSLATION_TOKEN_BUDGET:200000}
+    timeout: ${TRANSLATION_TIMEOUT:3m}
+
+  # Week 8 smart video discovery.
+  discovery:
+    enabled: ${DISCOVERY_ENABLED:true}
+    cache-ttl: ${DISCOVERY_CACHE_TTL:24h}
+    error-cache-ttl: ${DISCOVERY_ERROR_CACHE_TTL:10m}
+    max-results-per-provider: ${DISCOVERY_MAX_RESULTS_PER_PROVIDER:15}
+    max-results: ${DISCOVERY_MAX_RESULTS:20}
+    max-queries: ${DISCOVERY_MAX_QUERIES:3}
+    similarity-top-k: ${DISCOVERY_SIMILARITY_TOP_K:8}
+    min-similarity: ${DISCOVERY_MIN_SIMILARITY:0.25}
+    min-online-relevance: ${DISCOVERY_MIN_ONLINE_RELEVANCE:0.20}
+    keyword-bonus-weight: ${DISCOVERY_KEYWORD_BONUS:0.10}
+    providers: ${DISCOVERY_PROVIDERS:youtube,vkontakte,rutube}
+    request-timeout: ${DISCOVERY_REQUEST_TIMEOUT:20s}
+    max-response-bytes: 2000000
+    youtube-api-base: ${YOUTUBE_API_BASE:https://www.googleapis.com/youtube/v3}
+    vk-api-base: ${VK_API_BASE:https://api.vk.com/method}
+    rutube-api-base: ${RUTUBE_API_BASE:https://rutube.ru/api}
+    exclude-private-query-terms: true
 management:
   endpoints:
     web:
@@ -236,3 +273,5 @@ management:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+
+  # Week 8 multilingual lecture processing.

@@ -1,8 +1,11 @@
 package com.lectureprocessor.pipeline.stage;
 
+import java.util.List;
+
 import org.springframework.stereotype.Component;
 
 import com.lectureprocessor.domain.Transcript;
+import com.lectureprocessor.domain.TranscriptSegment;
 import com.lectureprocessor.llm.LlmException;
 import com.lectureprocessor.llm.LlmOptions;
 import com.lectureprocessor.llm.LlmRunConfig;
@@ -10,6 +13,12 @@ import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.llm.LlmTaskResolver;
 import com.lectureprocessor.llm.LlmTaskType;
 import com.lectureprocessor.llm.ResolvedLlmTask;
+import com.lectureprocessor.multilingual.LectureLanguage;
+import com.lectureprocessor.multilingual.LectureLanguageRepository;
+import com.lectureprocessor.multilingual.MultilingualProperties;
+import com.lectureprocessor.multilingual.TranslationRepository;
+import com.lectureprocessor.multilingual.TranslationSegment;
+import com.lectureprocessor.multilingual.TranslationStatus;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.HeavyStageLimiter;
@@ -40,10 +49,14 @@ public class TextProcessingStage implements StageExecutor {
     private final TimingRepository timings;
     private final HeavyStageLimiter limiter;
     private final PipelineDataLoader loader;
+    private final TranslationRepository translations;
+    private final LectureLanguageRepository languageRepository;
+    private final MultilingualProperties multilingual;
 
     public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
-            HeavyStageLimiter limiter, PipelineDataLoader loader) {
+            HeavyStageLimiter limiter, PipelineDataLoader loader, TranslationRepository translations,
+            LectureLanguageRepository languageRepository, MultilingualProperties multilingual) {
         this.textProcessing = textProcessing;
         this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
@@ -51,6 +64,9 @@ public class TextProcessingStage implements StageExecutor {
         this.timings = timings;
         this.limiter = limiter;
         this.loader = loader;
+        this.translations = translations;
+        this.languageRepository = languageRepository;
+        this.multilingual = multilingual;
     }
 
     @Override
@@ -63,7 +79,11 @@ public class TextProcessingStage implements StageExecutor {
         LlmRunConfig config = llmSettings.current();
         String transcriptKey = Fingerprints.mediaKey(
                 storage.resolve(context.lectureId(), PipelineDataLoader.TRANSCRIPT_JSON));
-        return Fingerprints.of("text-processing", transcriptKey, String.valueOf(config.provider()),
+        String translationKey = translations.findLatest(context.lectureId())
+                .map(t -> t.id() + ":" + t.status() + ":" + t.segmentsTranslated())
+                .orElse("none");
+        return Fingerprints.of("text-processing", transcriptKey, translationKey,
+                String.valueOf(config.provider()),
                 String.valueOf(config.model()), String.valueOf(config.temperature()),
                 String.valueOf(config.maxTokens()), String.valueOf(config.contextWindow()),
                 String.valueOf(config.thinking()), String.valueOf(config.promptTemplate()),
@@ -97,7 +117,7 @@ public class TextProcessingStage implements StageExecutor {
         String notesPrompt = config.promptTemplate() == null
                 ? PromptTemplates.STRUCTURED_NOTES : config.promptTemplate();
         boolean clean = context.lecture() != null && context.lecture().cleanTranscript();
-        final Transcript source = transcript;
+        final Transcript source = translatedTranscript(context, transcript);
 
         String cleaned = limiter.run(context.cancellation(),
                 () -> clean ? textProcessing.cleanTranscript(resolved.provider(), source.segments(), options)
@@ -120,5 +140,31 @@ public class TextProcessingStage implements StageExecutor {
                         ArtifactManifest.required("notes", PipelineDataLoader.NOTES_JSON),
                         ArtifactManifest.optional("cleaned", PipelineDataLoader.CLEANED_TXT)),
                 System.currentTimeMillis() - start);
+    }
+
+    /**
+     * Uses the Russian translation for note generation when it exists and the
+     * lecture is configured for translation. Missing segments fall back to the
+     * original text, so a partial translation never loses content.
+     */
+    private Transcript translatedTranscript(JobContext context, Transcript original) {
+        LectureLanguage language = languageRepository.findOrDefault(context.lectureId(), multilingual);
+        if (!language.resolvedTranslationMode().wantsTranslation()) {
+            return original;
+        }
+        return translations.findLatest(context.lectureId())
+                .filter(t -> "ru".equals(t.targetLanguage()))
+                .filter(t -> t.status() == TranslationStatus.COMPLETED
+                        || t.status() == TranslationStatus.PARTIAL)
+                .map(t -> {
+                    List<TranslationSegment> parts = translations.segments(t.id());
+                    if (parts.isEmpty()) {
+                        return original;
+                    }
+                    List<TranscriptSegment> segments = parts.stream()
+                            .map(TranslationSegment::toTranscriptSegment).toList();
+                    return new Transcript(segments, original.rawJson());
+                })
+                .orElse(original);
     }
 }
