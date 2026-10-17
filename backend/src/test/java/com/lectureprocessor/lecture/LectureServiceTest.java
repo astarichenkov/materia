@@ -23,8 +23,11 @@ class LectureServiceTest {
 
     private final LectureRepository repository = mock(LectureRepository.class);
     private final FileStorageService storage = mock(FileStorageService.class);
+    private final com.lectureprocessor.multilingual.LectureLanguageRepository languages =
+            mock(com.lectureprocessor.multilingual.LectureLanguageRepository.class);
     private final LectureService service = new LectureService(repository, storage,
-            TestProperties.defaults("./target/test-data"));
+            TestProperties.defaults("./target/test-data"), languages,
+            com.lectureprocessor.multilingual.MultilingualProperties.defaults());
 
     @Test
     void createsLectureForValidUpload() {

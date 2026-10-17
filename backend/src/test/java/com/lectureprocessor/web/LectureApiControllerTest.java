@@ -3,6 +3,7 @@ package com.lectureprocessor.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -70,7 +71,8 @@ class LectureApiControllerTest {
 
     @Test
     void uploadsLecture() throws Exception {
-        when(lectureService.create(any(), anyBoolean(), anyBoolean())).thenReturn(lecture("abc"));
+        when(lectureService.create(any(), anyBoolean(), anyBoolean(), anyString(), anyString(),
+                anyBoolean(), anyString())).thenReturn(lecture("abc"));
         MockMultipartFile file = new MockMultipartFile("file", "lecture.mp4", "video/mp4", new byte[10]);
 
         mockMvc.perform(multipart("/api/lectures").file(file))

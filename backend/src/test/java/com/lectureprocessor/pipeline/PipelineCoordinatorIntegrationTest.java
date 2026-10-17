@@ -111,7 +111,7 @@ class PipelineCoordinatorIntegrationTest {
             List<String> texts = invocation.getArgument(0);
             return texts.stream().map(t -> new float[32]).toList();
         });
-        when(transcription.transcribe(any())).thenReturn(new Transcript(
+        when(transcription.transcribe(any(), anyString())).thenReturn(new Transcript(
                 List.of(new TranscriptSegment(0, 0, 5000, "Введение в тему лекции."),
                         new TranscriptSegment(1, 5000, 12000, "Основные определения.")),
                 TRANSCRIPT_JSON));
@@ -175,7 +175,7 @@ class PipelineCoordinatorIntegrationTest {
 
         assertThat(lectureRepository.findById(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
         // The expensive transcription ran exactly once across both runs.
-        verify(transcription, times(1)).transcribe(any());
+        verify(transcription, times(1)).transcribe(any(), anyString());
         verify(ffmpeg, times(1)).extractAudio(any(), any());
     }
 
@@ -199,7 +199,7 @@ class PipelineCoordinatorIntegrationTest {
 
         assertThat(lectureRepository.findById(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
         // Transcription (and audio/ffmpeg) still ran only once.
-        verify(transcription, times(1)).transcribe(any());
+        verify(transcription, times(1)).transcribe(any(), anyString());
         verify(ffmpeg, times(1)).extractAudio(any(), any());
     }
 
@@ -209,7 +209,7 @@ class PipelineCoordinatorIntegrationTest {
         coordinator.run(id);
         coordinator.run(id);
 
-        verify(transcription, times(1)).transcribe(any());
+        verify(transcription, times(1)).transcribe(any(), anyString());
         verify(ffmpeg, times(1)).extractAudio(any(), any());
     }
 
