@@ -66,7 +66,9 @@ class SchemaMigratorTest {
         // New tables created and version recorded.
         for (String table : List.of("media_source", "pipeline_job", "stage_checkpoint",
                 "download_state", "doc_chunk", "schema_migration", "provider_credential",
-                "support_ticket", "support_message", "support_tool_call")) {
+                "support_ticket", "support_message", "support_tool_call",
+                "file_agent_task", "file_agent_execution", "file_agent_tool_call",
+                "file_change_proposal", "proposed_file_change")) {
             Long count = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", Long.class, table);
             assertThat(count).as("table %s", table).isEqualTo(1L);
@@ -85,10 +87,13 @@ class SchemaMigratorTest {
         // Day 33 support assistant migration.
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM schema_migration WHERE version = 6", Long.class)).isEqualTo(1L);
+        // Day 34 file agent migration.
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM schema_migration WHERE version = 7", Long.class)).isEqualTo(1L);
 
         // Running the migrator again is idempotent.
         new SchemaMigrator(jdbc).run(null);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(5L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(6L);
         assertThat(Files.exists(db)).isTrue();
     }
 }

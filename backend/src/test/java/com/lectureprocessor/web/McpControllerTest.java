@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import tools.jackson.databind.ObjectMapper;
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.fileagent.FileAgentProperties;
 import com.lectureprocessor.mcp.McpProtocolHandler;
 import com.lectureprocessor.mcp.McpToolRegistry;
 
@@ -35,6 +36,8 @@ class McpControllerTest {
     private McpToolRegistry registry;
     @MockitoBean
     private AppProperties properties;
+    @MockitoBean
+    private FileAgentProperties fileAgentProperties;
 
     private void allowAnonymous() {
         when(properties.mcp()).thenReturn(new AppProperties.Mcp("", 20000));
@@ -43,7 +46,7 @@ class McpControllerTest {
     @Test
     void toolsListIsReturnedAsJsonRpc() throws Exception {
         allowAnonymous();
-        when(handler.handle(any())).thenReturn(Optional.of(objectMapper.readTree(
+        when(handler.handle(any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(Optional.of(objectMapper.readTree(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"tools\":[]}}")));
 
         mockMvc.perform(post("/mcp")
@@ -57,7 +60,7 @@ class McpControllerTest {
     @Test
     void notificationReturns202() throws Exception {
         allowAnonymous();
-        when(handler.handle(any())).thenReturn(Optional.empty());
+        when(handler.handle(any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/mcp")
                         .contentType("application/json")
@@ -78,7 +81,7 @@ class McpControllerTest {
     @Test
     void matchingApiKeyIsAccepted() throws Exception {
         when(properties.mcp()).thenReturn(new AppProperties.Mcp("secret", 20000));
-        when(handler.handle(any())).thenReturn(Optional.of(objectMapper.readTree(
+        when(handler.handle(any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(Optional.of(objectMapper.readTree(
                 "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}")));
 
         mockMvc.perform(post("/mcp")
@@ -96,6 +99,7 @@ class McpControllerTest {
         mockMvc.perform(get("/mcp"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.server").value("lecture-processor"))
-                .andExpect(jsonPath("$.tools").isArray());
+                .andExpect(jsonPath("$.tools").isArray())
+                .andExpect(jsonPath("$.profiles").isArray());
     }
 }
