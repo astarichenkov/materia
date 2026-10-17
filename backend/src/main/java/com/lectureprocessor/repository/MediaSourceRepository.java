@@ -70,6 +70,10 @@ public class MediaSourceRepository {
         return list.stream().findFirst();
     }
 
+    public List<MediaSource> findAll() {
+        return jdbc.query("SELECT * FROM media_source", MAPPER);
+    }
+
     public void deleteByLecture(String lectureId) {
         jdbc.update("DELETE FROM media_source WHERE lecture_id = ?", lectureId);
     }

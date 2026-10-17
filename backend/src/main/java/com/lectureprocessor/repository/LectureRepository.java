@@ -78,6 +78,16 @@ public class LectureRepository {
         jdbc.update("DELETE FROM pipeline_job WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM download_state WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM media_source WHERE lecture_id = ?", id);
+        jdbc.update("""
+                DELETE FROM translation_segment WHERE translation_id IN
+                (SELECT id FROM lecture_translation WHERE lecture_id = ?)
+                """, id);
+        jdbc.update("DELETE FROM lecture_translation WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_language WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_topic WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_similarity WHERE lecture_id = ? OR similar_lecture_id = ?",
+                id, id);
+        jdbc.update("DELETE FROM discovered_video WHERE imported_lecture_id = ?", id);
         jdbc.update("DELETE FROM lecture WHERE id = ?", id);
     }
 
