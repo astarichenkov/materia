@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.discovery.DiscoveryProperties;
+import com.lectureprocessor.multilingual.GlossaryEntry;
+import com.lectureprocessor.multilingual.MultilingualProperties;
+import com.lectureprocessor.multilingual.TranslationGlossaryService;
 import com.lectureprocessor.llm.DeepSeekLlmProvider;
 import com.lectureprocessor.llm.LlmProvider;
 import com.lectureprocessor.llm.LlmProviderRegistry;
@@ -52,10 +56,14 @@ public class ProviderSettingsController {
     private final AppProperties properties;
     private final AdminAccessService access;
     private final ObjectMapper objectMapper;
+    private final TranslationGlossaryService glossary;
+    private final MultilingualProperties multilingual;
+    private final DiscoveryProperties discovery;
 
     public ProviderSettingsController(LlmProviderRegistry registry, LlmTaskSettingsService taskSettings,
             ProviderCredentialService credentials, PromptTemplates prompts, AppProperties properties,
-            AdminAccessService access, ObjectMapper objectMapper) {
+            AdminAccessService access, ObjectMapper objectMapper, TranslationGlossaryService glossary,
+            MultilingualProperties multilingual, DiscoveryProperties discovery) {
         this.registry = registry;
         this.taskSettings = taskSettings;
         this.credentials = credentials;
@@ -63,6 +71,9 @@ public class ProviderSettingsController {
         this.properties = properties;
         this.access = access;
         this.objectMapper = objectMapper;
+        this.glossary = glossary;
+        this.multilingual = multilingual;
+        this.discovery = discovery;
     }
 
     @GetMapping
@@ -174,6 +185,70 @@ public class ProviderSettingsController {
         return "redirect:/settings";
     }
 
+    @PostMapping("/glossary")
+    public String addGlossary(@RequestParam("term") String term,
+            @RequestParam("translation") String translation,
+            @RequestParam(name = "caseSensitive", defaultValue = "false") boolean caseSensitive,
+            RedirectAttributes redirect) {
+        try {
+            if (term.isBlank() || translation.isBlank()) {
+                throw new IllegalArgumentException("Термин и перевод обязательны");
+            }
+            glossary.save(GlossaryEntry.newEntry(term.strip(), translation.strip(), "en", "ru",
+                    caseSensitive));
+            redirect.addFlashAttribute("message", "Термин добавлен в глоссарий");
+        } catch (RuntimeException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/settings#glossary";
+    }
+
+    @PostMapping("/glossary/{id}/delete")
+    public String deleteGlossary(@PathVariable long id, RedirectAttributes redirect) {
+        boolean deleted = glossary.delete(id);
+        redirect.addFlashAttribute(deleted ? "message" : "error",
+                deleted ? "Термин удалён" : "Встроенный термин удалить нельзя");
+        return "redirect:/settings#glossary";
+    }
+
+    @PostMapping("/glossary/{id}/toggle")
+    public String toggleGlossary(@PathVariable long id,
+            @RequestParam(name = "enabled", defaultValue = "true") boolean enabled,
+            RedirectAttributes redirect) {
+        glossary.setEnabled(id, enabled);
+        redirect.addFlashAttribute("message", "Глоссарий обновлён");
+        return "redirect:/settings#glossary";
+    }
+
+    /** Stores discovery provider credentials (encrypted, never returned). */
+    @PostMapping("/discovery/{id}/key")
+    public String saveDiscoveryKey(@PathVariable String id,
+            @RequestParam(name = "apiKey", required = false) String apiKey,
+            RedirectAttributes redirect) {
+        try {
+            if (apiKey == null || apiKey.isBlank()) {
+                redirect.addFlashAttribute("message", "Пустой ключ — настройки не изменены");
+                return "redirect:/settings#discovery";
+            }
+            if (!"youtube".equals(id) && !"vk".equals(id)) {
+                throw new IllegalArgumentException("Неизвестный discovery provider: " + id);
+            }
+            credentials.save(id, apiKey);
+            redirect.addFlashAttribute("message", "Ключ " + id + " сохранён (зашифрован)");
+        } catch (RuntimeException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/settings#discovery";
+    }
+
+    @PostMapping("/discovery/{id}/key/delete")
+    public String deleteDiscoveryKey(@PathVariable String id, RedirectAttributes redirect) {
+        boolean deleted = credentials.delete(id);
+        redirect.addFlashAttribute(deleted ? "message" : "error",
+                deleted ? "Ключ удалён" : "Ключ не был настроен");
+        return "redirect:/settings#discovery";
+    }
+
     private void addModel(Model model, HttpServletRequest request) {
         List<ProviderDescriptor> providers = registry.providers();
         Map<LlmTaskType, LlmRunConfig> taskConfigs = new EnumMap<>(LlmTaskType.class);
@@ -195,6 +270,11 @@ public class ProviderSettingsController {
         model.addAttribute("adminTokenConfigured", access.tokenConfigured());
         model.addAttribute("credentialMasterKeyFallback", credentials.usingFallbackMasterKey());
         model.addAttribute("current", taskConfigs.get(LlmTaskType.LECTURE_PROCESSING));
+        model.addAttribute("glossary", glossary.all());
+        model.addAttribute("translation", multilingual);
+        model.addAttribute("youtubeStatus", credentials.status("youtube"));
+        model.addAttribute("vkStatus", credentials.status("vk"));
+        model.addAttribute("discovery", discovery);
     }
 
     private void requireCloudProvider(String id) {

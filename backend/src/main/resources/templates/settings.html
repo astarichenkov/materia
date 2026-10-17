@@ -27,7 +27,7 @@
 </head>
 <body>
 <h1>AI Providers</h1>
-<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a> · <a href="/assistant">Ассистент</a>
+<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a> · <a href="/assistant">Ассистент</a> · <a href="/discover">Поиск видео</a>
 
 <div th:if="${message}" class="msg" th:text="${message}"></div>
 <div th:if="${error}" class="msg err" th:text="${error}"></div>
@@ -232,5 +232,110 @@
         window.syncModels = syncModels;
     })();
 </script>
+
+<!-- ============ Section C: Multilingual translation ============ -->
+<h2>Перевод лекций</h2>
+<p class="muted">
+    Задача <b>Lecture Translation</b> использует отдельную модель и по умолчанию выбирает DeepSeek Flash,
+    если сохранён ключ, иначе локальную Ollama. Оригинальная транскрипция всегда сохраняется отдельно.
+</p>
+<p class="muted">
+    Режим по умолчанию: <code th:text="${translation.defaultLanguageMode}"></code> /
+    <code th:text="${translation.defaultTranslationMode}"></code>,
+    целевой язык: <code th:text="${translation.targetLanguage}"></code>,
+    авто-перевод: <code th:text="${translation.autoTranslate}"></code>.
+    Батч: <span th:text="${translation.maxBatchChars}"></span> символов,
+    до <span th:text="${translation.maxSegmentsPerBatch}"></span> сегментов,
+    лимит вызовов <span th:text="${translation.maxLlmCalls}"></span>.
+</p>
+<div class="notice">
+    Облачный перевод отправляет текст лекции на сервер провайдера. Выбирайте DeepSeek только
+    если это допустимо для ваших данных; локальный режим Ollama не отправляет текст наружу.
+</div>
+
+<h2 id="glossary">Глоссарий перевода</h2>
+<p class="muted">Термины из глоссария обязательно сохраняются в переводе. Кодовые идентификаторы
+    (имена классов, API, команды) не переводятся.</p>
+<table style="width:100%;border-collapse:collapse">
+    <thead><tr><th>Термин</th><th>Перевод</th><th>Статус</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="entry : ${glossary}">
+        <td th:text="${entry.term}"></td>
+        <td th:text="${entry.translation}"></td>
+        <td th:text="${entry.enabled ? 'включён' : 'выключен'}"></td>
+        <td>
+            <form method="post" th:action="@{/settings/glossary/{id}/toggle(id=${entry.id})}" class="inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <input type="hidden" name="enabled" th:value="${!entry.enabled}">
+                <button type="submit" th:text="${entry.enabled ? 'Отключить' : 'Включить'}"></button>
+            </form>
+            <form method="post" th:action="@{/settings/glossary/{id}/delete(id=${entry.id})}" class="inline"
+                  th:if="${!entry.builtin}">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}">
+                <button type="submit">Удалить</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+<form method="post" action="/settings/glossary" style="margin-top:.8rem">
+    <input type="hidden" name="_csrf" th:value="${csrfToken}">
+    <div class="grid three">
+        <div><label>Термин (EN)</label><input name="term" required></div>
+        <div><label>Перевод (RU)</label><input name="translation" required></div>
+        <div><label><input type="checkbox" name="caseSensitive"> учитывать регистр</label>
+            <button type="submit">Добавить термин</button></div>
+    </div>
+</form>
+
+<!-- ============ Section D: Video discovery ============ -->
+<h2 id="discovery">Smart Video Discovery</h2>
+<p class="muted">
+    Провайдеры: <span th:text="${#strings.listJoin(discovery.providers, ', ')}"></span>.
+    Кэш успешных поисков: <span th:text="${discovery.cacheTtl}"></span>,
+    ошибки: <span th:text="${discovery.errorCacheTtl}"></span>,
+    лимит результатов: <span th:text="${discovery.maxResults}"></span>.
+</p>
+<p class="muted">
+    YouTube работает через официальный Data API v3 при наличии ключа, иначе через
+    поддерживаемый поиск yt-dlp. VK/VK Видео требует user access token для
+    <code>video.search</code>. Rutube использует публичный search API.
+</p>
+<fieldset>
+    <legend>YouTube API key</legend>
+    <p>Статус:
+        <span th:if="${youtubeStatus.configured}" class="ok">настроен
+            <span th:text="'(' + ${youtubeStatus.keyHint} + ')'"></span></span>
+        <span th:unless="${youtubeStatus.configured}" class="bad">не настроен (будет yt-dlp search)</span>
+    </p>
+    <form method="post" action="/settings/discovery/youtube/key">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <label>Новый ключ (пустое поле не меняет существующий)</label>
+        <input type="password" name="apiKey" autocomplete="off" placeholder="AIza...">
+        <div class="card-actions"><button type="submit">Сохранить ключ</button></div>
+    </form>
+    <form method="post" action="/settings/discovery/youtube/key/delete" class="inline">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <button type="submit" th:disabled="${!youtubeStatus.configured}">Удалить ключ</button>
+    </form>
+</fieldset>
+<fieldset>
+    <legend>VK access token</legend>
+    <p>Статус:
+        <span th:if="${vkStatus.configured}" class="ok">настроен
+            <span th:text="'(' + ${vkStatus.keyHint} + ')'"></span></span>
+        <span th:unless="${vkStatus.configured}" class="bad">не настроен — поиск VK недоступен</span>
+    </p>
+    <form method="post" action="/settings/discovery/vk/key">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <label>Новый VK access token</label>
+        <input type="password" name="apiKey" autocomplete="off">
+        <div class="card-actions"><button type="submit">Сохранить токен</button></div>
+    </form>
+    <form method="post" action="/settings/discovery/vk/key/delete" class="inline">
+        <input type="hidden" name="_csrf" th:value="${csrfToken}">
+        <button type="submit" th:disabled="${!vkStatus.configured}">Удалить токен</button>
+    </form>
+</fieldset>
 </body>
 </html>

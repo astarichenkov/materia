@@ -15,6 +15,7 @@
         .source-box { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
         .source-box h3 { margin-top: 0; }
         fieldset { border: 1px solid #ddd; margin-bottom: 1rem; }
+        .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .6rem; margin: .6rem 0; }
     </style>
 </head>
 <body>
@@ -28,6 +29,23 @@
         <input type="file" name="file" accept="video/*" required>
         <label><input type="checkbox" name="clean"> очистка транскрипта</label>
         <label><input type="checkbox" name="slides"> извлечь слайды</label>
+        <div class="grid">
+            <label>Язык источника
+                <select name="languageMode">
+                    <option value="AUTO" selected>Auto</option>
+                    <option value="ENGLISH">English</option>
+                    <option value="RUSSIAN">Russian</option>
+                </select>
+            </label>
+            <label>Перевод
+                <select name="translationMode">
+                    <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
+                    <option value="BILINGUAL">Двуязычный</option>
+                    <option value="ORIGINAL_ONLY">Только оригинал</option>
+                </select>
+            </label>
+            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
+        </div>
         <button type="submit">Загрузить и обработать</button>
     </form>
 </div>
@@ -52,6 +70,23 @@
         <label><input type="checkbox" name="audioOnly"> только аудио</label>
         <label><input type="checkbox" name="clean"> очистка транскрипта</label>
         <label><input type="checkbox" name="slides"> извлечь слайды</label>
+        <div class="grid">
+            <label>Язык источника
+                <select name="languageMode">
+                    <option value="AUTO" selected>Auto</option>
+                    <option value="ENGLISH">English</option>
+                    <option value="RUSSIAN">Russian</option>
+                </select>
+            </label>
+            <label>Перевод
+                <select name="translationMode">
+                    <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
+                    <option value="BILINGUAL">Двуязычный</option>
+                    <option value="ORIGINAL_ONLY">Только оригинал</option>
+                </select>
+            </label>
+            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
+        </div>
         <button type="submit">Скачать и обработать</button>
     </form>
 </div>
@@ -70,6 +105,7 @@
     <tr th:if="${#lists.isEmpty(lectures)}"><td colspan="4">Пока нет лекций</td></tr>
     </tbody>
 </table>
-<p><a href="/benchmarks">Бенчмарки</a> · <a href="/assistant">Ассистент разработчика</a></p>
+<p><a href="/discover">Smart Video Discovery</a> · <a href="/benchmarks">Бенчмарки</a> ·
+    <a href="/assistant">Ассистент разработчика</a></p>
 </body>
 </html>

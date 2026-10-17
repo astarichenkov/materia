@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск видео — Lecture Processor</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1100px; }
+        .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .8rem; }
+        .grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        label { display: block; font-size: .85rem; color: #444; }
+        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+        .muted { color: #666; font-size: .88rem; }
+        .ok { color: #0a7d28; font-weight: 600; }
+        .bad { color: #b00020; font-weight: 600; }
+        .msg { background: #eef; padding: .6rem; margin-bottom: 1rem; }
+        .err { background: #fee; color: #b00020; padding: .6rem; margin-bottom: 1rem; }
+        .card { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .score { font-weight: 700; }
+        form.inline { display: inline; }
+    </style>
+</head>
+<body>
+<h1>Smart Video Discovery</h1>
+<a href="/">← К лекциям</a> · <a href="/settings#discovery">Настройки провайдеров</a>
+
+<div th:if="${message}" class="msg" th:text="${message}"></div>
+<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<div th:if="${searchError}" class="msg err" th:text="${searchError}"></div>
+<div th:if="${similarError}" class="msg err" th:text="${similarError}"></div>
+
+<div class="card">
+    <h2>Поиск</h2>
+    <p class="muted">
+        Поиск по теме или по уже обработанной лекции. Запросы формируются из темы,
+        без персональных данных. Онлайн-релевантность считается по названию и описанию —
+        содержимое найденных видео не скачивается.
+    </p>
+    <form method="get" action="/discover">
+        <div class="grid">
+            <div>
+                <label>Лекция (для похожих и запросов)</label>
+                <select name="lectureId">
+                    <option value="">— не выбрана —</option>
+                    <option th:each="lecture : ${lectures}" th:value="${lecture.id}"
+                            th:text="${lecture.originalFilename}"
+                            th:selected="${lecture.id == selectedLectureId}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Тема / запрос</label>
+                <input name="query" th:value="${query}" placeholder="например: retrieval augmented generation">
+            </div>
+            <div>
+                <label>Платформа</label>
+                <select name="platform">
+                    <option value="">Все</option>
+                    <option th:each="p : ${providers}" th:value="${p.id}"
+                            th:text="${p.displayName}" th:selected="${p.id == platform}"></option>
+                </select>
+            </div>
+            <div>
+                <label>Язык</label>
+                <select name="language">
+                    <option value="">Любой</option>
+                    <option value="ru" th:selected="${language == 'ru'}">Русский</option>
+                    <option value="en" th:selected="${language == 'en'}">Английский</option>
+                </select>
+            </div>
+            <div><label>Мин. длительность, сек</label><input type="number" name="minDuration" th:value="${minDuration}"></div>
+            <div><label>Макс. длительность, сек</label><input type="number" name="maxDuration" th:value="${maxDuration}"></div>
+            <div><label>Макс. результатов</label><input type="number" name="maxResults" th:value="${maxResults}"></div>
+            <div><label>&nbsp;</label><button type="submit">Найти</button></div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Провайдеры</h2>
+    <table>
+        <thead><tr><th>Провайдер</th><th>Доступность</th><th>Метод</th><th>Ограничение</th></tr></thead>
+        <tbody>
+        <tr th:each="p : ${providers}">
+            <td th:text="${p.displayName}"></td>
+            <td>
+                <span th:if="${p.available}" class="ok">доступен</span>
+                <span th:unless="${p.available}" class="bad">недоступен</span>
+            </td>
+            <td th:text="${p.method}"></td>
+            <td class="muted" th:text="${p.available ? p.message : p.message}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" th:if="${similarLectures != null}">
+    <h2>Похожие лекции в библиотеке</h2>
+    <table th:if="${!#lists.isEmpty(similarLectures)}">
+        <thead><tr><th>Лекция</th><th>Похожесть</th><th>Язык</th><th>Длительность</th><th>Общие темы</th></tr></thead>
+        <tbody>
+        <tr th:each="s : ${similarLectures}">
+            <td><a th:href="@{/lectures/{id}(id=${s.lectureId})}" th:text="${s.title}"></a></td>
+            <td><span class="score" th:text="${s.scorePercent()} + '%'"></span>
+                <span class="muted" th:text="'(' + ${s.basis} + ')'"></span></td>
+            <td th:text="${s.language ?: 'unknown'}"></td>
+            <td th:text="${s.durationMs != null ? (s.durationMs / 60000) + ' мин' : 'unknown'}"></td>
+            <td th:text="${#lists.isEmpty(s.commonTopics) ? '—' : #strings.listJoin(s.commonTopics, ', ')}"></td>
+        </tr>
+        </tbody>
+    </table>
+    <p th:if="${#lists.isEmpty(similarLectures)}" class="muted">Похожих лекций не найдено.</p>
+</div>
+
+<div class="card" th:if="${search != null}">
+    <h2>Результаты поиска</h2>
+    <p class="muted">
+        Запросы: <span th:text="${#strings.listJoin(search.generatedQueries, ' | ')}"></span>.
+        Релевантность: <code th:text="${search.relevanceBasis}"></code>
+        <span th:if="${search.cached}">· из кэша</span>
+    </p>
+    <div th:if="${!#lists.isEmpty(search.warnings)}" class="muted">
+        <b>Предупреждения:</b>
+        <ul><li th:each="w : ${search.warnings}" th:text="${w}"></li></ul>
+    </div>
+    <table th:if="${!#lists.isEmpty(search.results)}">
+        <thead><tr><th>Видео</th><th>Провайдер</th><th>Релевантность</th><th>Метаданные</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="v : ${search.results}">
+            <td>
+                <a th:href="${v.canonicalUrl}" target="_blank" rel="noopener noreferrer"
+                   th:text="${v.title}"></a>
+                <div class="muted" th:text="${v.channel ?: ''}"></div>
+                <div class="muted" th:text="${v.description != null and v.description.length() > 200
+                        ? v.description.substring(0, 200) + '…' : (v.description ?: '')}"></div>
+            </td>
+            <td th:text="${v.provider}"></td>
+            <td>
+                <span class="score" th:text="${#numbers.formatDecimal(v.relevance * 100, 1, 0)} + '%'"></span>
+                <div class="muted" th:text="${v.relevanceBasis}"></div>
+            </td>
+            <td class="muted">
+                <div th:text="'язык: ' + (${v.language ?: 'unknown'})"></div>
+                <div th:text="'длительность: ' + (${v.durationMs != null
+                        ? (v.durationMs / 60000) + ' мин' : 'unknown'})"></div>
+                <div th:text="'опубликовано: ' + (${v.publishedAt ?: 'unknown'})"></div>
+            </td>
+            <td>
+                <a th:if="${v.importedLectureId != null}"
+                   th:href="@{/lectures/{id}(id=${v.importedLectureId})}">Уже в библиотеке</a>
+                <form th:unless="${v.importedLectureId != null}" method="post" action="/discover/import"
+                      class="inline">
+                    <input type="hidden" name="provider" th:value="${v.provider}">
+                    <input type="hidden" name="externalId" th:value="${v.externalId}">
+                    <input type="hidden" name="url" th:value="${v.canonicalUrl}">
+                    <label><input type="checkbox" name="clean"> очистка</label>
+                    <label><input type="checkbox" name="slides"> слайды</label>
+                    <button type="submit">Добавить в библиотеку</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <p th:if="${#lists.isEmpty(search.results)}" class="muted">Ничего не найдено.</p>
+</div>
+
+<div class="card" th:if="${!#lists.isEmpty(recent)}">
+    <h2>Недавно найденные видео</h2>
+    <ul>
+        <li th:each="v : ${recent}">
+            <a th:href="${v.canonicalUrl}" target="_blank" rel="noopener noreferrer" th:text="${v.title}"></a>
+            <span class="muted" th:text="' — ' + ${v.provider}"></span>
+        </li>
+    </ul>
+</div>
+</body>
+</html>
