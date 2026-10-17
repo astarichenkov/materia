@@ -18,7 +18,10 @@ public enum LlmTaskType {
     CODE_REVIEW("code-review", "Code Review"),
 
     /** User-facing support assistant (Day 33). */
-    SUPPORT_ASSISTANT("support-assistant", "Support Assistant");
+    SUPPORT_ASSISTANT("support-assistant", "Support Assistant"),
+
+    /** Autonomous file agent (Day 34). */
+    FILE_AGENT("file-agent", "File Agent");
 
     private final String id;
     private final String label;

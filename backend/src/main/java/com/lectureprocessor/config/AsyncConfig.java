@@ -67,6 +67,25 @@ public class AsyncConfig {
     }
 
     /**
+     * Dedicated single-thread executor for autonomous file-agent tasks. File
+     * analysis and proposal generation are serialised and bounded, so a burst of
+     * UI requests cannot exhaust memory or the local model.
+     */
+    @Bean(name = "fileAgentExecutor")
+    public ThreadPoolTaskExecutor fileAgentExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("file-agent-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * Dedicated single-thread executor for automated AI code reviews. Reviews are
      * serialised (one LLM-heavy job at a time) and the queue is bounded so a
      * burst of webhooks cannot exhaust memory. The webhook endpoint never blocks

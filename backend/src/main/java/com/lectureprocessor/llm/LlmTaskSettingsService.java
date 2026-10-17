@@ -120,7 +120,23 @@ public class LlmTaskSettingsService implements LlmTaskResolver {
             case DEVELOPER_ASSISTANT -> ollamaDefault(0.1, 2048, 8192, false);
             case CODE_REVIEW -> codeReviewDefault();
             case SUPPORT_ASSISTANT -> ollamaDefault(0.1, 1536, 8192, false);
+            case FILE_AGENT -> fileAgentDefault();
         };
+    }
+
+    /**
+     * File agent proposes file changes, so DeepSeek is the recommended provider
+     * when a credential exists; otherwise the local Ollama model is used. Never
+     * silently changes another task's configuration.
+     */
+    private LlmRunConfig fileAgentDefault() {
+        boolean deepSeekReady = properties.deepseek().enabled()
+                && credentials.isConfigured(DeepSeekLlmProvider.PROVIDER_ID);
+        if (deepSeekReady) {
+            return new LlmRunConfig(DeepSeekLlmProvider.PROVIDER_ID, properties.deepseek().model(), 0.1, 3072,
+                    8192, false, PromptTemplates.FILE_AGENT_PROPOSAL);
+        }
+        return ollamaDefault(0.1, 3072, 8192, false);
     }
 
     private LlmRunConfig codeReviewDefault() {
