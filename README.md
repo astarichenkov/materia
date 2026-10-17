@@ -4,16 +4,21 @@
 в структурированные текстовые документы с использованием Whisper,
 локальной LLM (Ollama + Qwen3) и локального RAG.
 
-Основная цепочка (Week 7):
+Основная цепочка (Week 7 + Week 8):
 
     MediaSource → yt-dlp → MediaArtifact → Resumable Pipeline
-      → FFmpeg/Whisper/LLM/Slides → Markdown + DOCX
+      → FFmpeg/Whisper/(Translation)/LLM/Slides → Markdown + DOCX
+      → локальные рекомендации + online video discovery
+
+Week 8: автоматическое определение языка, возобновляемый перевод EN→RU,
+глоссарий, оригинальные/русские/двуязычные документы и умный поиск похожих
+видео (`/discover`).
 
 ## Модули
 
 | Модуль | Назначение |
 |--------|-----------|
-| `backend/` | Модульный монолит: загрузка лекций (файл или URL), обработка, транскрипция, LLM, RAG, DOCX, слайды, бенчмарки. |
+| `backend/` | Модульный монолит: загрузка лекций (файл или URL), обработка, транскрипция, мультиязычный перевод, LLM, RAG, DOCX, слайды, discovery, бенчмарки. |
 | `private-ai-chat/` | Day 30: отдельный минимальный сервис приватного чата с локальной LLM (веб-чат + HTTP API). |
 
 ## Требования
@@ -78,7 +83,17 @@ yt-dlp --version
 | Метод | Endpoint | Назначение |
 |-------|----------|-----------|
 | `POST` | `/api/lectures` | загрузка локального файла (как раньше) |
-| `POST` | `/api/lectures/from-url` | создать лекцию по URL (JSON: `url, quality, audioOnly, clean, slides`) |
+| `POST` | `/api/lectures/from-url` | создать лекцию по URL (JSON: `url, quality, audioOnly, clean, slides, languageMode, translationMode, autoTranslate`) |
+| `GET` | `/api/lectures/{id}/language` | язык, режим перевода и обнаруженный язык |
+| `POST` | `/api/lectures/{id}/language` | вручную задать язык/режим перевода |
+| `POST` | `/api/lectures/{id}/language/detected` | скорректировать определённый язык |
+| `GET` | `/api/lectures/{id}/translation` | статус перевода и сегменты |
+| `GET` | `/api/lectures/{id}/download/{artifact}` | оригинал / перевод / двуязычные документы (`transcript.ru.md`, `notes.ru.docx`, `notes.bilingual.docx`, …) |
+| `GET` | `/discover` | UI локальных рекомендаций и онлайн-поиска |
+| `POST` | `/api/discovery/search` | поиск видео у реальных провайдеров |
+| `GET` | `/api/discovery/similar/{lectureId}` | похожие лекции (cosine) |
+| `GET` | `/api/discovery/providers` | статус и ограничения провайдеров |
+| `POST` | `/api/discovery/import` | добавить найденное видео в библиотеку |
 | `GET` | `/api/lectures/metadata?url=` | предпросмотр метаданных без скачивания |
 | `GET` | `/api/lectures/platforms` | список поддерживаемых платформ |
 | `GET` | `/api/lectures/{id}/progress` | статус, этапы, прогресс скачивания, ошибки |
@@ -99,7 +114,11 @@ yt-dlp --version
 ## Resumable pipeline
 
 Стадии: `SOURCE_RESOLUTION → DOWNLOADING → MEDIA_VALIDATION → AUDIO_EXTRACTION
-→ TRANSCRIPTION → TEXT_PROCESSING → RAG_INDEXING → SLIDE_EXTRACTION → EXPORT`.
+→ TRANSCRIPTION → TRANSLATION → TEXT_PROCESSING → RAG_INDEXING
+→ SLIDE_EXTRACTION → EXPORT`.
+
+`TRANSLATION` — необязательная стадия: сбой переводчика сохраняет оригинал,
+задача становится `PARTIAL`, а Whisper и скачивание не повторяются.
 
 - Каждая стадия сохраняет **checkpoint** в SQLite (состояние, fingerprint,
   manifest артефактов, ошибка, время).
@@ -113,6 +132,42 @@ yt-dlp --version
 - `SLIDE_EXTRACTION` — отдельная стадия с ограничением числа кадров на уровне
   FFmpeg; ошибка слайдов не скрывается: задача завершается `PARTIAL` с
   предупреждением, но документ экспортируется.
+
+## Мультиязычная обработка (Week 8)
+
+* `AUTO / ENGLISH / RUSSIAN` для исходного языка; язык определяется по JSON
+  whisper.cpp (`result.language`), confidence сохраняется только если инструмент
+  его реально вернул.
+* Перевод EN→RU по сегментам с сохранением timestamps, ID и порядка; русская
+  лекция повторно не переводится.
+* Отдельная задача `LECTURE_TRANSLATION` в `/settings` (DeepSeek Flash, если
+  настроен ключ, иначе Ollama).
+* Возобновление: каждая успешная партия сегментов сохраняется сразу; повтор
+  переводит только отсутствующие/сомнительные сегменты.
+* Глоссарий терминов (`/settings → Глоссарий перевода`) и проверки качества
+  (кириллица, числа, термины, пустые сегменты) — без выдуманного «процента
+  уверенности».
+* Документы: оригинал, русский перевод, двуязычный вариант (Markdown + DOCX),
+  слайды сохраняются во всех вариантах.
+
+Подробно: `docs/multilingual-processing-guide.md`,
+`docs/translation-glossary-guide.md`, дизайн — `docs/multilingual-video-discovery-design.md`.
+
+## Поиск похожих видео (Week 8)
+
+* Локальные рекомендации: topic profile (title + summary + key topics +
+  transcript) → локальные embeddings → cosine similarity. Текущая лекция и
+  дубликаты исключены.
+* Онлайн: `YouTubeVideoSearchProvider` (Data API v3 или поддерживаемый
+  `yt-dlp ytsearchN:`), `VkVideoSearchProvider` (VK API `video.search`, нужен
+  user token), `RutubeVideoSearchProvider` (публичный search API).
+* Двухступенчатое ранжирование: retrieval по запросам → cosine по
+  title/description с ограниченным keyword-bonus. Для онлайн-результатов
+  basis явно показывает, что транскрипт не проверялся.
+* SQLite-кэш с TTL, дедупликация по canonical URL/provider id, фильтры,
+  one-click import через существующий yt-dlp pipeline.
+
+Подробно: `docs/video-discovery-guide.md`.
 
 ## Ассистент разработчика (Day 31)
 
@@ -349,6 +404,17 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 
 | Переменная | Назначение | По умолчанию |
 |------------|-----------|--------------|
+| `TRANSLATION_ENABLED` | включить стадию перевода | `true` |
+| `TRANSLATION_DEFAULT_LANGUAGE_MODE` | язык источника по умолчанию | `AUTO` |
+| `TRANSLATION_DEFAULT_MODE` | режим документов | `TRANSLATE_TO_RUSSIAN` |
+| `TRANSLATION_AUTO` | авто-перевод английских лекций | `true` |
+| `TRANSLATION_MAX_SEGMENTS` | сегментов на один LLM-запрос | `4` |
+| `TRANSLATION_MAX_LLM_CALLS` | лимит LLM-вызовов на лекцию | `200` |
+| `DISCOVERY_ENABLED` | включить discovery | `true` |
+| `DISCOVERY_PROVIDERS` | провайдеры поиска | `youtube,vkontakte,rutube` |
+| `DISCOVERY_CACHE_TTL` | TTL успешного поиска | `24h` |
+| `DISCOVERY_MAX_RESULTS` | лимит результатов | `20` |
+| `DISCOVERY_MIN_SIMILARITY` | порог локальных рекомендаций | `0.25` |
 | `YTDLP_PATH` | путь к yt-dlp | `yt-dlp` |
 | `DOWNLOAD_MAX_BYTES` | лимит размера скачивания | 8 GiB |
 | `DOWNLOAD_ALLOW_HTTP` | разрешить HTTP (не рекомендуется) | `false` |
@@ -389,7 +455,7 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 ```bash
 export JAVA_HOME=/c/tools/jdk-25.0.2-full
 ./mvnw -pl backend test        # unit + интеграционные тесты пайплайна
-./mvnw verify                  # полная сборка обоих модулей
+./mvnw verify                  # полная сборка обоих модулей (405 тестов, 2026-10-18)
 ```
 
 DeepSeek-тесты используют локальный HTTP test double
@@ -403,3 +469,5 @@ DeepSeek не выполнялся автоматически (требует о
 автоматически в CI. См. `docs/week7-ingestion-final-report.md`.
 
 Демонстрационные сценарии и результаты по дням — в `demos/`.
+Week 8: `demos/multilingual-video-discovery/demo-scenario.md`,
+отчёт с реальными E2E — `docs/multilingual-video-discovery-report.md`.
