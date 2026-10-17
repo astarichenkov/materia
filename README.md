@@ -89,6 +89,11 @@ yt-dlp --version
 | `GET` | `/api/assistant/status` | статус индекса документации |
 | `POST` | `/api/assistant/index` | переиндексировать документацию проекта |
 | `GET` | `/api/assistant/tools` | каталог read-only MCP-инструментов |
+| `GET` | `/file-agent` | UI автономного файлового агента (Day 34) |
+| `POST` | `/api/file-agent/tasks` | создать задачу File Agent (`goal`, `workspace`, `lectureId`) |
+| `GET` | `/api/file-agent/tasks[/{id}]` | история/статус задач, метрики, tool trace |
+| `POST` | `/api/file-agent/proposals/{id}/approve` | подтвердить и применить proposal |
+| `POST` | `/api/file-agent/proposals/{id}/reject` | отклонить proposal |
 | `POST` | `/mcp` | MCP JSON-RPC (`initialize`, `tools/list`, `tools/call`) |
 
 ## Resumable pipeline
@@ -142,6 +147,8 @@ curl -X POST -H 'Content-Type: application/json' \
 | Lecture Processing | `llm.default-config` | локальная Ollama |
 | Developer Assistant (`/help`) | `llm.task-config.developer-assistant` | локальная Ollama |
 | Code Review (Day 32) | `llm.task-config.code-review` | DeepSeek, если ключ настроен |
+| Support Assistant (Day 33) | `llm.task-config.support-assistant` | локальная Ollama |
+| File Agent (Day 34) | `llm.task-config.file-agent` | DeepSeek, если ключ настроен, иначе Ollama |
 
 Задачи изолированы: смена модели Code Review не меняет обработку лекций и
 наоборот. Новый job сохраняет snapshot конфигурации и не меняется на лету.
@@ -209,6 +216,64 @@ Endpoint по умолчанию зафиксирован на официаль�
   cache hit/miss); для облака локальные GPU/RAM/VRAM-метрики не показываются.
 - Расходы — **estimate** по настраиваемому тарифу (`DEEPSEEK_PRICE_*`);
   агрегат: `GET /api/benchmarks/usage` и раздел на странице бенчмарков.
+
+
+## Autonomous File Agent (Day 34)
+
+Агент выполняет многошаговые задачи над файлами: сам ищет и читает несколько
+файлов (lexical/symbol search + documentation RAG), анализирует их, формирует
+план, предлагает изменения с реальным unified diff и **меняет файлы только
+после подтверждения** пользователя.
+
+```text
+goal → plan → search/read tools → context → proposal → diff preview
+     → approval (CSRF + admin) → revalidate hashes → atomic write
+     → verification → COMPLETED / CONFLICT / FAILED (rollback)
+```
+
+- UI: `GET /file-agent` — цель, workspace, история, статус, модель, план,
+  найденные/прочитанные файлы, tool trace, diff, кнопки Analyze / Cancel /
+  Regenerate / Approve / Reject.
+- REST: `POST /api/file-agent/tasks`, `GET /api/file-agent/tasks[/{id}]`,
+  `GET .../trace`, `GET .../proposals`, `GET /api/file-agent/proposals/{id}/diff`,
+  `POST .../cancel`, `POST .../regenerate`, `POST .../approve`, `POST .../reject`,
+  `GET /api/file-agent/metrics|tools|status`.
+- LLM-задача `FILE_AGENT` настраивается отдельно в `/settings → File Agent`;
+  provider/model snapshot сохраняется для каждого запуска.
+- Изменения: только `CREATE` и `MODIFY`; approval привязан к immutable
+  proposal id+version, повторное применение запрещено. Если файл изменился
+  после подготовки diff — `CONFLICT`, файл не перезаписывается.
+- Workspace isolation: `PROJECT_WORKSPACE` (репозиторий) и
+  `LECTURE_WORKSPACE` (`<storage>/lectures/<id>`). Canonical path checks,
+  запрет absolute/UNC/`..`, symlink/junction escape protection, denylist
+  секретов/build/data/бинарников, лимиты размера/количества/глубины.
+- MCP: read-only profile `file-agent-read` — `search_project_files`,
+  `search_code_symbols`, `read_project_file`, `get_file_metadata`,
+  `search_project_documentation`. Публичный `/mcp` их не видит; внешний доступ
+  к профилю требует `FILE_AGENT_MCP_KEY` (заголовок `X-MCP-Key`). Write-MCP
+  инструмента нет — запись только через approval UI/API.
+- Persistence: SQLite migration `V7__day34_file_agent.sql` (`file_agent_task`,
+  `file_agent_execution`, `file_agent_tool_call`, `file_change_proposal`,
+  `proposed_file_change`); tool trace, план, diff, хэши, метрики и стоимость.
+- Verification: только предопределённые проверки (UTF-8/hash, Markdown,
+  обязательные разделы ADR); произвольные shell-команды от LLM не запускаются.
+- Rollback: backup перед записью + best-effort восстановление при ошибке;
+  multi-file атомарность на Windows не гарантируется и это явно показывается.
+
+Запуск с безопасным E2E-workspace:
+
+```bash
+export JAVA_HOME=/c/tools/jdk-25.0.2-full
+export PROJECT_ROOT='C:/Projects/lecture-processor-e2e'
+export FILE_AGENT_PROJECT_ROOT='C:/Projects/lecture-processor-e2e'
+export LECTURE_STORAGE_ROOT='C:/Projects/lecture-processor/target/day34-e2e-storage'
+export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
+export SERVER_PORT=18083
+export LP_ADMIN_TOKEN='...'           # для неинтерактивного E2E
+./mvnw -pl backend spring-boot:run
+```
+
+Демо — `demos/day34/demo-scenario.md`, E2E — `scripts/dev/day34-file-agent-e2e.py`.
 
 ## AI Code Review для Gitea (Day 32)
 
