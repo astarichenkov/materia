@@ -46,6 +46,16 @@ public class McpProtocolHandler {
      * @return the response, or empty for notifications that must not be answered
      */
     public Optional<JsonNode> handle(JsonNode request) {
+        return handle(request, "public");
+    }
+
+    /**
+     * Handles one JSON-RPC message for an explicit tool profile. A profile sees
+     * public tools plus tools declared for that profile; no profile can see
+     * another profile's tools.
+     */
+    public Optional<JsonNode> handle(JsonNode request, String profile) {
+        String requestedProfile = profile == null || profile.isBlank() ? "public" : profile.strip();
         if (request == null || !request.isObject()) {
             return Optional.of(error(objectMapper.nullNode(), -32600, "Invalid Request"));
         }
@@ -61,8 +71,8 @@ public class McpProtocolHandler {
             return switch (method) {
                 case "initialize" -> Optional.of(success(id, initialize()));
                 case "ping" -> Optional.of(success(id, objectMapper.createObjectNode()));
-                case "tools/list" -> Optional.of(success(id, toolsList()));
-                case "tools/call" -> Optional.of(success(id, toolsCall(request.get("params"))));
+                case "tools/list" -> Optional.of(success(id, toolsList(requestedProfile)));
+                case "tools/call" -> Optional.of(success(id, toolsCall(request.get("params"), requestedProfile)));
                 default -> Optional.of(error(id, -32601, "Method not found: " + method));
             };
         } catch (RuntimeException e) {
@@ -81,9 +91,12 @@ public class McpProtocolHandler {
         return result;
     }
 
-    private ObjectNode toolsList() {
+    private ObjectNode toolsList(String profile) {
         ArrayNode tools = objectMapper.createArrayNode();
         for (McpTool tool : registry.tools()) {
+            if (!visible(tool, profile)) {
+                continue;
+            }
             ObjectNode node = tools.addObject();
             node.put("name", tool.name());
             node.put("description", tool.description());
@@ -94,7 +107,7 @@ public class McpProtocolHandler {
         return result;
     }
 
-    private ObjectNode toolsCall(JsonNode params) {
+    private ObjectNode toolsCall(JsonNode params, String profile) {
         if (params == null || !params.isObject()) {
             return toolError("tools/call", "Параметры tools/call отсутствуют");
         }
@@ -103,7 +116,7 @@ public class McpProtocolHandler {
             return toolError("tools/call", "Не задано имя инструмента");
         }
         McpTool tool = registry.find(name).orElse(null);
-        if (tool == null) {
+        if (tool == null || !visible(tool, profile)) {
             return toolError(name, "Инструмент не найден: " + name);
         }
         Map<String, Object> arguments = Map.of();
@@ -119,6 +132,10 @@ public class McpProtocolHandler {
         response.putArray("content").add(content);
         response.put("isError", result.isError());
         return response;
+    }
+
+    private static boolean visible(McpTool tool, String profile) {
+        return "public".equals(tool.profile()) || profile.equals(tool.profile());
     }
 
     private ObjectNode toolError(String name, String message) {

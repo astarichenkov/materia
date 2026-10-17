@@ -1,6 +1,7 @@
 package com.lectureprocessor.web;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tools.jackson.databind.JsonNode;
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.fileagent.FileAgentProperties;
 import com.lectureprocessor.mcp.McpProtocolHandler;
 import com.lectureprocessor.mcp.McpTool;
 import com.lectureprocessor.mcp.McpToolRegistry;
@@ -32,23 +34,31 @@ public class McpController {
     private final McpProtocolHandler handler;
     private final McpToolRegistry registry;
     private final AppProperties properties;
+    private final FileAgentProperties fileAgent;
 
     public McpController(McpProtocolHandler handler, McpToolRegistry registry,
-            AppProperties properties) {
+            AppProperties properties, FileAgentProperties fileAgent) {
         this.handler = handler;
         this.registry = registry;
         this.properties = properties;
+        this.fileAgent = fileAgent;
     }
 
     @PostMapping(path = "/mcp", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<JsonNode> handle(
             @RequestHeader(value = "X-MCP-Key", required = false) String key,
+            @RequestHeader(value = "X-MCP-Profile", required = false) String profileHeader,
             @RequestBody JsonNode request) {
-        if (!authorized(key)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String profile = profileHeader == null || profileHeader.isBlank() ? "public" : profileHeader.strip();
+        if ("public".equals(profile)) {
+            if (!authorized(key)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+        } else if (!fileProfileAuthorized(profile, key)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        Optional<JsonNode> response = handler.handle(request);
+        Optional<JsonNode> response = handler.handle(request, profile);
         return response.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.ACCEPTED).build());
     }
@@ -62,8 +72,27 @@ public class McpController {
         info.put("description", "Read-only MCP tool surface for the Lecture Processor project");
         info.put("authentication", properties.mcp().apiKey() != null
                 && !properties.mcp().apiKey().isBlank() ? "X-MCP-Key header" : "none (local)");
-        info.put("tools", registry.tools().stream().map(McpTool::name).toList());
+        info.put("tools", registry.tools().stream()
+                .filter(tool -> "public".equals(tool.profile()))
+                .map(McpTool::name).toList());
+        info.put("profiles", List.of("public",
+                fileAgent.mcpReadKey() == null || fileAgent.mcpReadKey().isBlank()
+                        ? "file-agent-read (disabled)" : "file-agent-read (key required)"));
         return info;
+    }
+
+    /** File profile is disabled externally unless an explicit read key is configured. */
+    private boolean fileProfileAuthorized(String profile, String providedKey) {
+        if (fileAgent == null || !fileAgent.profile().equals(profile)) {
+            return false;
+        }
+        String configured = fileAgent.mcpReadKey();
+        if (configured == null || configured.isBlank() || providedKey == null) {
+            return false;
+        }
+        return java.security.MessageDigest.isEqual(
+                configured.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                providedKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private boolean authorized(String providedKey) {
