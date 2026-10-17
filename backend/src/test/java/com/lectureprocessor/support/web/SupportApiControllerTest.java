@@ -34,6 +34,7 @@ import com.lectureprocessor.support.SupportMessage;
 import com.lectureprocessor.support.SupportMetrics;
 import com.lectureprocessor.support.SupportMetricsService;
 import com.lectureprocessor.support.SupportPrincipal;
+import com.lectureprocessor.support.SupportProperties;
 import com.lectureprocessor.support.SupportRequestException;
 import com.lectureprocessor.support.SupportTicket;
 import com.lectureprocessor.support.SupportTicketService;
@@ -56,6 +57,8 @@ class SupportApiControllerTest {
     private SupportMetricsService metrics;
     @MockitoBean
     private SupportAccessService access;
+    @MockitoBean
+    private SupportProperties supportProperties;
 
     private final SupportPrincipal principal = new SupportPrincipal("test-install", "s1");
 

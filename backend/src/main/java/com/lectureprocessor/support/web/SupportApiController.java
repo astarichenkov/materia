@@ -20,6 +20,7 @@ import com.lectureprocessor.support.SupportMessage;
 import com.lectureprocessor.support.SupportMetrics;
 import com.lectureprocessor.support.SupportMetricsService;
 import com.lectureprocessor.support.SupportPrincipal;
+import com.lectureprocessor.support.SupportProperties;
 import com.lectureprocessor.support.SupportTicket;
 import com.lectureprocessor.support.SupportTicketService;
 import com.lectureprocessor.support.SupportTicketStatus;
@@ -40,13 +41,15 @@ public class SupportApiController {
     private final SupportTicketService tickets;
     private final SupportMetricsService metrics;
     private final SupportAccessService access;
+    private final SupportProperties properties;
 
     public SupportApiController(SupportAssistantService assistant, SupportTicketService tickets,
-            SupportMetricsService metrics, SupportAccessService access) {
+            SupportMetricsService metrics, SupportAccessService access, SupportProperties properties) {
         this.assistant = assistant;
         this.tickets = tickets;
         this.metrics = metrics;
         this.access = access;
+        this.properties = properties;
     }
 
     @PostMapping("/ask")
@@ -124,9 +127,11 @@ public class SupportApiController {
     @GetMapping("/status")
     public Map<String, Object> status() {
         Map<String, Object> status = new LinkedHashMap<>();
-        status.put("enabled", true);
+        status.put("enabled", properties.enabled());
         status.put("tools", assistant.tools().stream().map(SupportAssistantService.ToolView::name).toList());
-        status.put("isolation", "install");
+        status.put("isolation", properties.isolation());
+        status.put("scope", properties.installScope());
+        status.put("maxToolCalls", properties.maxToolCalls());
         return status;
     }
 
