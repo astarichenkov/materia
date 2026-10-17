@@ -105,6 +105,33 @@ app:
     auto-index: ${ASSISTANT_AUTO_INDEX:true}
     history-messages: 6
 
+  # Week 7 / Day 34 autonomous file agent. Workspaces are explicit and separated:
+  # project sources and a single lecture artifact directory.
+  file-agent:
+    enabled: ${FILE_AGENT_ENABLED:true}
+    # Blank => ProjectRootResolver detection (walk up from the working directory).
+    project-root: ${FILE_AGENT_PROJECT_ROOT:}
+    lecture-workspace-enabled: ${FILE_AGENT_LECTURE_WORKSPACE:true}
+    # Required for the external file-agent MCP profile; blank disables it.
+    mcp-read-key: ${FILE_AGENT_MCP_KEY:}
+    mcp-profile: file-agent-read
+    allowed-extensions: ${FILE_AGENT_EXTENSIONS:java,md,txt,yml,yaml,xml,sql,properties,html,css,js,json,sh,ps1,gradle}
+    # Readable but never writable by the agent.
+    write-forbidden-globs: "AGENTS.md,pom.xml,mvnw,mvnw.cmd,**/pom.xml,**/mvnw,**/mvnw.cmd,.github/**,**/.github/**,backend/src/main/resources/application.yml,**/application.yml"
+    protected-globs: "**/.env,**/.env.*,**/*.key,**/*.pem,**/*.p12,**/*.jks,**/*.keystore,**/id_rsa*,**/.git/**,**/.secrets/**,**/master.key,**/*credential*,**/data/**,**/target/**,**/build/**,**/node_modules/**,**/*.db,**/*.sqlite*,**/*.class,**/*.jar,**/*.docx,**/*.jpg,**/*.jpeg,**/*.png,**/*.gif,**/*.webp,**/*.zip,**/*.pdf"
+    max-file-bytes: ${FILE_AGENT_MAX_FILE_BYTES:400000}
+    max-files-per-task: ${FILE_AGENT_MAX_FILES:8}
+    max-search-results: ${FILE_AGENT_MAX_SEARCH_RESULTS:30}
+    max-read-lines: ${FILE_AGENT_MAX_READ_LINES:400}
+    max-depth: ${FILE_AGENT_MAX_DEPTH:12}
+    max-steps: ${FILE_AGENT_MAX_STEPS:10}
+    max-tool-calls: ${FILE_AGENT_MAX_TOOL_CALLS:20}
+    max-context-chars: ${FILE_AGENT_MAX_CONTEXT_CHARS:48000}
+    max-patch-bytes: ${FILE_AGENT_MAX_PATCH_BYTES:140000}
+    max-proposals: ${FILE_AGENT_MAX_PROPOSALS:6}
+    timeout: ${FILE_AGENT_TIMEOUT:5m}
+    goal-chars: ${FILE_AGENT_MAX_GOAL_CHARS:4000}
+
   # Week 7 / Day 33 support assistant. Tickets are scoped to this installation;
   # the app has no full user system, so local trust is documented explicitly.
   support:

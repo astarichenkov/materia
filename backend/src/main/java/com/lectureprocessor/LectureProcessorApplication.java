@@ -6,10 +6,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.fileagent.FileAgentProperties;
 import com.lectureprocessor.support.SupportProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({AppProperties.class, SupportProperties.class})
+@EnableConfigurationProperties({AppProperties.class, SupportProperties.class, FileAgentProperties.class})
 @EnableScheduling
 public class LectureProcessorApplication {
 
