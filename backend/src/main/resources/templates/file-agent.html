@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>File Agent — Lecture Processor</title>
+    <meta th:if="${selected != null and !selected.status.terminal()
+            and selected.status.name() != 'AWAITING_APPROVAL'}"
+          http-equiv="refresh" content="4"/>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 1280px; }
+        .layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+        .col-left { flex: 0 0 380px; }
+        .col-right { flex: 1; min-width: 0; }
+        .box { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .muted { color: #666; font-size: .85rem; }
+        .badge { border-radius: 4px; padding: .1rem .4rem; font-size: .75rem; background: #eef; }
+        .status-COMPLETED { background: #e6f4ea; }
+        .status-FAILED, .status-CONFLICT { background: #fee; color: #b00020; }
+        .status-AWAITING_APPROVAL { background: #fff4e5; }
+        .status-CANCELLED, .status-REJECTED { background: #eee; color: #666; }
+        .status-PLANNING, .status-SEARCHING, .status-ANALYZING,
+        .status-PROPOSING, .status-APPLYING, .status-VERIFYING { background: #e8f0fe; }
+        pre { background: #f7f7f9; border: 1px solid #eee; border-radius: 6px; padding: .7rem;
+              overflow: auto; max-height: 460px; white-space: pre-wrap; word-wrap: break-word;
+              font-size: .82rem; }
+        .diff { max-height: 560px; }
+        .tasks { list-style: none; padding: 0; }
+        .tasks li { margin-bottom: .6rem; }
+        table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+        td, th { border-bottom: 1px solid #eee; padding: .3rem .4rem; text-align: left;
+                 vertical-align: top; }
+        .metrics span { margin-right: 1rem; }
+        textarea { width: 100%; box-sizing: border-box; min-height: 90px; }
+        .actions form { display: inline-block; margin-right: .4rem; }
+        .ok { color: #0a6b2d; } .fail { color: #b00020; }
+        .err { background: #fee; color: #b00020; }
+        .approve { background: #0a6b2d; color: #fff; border: 0; padding: .5rem .9rem;
+                   border-radius: 6px; cursor: pointer; }
+        .reject { background: #b00020; color: #fff; border: 0; padding: .5rem .9rem;
+                  border-radius: 6px; cursor: pointer; }
+        ul.files { margin: .3rem 0; padding-left: 1.1rem; }
+    </style>
+</head>
+<body>
+<h1>Autonomous File Agent</h1>
+<p class="muted">
+    <a href="/">← К лекциям</a> ·
+    <a href="/assistant">Ассистент разработчика</a> ·
+    <a href="/support">Поддержка</a> ·
+    <a href="/settings">Настройки</a> ·
+    <span th:text="${status.profile}"></span>
+</p>
+
+<div th:if="${message}" class="box ok" th:text="${message}"></div>
+<div th:if="${error}" class="box err" th:text="${error}"></div>
+
+<div class="box metrics">
+    <b>Метрики:</b>
+    <span>Задач: <b th:text="${metrics.totalTasks}"></b></span>
+    <span>Завершено: <b th:text="${metrics.completedTasks}"></b></span>
+    <span>Ждут approval: <b th:text="${metrics.awaitingApproval}"></b></span>
+    <span>Rejected: <b th:text="${metrics.rejectedTasks}"></b></span>
+    <span>Conflicts: <b th:text="${metrics.conflicts}"></b></span>
+    <span>Tool calls: <b th:text="${metrics.toolCalls}"></b>
+        (ошибок <b th:text="${metrics.toolFailures}"></b>)</span>
+    <span>Файлов изменено: <b th:text="${metrics.filesChanged}"></b></span>
+    <span>Rollback: <b th:text="${metrics.rollbackAttempts}"></b></span>
+    <span>Approval rate: <b th:text="${metrics.approvalRate}"></b></span>
+</div>
+
+<div class="layout">
+    <div class="col-left">
+        <div class="box">
+            <h3>Новая задача</h3>
+            <form method="post" action="/file-agent/tasks">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <textarea name="goal" placeholder="Опишите цель естественным языком: например,
+«Найди все места, где используется LlmTaskSettingsService, и обнови документацию о выборе моделей»"></textarea>
+                <select name="workspace" style="width:100%;margin-top:.4rem">
+                    <option th:each="w : ${workspaces}" th:value="${w.name()}"
+                            th:text="${w.displayName()} + ' (' + ${w.name()} + ')'"></option>
+                </select>
+                <input type="text" name="lectureId" placeholder="ID лекции (только для LECTURE_WORKSPACE)"
+                       style="width:100%;box-sizing:border-box;margin-top:.4rem"/>
+                <button type="submit" style="margin-top:.5rem">Analyze</button>
+            </form>
+            <p class="muted">Агент сам выберет файлы, выполнит поиск/чтение через MCP-инструменты
+                и подготовит diff. Без подтверждения файлы не меняются.</p>
+        </div>
+
+        <div class="box">
+            <h3>История задач</h3>
+            <ul class="tasks">
+                <li th:each="t : ${tasks}">
+                    <a th:href="@{/file-agent(taskId=${t.id})}" th:text="${t.goal}"></a><br>
+                    <span class="badge" th:classappend="'status-' + ${t.status.name()}"
+                          th:text="${t.status.name()}"></span>
+                    <span class="muted" th:text="${t.workspace.displayName()}"></span>
+                    <span class="muted" th:if="${t.provider != null}"
+                          th:text="'· ' + ${t.provider} + '/' + ${t.model}"></span>
+                    <span class="muted" th:text="'· ' + ${t.createdAt}"></span>
+                </li>
+                <li th:if="${#lists.isEmpty(tasks)}" class="muted">Задач пока нет.</li>
+            </ul>
+        </div>
+
+        <div class="box">
+            <h3>Инструменты (read-only profile)</h3>
+            <ul class="files">
+                <li th:each="tool : ${tools}" th:text="${tool.name}"></li>
+            </ul>
+            <p class="muted">Запись на диск недоступна через MCP. Только proposal + approval.</p>
+        </div>
+    </div>
+
+    <div class="col-right" th:if="${selected == null}">
+        <div class="box"><h3>Выберите задачу или создайте новую</h3></div>
+    </div>
+
+    <div class="col-right" th:if="${selected != null}">
+        <div class="box">
+            <h3>
+                <span th:text="${selected.goal}"></span>
+                <span class="badge" th:classappend="'status-' + ${selected.status.name()}"
+                      th:text="${selected.status.name()}"></span>
+            </h3>
+            <p class="muted">
+                Workspace: <b th:text="${selected.workspace.name()}"></b>
+                <span th:if="${selected.lectureId}"> · lecture <span th:text="${selected.lectureId}"></span></span>
+                · provider/model: <b th:text="${selected.provider != null ? selected.provider + '/' + selected.model : '—'}"></b>
+                · duration: <span th:text="${selected.durationMs}"></span> ms
+                · tool calls: <span th:text="${selected.toolCalls}"></span>
+                (ошибок <span th:text="${selected.toolFailures}"></span>)
+                · files: searched <span th:text="${selected.filesSearched}"></span>,
+                read <span th:text="${selected.filesRead}"></span>,
+                proposed <span th:text="${selected.filesProposed}"></span>,
+                changed <span th:text="${selected.filesChanged}"></span>
+            </p>
+            <p th:if="${selected.error}" class="box err" th:text="${selected.error}"></p>
+            <p th:if="${selected.resultSummary}" class="muted" th:text="${selected.resultSummary}"></p>
+            <p class="muted" th:if="${selected.inputTokens != null}">
+                Tokens: <span th:text="${selected.inputTokens}"></span> /
+                <span th:text="${selected.outputTokens}"></span>
+                <span th:if="${selected.estimatedCost != null}">
+                    · estimated cost <span th:text="${selected.estimatedCost}"></span>
+                    <span th:text="${selected.costCurrency}"></span>
+                </span>
+                · verification: <span th:text="${selected.verificationStatus}"></span>
+            </p>
+            <div class="actions">
+                <form method="post" th:action="@{/file-agent/tasks/{id}/cancel(id=${selected.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <button type="submit">Cancel</button>
+                </form>
+                <form method="post" th:action="@{/file-agent/tasks/{id}/regenerate(id=${selected.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <button type="submit">Regenerate proposal</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="box" th:if="${selected.plan != null}">
+            <h3>План агента</h3>
+            <pre th:text="${selected.plan}"></pre>
+        </div>
+
+        <div class="box" th:if="${not #lists.isEmpty(selected.relevantFiles)}">
+            <h3>Найденные / прочитанные файлы</h3>
+            <ul class="files">
+                <li th:each="path : ${selected.relevantFiles}" th:text="${path}"></li>
+            </ul>
+        </div>
+
+        <div class="box" th:if="${latestProposal != null}">
+            <h3>
+                Предложение #<span th:text="${latestProposal.id}"></span>
+                (version <span th:text="${latestProposal.version}"></span>)
+                <span class="badge" th:text="${latestProposal.status.name()}"></span>
+            </h3>
+            <p th:text="${latestProposal.summary}"></p>
+            <p class="muted" th:if="${latestProposal.error}" th:text="${latestProposal.error}"></p>
+
+            <table th:if="${not #lists.isEmpty(changes)}">
+                <tr><th>Файл</th><th>Тип</th><th>Было</th><th>Станет</th></tr>
+                <tr th:each="c : ${changes}">
+                    <td th:text="${c.path}"></td>
+                    <td th:text="${c.type.name()}"></td>
+                    <td th:text="${c.originalHash != null ? #strings.abbreviate(c.originalHash, 16) : '—'}"></td>
+                    <td th:text="${#strings.abbreviate(c.newHash, 16)}"></td>
+                </tr>
+            </table>
+
+            <h4>Diff preview</h4>
+            <pre class="diff" th:text="${latestProposal.diff}"></pre>
+
+            <div class="actions" th:if="${latestProposal.status.name() == 'AWAITING_APPROVAL'}">
+                <form method="post" th:action="@{/file-agent/proposals/{id}/approve(id=${latestProposal.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <input type="hidden" name="taskId" th:value="${selected.id}"/>
+                    <button class="approve" type="submit">Применить изменения</button>
+                </form>
+                <form method="post" th:action="@{/file-agent/proposals/{id}/reject(id=${latestProposal.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <input type="hidden" name="taskId" th:value="${selected.id}"/>
+                    <input type="hidden" name="reason" value="Отклонено в UI"/>
+                    <button class="reject" type="submit">Отклонить</button>
+                </form>
+            </div>
+            <p class="muted" th:if="${latestProposal.verification != null}">
+                Verification: <span th:text="${latestProposal.verification}"></span>
+            </p>
+        </div>
+
+        <div class="box" th:if="${not #lists.isEmpty(trace)}">
+            <h3>Tool trace</h3>
+            <table>
+                <tr><th>#</th><th>Инструмент</th><th>OK</th><th>мс</th><th>Аргументы</th><th>Результат</th></tr>
+                <tr th:each="call, iter : ${trace}">
+                    <td th:text="${iter.count}"></td>
+                    <td th:text="${call.toolName}"></td>
+                    <td th:classappend="${call.ok} ? 'ok' : 'fail'" th:text="${call.ok}"></td>
+                    <td th:text="${call.durationMs}"></td>
+                    <td th:text="${call.arguments}"></td>
+                    <td th:text="${call.summary}"></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="box" th:if="${not #lists.isEmpty(executions)}">
+            <h3>Execution phases</h3>
+            <table>
+                <tr><th>#</th><th>Фаза</th><th>Статус</th><th>Детали</th><th>мс</th></tr>
+                <tr th:each="e, iter : ${executions}">
+                    <td th:text="${iter.count}"></td>
+                    <td th:text="${e.phase}"></td>
+                    <td th:text="${e.status}"></td>
+                    <td th:text="${e.detail}"></td>
+                    <td th:text="${e.durationMs}"></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>
