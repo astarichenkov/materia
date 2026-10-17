@@ -28,6 +28,7 @@ import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.repository.SegmentRepository;
 
 /**
  * Minimal Thymeleaf + HTMX UI: upload, monitor status, download results, chat
@@ -48,13 +49,15 @@ public class LectureWebController {
     private final LectureLanguageService languages;
     private final LocalSimilarityService similarities;
     private final VideoDiscoveryService discovery;
+    private final SegmentRepository segments;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
             LectureChatService chatService, BenchmarkService benchmarkService,
             BenchmarkRunService benchmarkRuns, BenchmarkUsageService benchmarkUsage,
             LlmSettingsService llmSettings, LectureLanguageService languages,
-            LocalSimilarityService similarities, VideoDiscoveryService discovery) {
+            LocalSimilarityService similarities, VideoDiscoveryService discovery,
+            SegmentRepository segments) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -67,6 +70,7 @@ public class LectureWebController {
         this.languages = languages;
         this.similarities = similarities;
         this.discovery = discovery;
+        this.segments = segments;
     }
 
     @GetMapping("/")
@@ -143,6 +147,7 @@ public class LectureWebController {
             model.addAttribute("similarLectures", java.util.List.of());
         }
         model.addAttribute("discoveryProviders", discovery.providerStatuses());
+        model.addAttribute("transcriptSegments", segments.findByLecture(id));
         return "lecture";
     }
 

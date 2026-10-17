@@ -122,6 +122,27 @@
         коррекция только метки языка пересчитывает перевод, не трогая Whisper.</p>
 </div>
 
+<h2>Тексты</h2>
+<details>
+    <summary>Оригинальная транскрипция (<span th:text="${#lists.size(transcriptSegments)}"></span> сегментов)</summary>
+    <ul>
+        <li th:each="segment : ${transcriptSegments}">
+            <b th:text="${'[' + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.startMs) + ']'}"></b>
+            <span th:text="${segment.text}"></span>
+        </li>
+    </ul>
+</details>
+<details th:if="${translation.translation != null}">
+    <summary>Перевод по сегментам</summary>
+    <ul>
+        <li th:each="segment : ${translation.segments}">
+            <div class="muted" th:text="'[' + ${segment.startMs} + ' мс] ' + ${segment.sourceText}"></div>
+            <div th:text="${segment.translatedText != null ? segment.translatedText : '—'}"></div>
+            <div class="bad" th:if="${segment.warning != null}" th:text="${segment.warning}"></div>
+        </li>
+    </ul>
+</details>
+
 <h2>Документы</h2>
 <ul>
     <li><a th:href="@{/api/lectures/{id}/download/transcript.json(id=${lecture.id})}">Сырой транскрипт (JSON)</a></li>
