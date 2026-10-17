@@ -240,6 +240,46 @@ export CODE_REVIEW_POLL_SECONDS=20        # polling fallback
 ./mvnw -pl backend spring-boot:run
 ```
 
+## Support Assistant (Day 33)
+
+AI-помощник поддержки: отвечает на вопросы о продукте (documentation RAG),
+диагностирует ошибки обработки лекций по реальным persisted данным (MCP) и ведёт
+диалог в рамках обращения с сохранением контекста.
+
+- UI: `GET /support` (создание/список обращений, статусы, поиск, чат, источники,
+  tool trace, оценки «помогло / не помогло»).
+- С лекции: `GET /support/lecture/{lectureId}` — открывает/продолжает обращение,
+  связанное с лекцией; job id вводить не нужно.
+- REST: `POST /api/support/ask`, `GET|POST /api/support/tickets`,
+  `GET /api/support/tickets/{id}[/messages|/trace]`,
+  `POST /api/support/tickets/{id}/status`, `POST /api/support/messages/{id}/feedback`,
+  `GET /api/support/lecture/{id}/ticket`, `GET /api/support/metrics`, `GET /api/support/tools`.
+- Маршрутизация без лишних LLM-вызовов: `GENERAL_FAQ`, `JOB_DIAGNOSTICS`,
+  `TICKET_CONTEXT`, `MIXED`; простой status-lookup отвечает детерминированно
+  при недоступном провайдере.
+- Ответ всегда разделяет подтверждённые факты БД, документацию и предположения;
+  citations + tool trace; недостаток данных честно указывается в `limitations`.
+- Модель: `SUPPORT_ASSISTANT` (`/settings → Support Assistant`), независимо от
+  `LECTURE_PROCESSING`, `DEVELOPER_ASSISTANT`, `CODE_REVIEW`. Если DeepSeek не
+  настроен — работает Ollama; embeddings остаются локальными.
+- Безопасность: read-only MCP-профиль (без git/filesystem/shell), scope/owner
+  тикетов, redaction секретов, лимиты tool calls/размера/времени, trust boundary
+  для prompt-injection, CSRF на state-changing запросах.
+
+MCP-инструменты поддержки (read-only): `get_ticket`, `list_ticket_messages`,
+`get_job_diagnostics`, `get_model_health`, `search_support_tickets`;
+переиспользуются `get_job_status`, `get_stage_runs`, `search_help_docs`.
+
+Демо — `demos/day33/demo-scenario.md`, E2E-скрипт —
+`scripts/dev/day33-support-e2e.py`.
+
+```bash
+export JAVA_HOME=/c/tools/jdk-25.0.2-full
+export PROJECT_ROOT='C:/Projects/lecture-processor'
+export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
+./mvnw -pl backend spring-boot:run     # http://localhost:8080/support
+```
+
 ## Конфигурация (ingestion)
 
 | Переменная | Назначение | По умолчанию |
@@ -253,6 +293,12 @@ export CODE_REVIEW_POLL_SECONDS=20        # polling fallback
 | `ASSISTANT_DOCS_PATHS` | пути документации для RAG | `README.md,docs` |
 | `ASSISTANT_AUTO_INDEX` | индексировать документацию при старте | `true` |
 | `MCP_API_KEY` | общий секрет для `POST /mcp` (пусто = без проверки) | — |
+| `SUPPORT_ENABLED` | включить support assistant | `true` |
+| `SUPPORT_INSTALL_SCOPE` | scope тикетов текущей установки | `local-install` |
+| `SUPPORT_ISOLATION` | `install` или `session` (owner-изоляция) | `install` |
+| `SUPPORT_ALLOWED_TOOLS` | allow-list read-only MCP инструментов поддержки | см. application.yml |
+| `SUPPORT_MAX_TOOL_CALLS` | лимит tool calls на ответ | `8` |
+| `SUPPORT_TIMEOUT` | таймаут генерации ответа | `2m` |
 | `DEEPSEEK_ENABLED` | включить облачный provider | `true` |
 | `DEEPSEEK_BASE_URL` | официальный endpoint DeepSeek | `https://api.deepseek.com` |
 | `DEEPSEEK_MODEL` | модель по умолчанию | `deepseek-flash` |

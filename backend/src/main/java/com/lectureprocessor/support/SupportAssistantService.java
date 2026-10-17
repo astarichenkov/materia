@@ -78,6 +78,10 @@ public class SupportAssistantService {
         List<SupportMessage> history = tickets.history(ticket.id(), who);
         SupportContext context = contextBuilder.build(ticket, lectureId, question, who,
                 request.ticketId() != null);
+        // A diagnostics question with no persisted job/stage data is not grounded,
+        // even if unrelated documentation happened to match.
+        boolean grounded = context.grounded()
+                && !(needsDiagnostics(context) && !context.diagnosticsAvailable());
 
         // Persist the user's turn before generating so history is never lost.
         SupportMessage userMessage = new SupportMessage(null, ticket.id(), SupportMessageRole.USER,
@@ -86,7 +90,7 @@ public class SupportAssistantService {
         tickets.saveMessage(ticket.id(), userMessage, who);
 
         long start = System.currentTimeMillis();
-        Generation generation = generate(context, history, question);
+        Generation generation = generate(context, history, question, grounded);
         long duration = System.currentTimeMillis() - start;
 
         String provider = generation.provider();
@@ -111,10 +115,13 @@ public class SupportAssistantService {
         if (!context.grounded()) {
             limitations.add("Нет подтверждённых данных — ответ не является диагностикой.");
         }
+        if (!grounded && needsDiagnostics(context) && !context.diagnosticsAvailable()) {
+            limitations.add("Диагностика неполная: в БД нет подтверждённых данных по задаче.");
+        }
 
         SupportMessage assistantMessage = new SupportMessage(null, ticket.id(),
                 SupportMessageRole.ASSISTANT, generation.answer(), java.time.Instant.now(), lectureId,
-                null, context.citations(), context.toolTraces(), provider, model, context.grounded(),
+                null, context.citations(), context.toolTraces(), provider, model, grounded,
                 duration, generation.inputTokens(), generation.outputTokens(), estimatedCost, currency,
                 context.toolTraces().size(), failures(context.toolTraces()), null);
         SupportMessage saved = tickets.saveMessage(ticket.id(), assistantMessage, who);
@@ -128,7 +135,7 @@ public class SupportAssistantService {
 
         return new SupportAnswer(generation.answer(), generation.suggestedActions(), context.citations(),
                 context.toolTraces(), ticket.id(), saved.id(), lectureId, null, provider, model,
-                context.grounded(), dedup(limitations), generation.error(), duration,
+                grounded, dedup(limitations), generation.error(), duration,
                 generation.inputTokens(), generation.outputTokens(), estimatedCost, currency, cloud);
     }
 
@@ -141,7 +148,8 @@ public class SupportAssistantService {
                 .toList();
     }
 
-    private Generation generate(SupportContext context, List<SupportMessage> history, String question) {
+    private Generation generate(SupportContext context, List<SupportMessage> history, String question,
+            boolean grounded) {
         String system = promptBuilder.system();
         String user = promptBuilder.user(context, history, question);
         ResolvedLlmTask resolved;
@@ -155,7 +163,7 @@ public class SupportAssistantService {
         }
         try {
             LlmResult result = call(resolved, system, user);
-            var validated = validator.validate(result.content(), context.grounded());
+            var validated = validator.validate(result.content(), grounded);
             return new Generation(validated.answer(), validated.suggestedActions(),
                     validated.limitations(), resolved.providerId(), result.content() == null ? null
                             : resolved.model(), result.inputTokens(), result.outputTokens(),
