@@ -2,7 +2,7 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:text="'Лекция: ' + ${lecture.originalFilename}">Лекция</title>
+    <title th:text="'Лекция: ' + ${lecture.originalFilename ?: lecture.id}">Лекция</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <style>
         body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1100px; }
@@ -23,11 +23,11 @@
     </style>
 </head>
 <body>
-<h1 th:text="${lecture.originalFilename}"></h1>
+<h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>
 <a href="/">← К списку</a> · <a th:href="@{/discover(lectureId=${lecture.id})}">Похожие и новые видео</a>
 
 <div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:replace="fragments/status :: status"></div>
+<div th:replace="~{fragments/status :: status}"></div>
 
 <div class="actions">
     <form method="post" th:action="@{/lectures/{id}/process(id=${lecture.id})}">
@@ -47,24 +47,24 @@
     </form>
 </div>
 
-<div class="card">
+<div class="card" th:if="${language != null}">
     <h2>Язык и перевод</h2>
     <p>
         Определённый язык:
-        <b th:text="${language.detectedLanguage != null ? language.detectedLanguage : 'не определён'}"></b>
-        <span class="muted" th:text="'· источник: ' + (${language.detectionSource} ?: '—')"></span>
-        <span class="muted" th:if="${language.languageConfidence != null}"
+        <b th:text="${language?.detectedLanguage ?: 'не определён'}"></b>
+        <span class="muted" th:text="'· источник: ' + ${language?.detectionSource ?: '—'}"></span>
+        <span class="muted" th:if="${language?.languageConfidence != null}"
               th:text="'· confidence: ' + ${language.languageConfidence}"></span>
-        <span class="muted" th:unless="${language.languageConfidence != null}">
+        <span class="muted" th:unless="${language?.languageConfidence != null}">
             · confidence не сообщается инструментом
         </span>
     </p>
     <p>
         Режим перевода:
-        <b th:text="${language.resolvedTranslationMode}"></b>
-        <span class="muted" th:text="'· целевой язык: ' + ${language.targetLanguage}"></span>
+        <b th:text="${language?.resolvedTranslationMode ?: '—'}"></b>
+        <span class="muted" th:text="'· целевой язык: ' + ${language?.targetLanguage ?: '—'}"></span>
     </p>
-    <p th:if="${translation.translation != null}">
+    <p th:if="${translation != null and translation.translation != null}">
         Статус перевода:
         <b th:text="${translation.translation.status}"></b>
         <span th:text="'· сегментов: ' + ${translation.translation.segmentsTranslated} + '/'
@@ -78,9 +78,9 @@
               th:text="'· оценка стоимости: ' + ${translation.translation.estimatedCost} + ' '
                 + ${translation.translation.costCurrency}"></span>
     </p>
-    <p th:unless="${translation.translation != null}" class="muted">Перевод ещё не выполнялся.</p>
+    <p th:unless="${translation != null and translation.translation != null}" class="muted">Перевод ещё не выполнялся.</p>
 
-    <div th:if="${translation.translation != null and !#lists.isEmpty(translation.translation.warnings)}">
+    <div th:if="${translation != null and translation.translation != null and !#lists.isEmpty(translation.translation.warnings)}">
         <b>Предупреждения перевода:</b>
         <ul><li th:each="w : ${translation.translation.warnings}" th:text="${w}"></li></ul>
     </div>
@@ -90,25 +90,25 @@
             <div>
                 <label>Исходный язык</label>
                 <select name="languageMode">
-                    <option value="AUTO" th:selected="${language.languageMode.name() == 'AUTO'}">Auto</option>
-                    <option value="ENGLISH" th:selected="${language.languageMode.name() == 'ENGLISH'}">English</option>
-                    <option value="RUSSIAN" th:selected="${language.languageMode.name() == 'RUSSIAN'}">Russian</option>
+                    <option value="AUTO" th:selected="${language?.languageMode?.name() == 'AUTO'}">Auto</option>
+                    <option value="ENGLISH" th:selected="${language?.languageMode?.name() == 'ENGLISH'}">English</option>
+                    <option value="RUSSIAN" th:selected="${language?.languageMode?.name() == 'RUSSIAN'}">Russian</option>
                 </select>
             </div>
             <div>
                 <label>Перевод</label>
                 <select name="translationMode">
                     <option value="ORIGINAL_ONLY"
-                            th:selected="${language.translationMode.name() == 'ORIGINAL_ONLY'}">Только оригинал</option>
+                            th:selected="${language?.translationMode?.name() == 'ORIGINAL_ONLY'}">Только оригинал</option>
                     <option value="TRANSLATE_TO_RUSSIAN"
-                            th:selected="${language.translationMode.name() == 'TRANSLATE_TO_RUSSIAN'}">Перевод на русский</option>
+                            th:selected="${language?.translationMode?.name() == 'TRANSLATE_TO_RUSSIAN'}">Перевод на русский</option>
                     <option value="BILINGUAL"
-                            th:selected="${language.translationMode.name() == 'BILINGUAL'}">Двуязычный</option>
+                            th:selected="${language?.translationMode?.name() == 'BILINGUAL'}">Двуязычный</option>
                 </select>
             </div>
             <div>
                 <label><input type="checkbox" name="autoTranslate"
-                              th:checked="${language.autoTranslate}"> авто-перевод EN</label>
+                              th:checked="${language?.autoTranslate == true}"> авто-перевод EN</label>
                 <button type="submit">Сохранить язык</button>
             </div>
         </div>
@@ -116,7 +116,7 @@
     <form method="post" th:action="@{/lectures/{id}/detected-language(id=${lecture.id})}"
           style="margin-top:.6rem">
         <label>Ручная коррекция определённого языка</label>
-        <input name="language" size="6" th:value="${language.detectedLanguage}" placeholder="en">
+        <input name="language" size="6" th:value="${language?.detectedLanguage}" placeholder="en">
         <button type="submit">Исправить язык</button>
     </form>
     <p class="muted">Изменение исходного языка инвалидирует транскрибацию и downstream-стадии;
@@ -125,7 +125,7 @@
 
 <h2>Тексты</h2>
 <details>
-    <summary>Оригинальная транскрипция (<span th:text="${#lists.size(transcriptSegments)}"></span> сегментов)</summary>
+    <summary>Оригинальная транскрипция (<span th:text="${transcriptSegments == null ? 0 : #lists.size(transcriptSegments)}"></span> сегментов)</summary>
     <ul>
         <li th:each="segment : ${transcriptSegments}">
             <b th:text="${'[' + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.startMs) + ']'}"></b>
@@ -133,7 +133,7 @@
         </li>
     </ul>
 </details>
-<details th:if="${translation.translation != null}">
+<details th:if="${translation != null and translation.translation != null}">
     <summary>Перевод по сегментам</summary>
     <ul>
         <li th:each="segment : ${translation.segments}">
@@ -151,19 +151,19 @@
     <li><a th:href="@{/api/lectures/{id}/download/notes.md(id=${lecture.id})}">Конспект (Markdown)</a></li>
     <li><a th:href="@{/api/lectures/{id}/download/notes.docx(id=${lecture.id})}">Конспект (DOCX)</a></li>
     <li><a th:href="@{/api/lectures/{id}/download/notes.original.docx(id=${lecture.id})}">Оригинал (DOCX, расшифровка)</a></li>
-    <li th:if="${translation.translation != null and translation.translation.segmentsTranslated > 0}">
+    <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
         <a th:href="@{/api/lectures/{id}/download/notes.ru.docx(id=${lecture.id})}">Русский конспект (DOCX)</a></li>
-    <li th:if="${translation.translation != null and translation.translation.segmentsTranslated > 0}">
+    <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
         <a th:href="@{/api/lectures/{id}/download/transcript.ru.md(id=${lecture.id})}">Русская расшифровка (Markdown)</a></li>
-    <li th:if="${translation.translation != null and translation.translation.segmentsTranslated > 0}">
+    <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
         <a th:href="@{/api/lectures/{id}/download/notes.bilingual.docx(id=${lecture.id})}">Двуязычный документ (DOCX)</a></li>
-    <li th:if="${translation.translation != null and translation.translation.segmentsTranslated > 0}">
+    <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
         <a th:href="@{/api/lectures/{id}/download/transcript.bilingual.md(id=${lecture.id})}">Двуязычная расшифровка (Markdown)</a></li>
     <li><a th:href="@{/api/lectures/{id}/download/translation.json(id=${lecture.id})}">Перевод (JSON)</a></li>
 </ul>
 
 <h2>Похожие лекции в библиотеке</h2>
-<ul th:if="${!#lists.isEmpty(similarLectures)}">
+<ul th:if="${similarLectures != null and !#lists.isEmpty(similarLectures)}">
     <li th:each="similar : ${similarLectures}">
         <a th:href="@{/lectures/{id}(id=${similar.lectureId})}" th:text="${similar.title}"></a>
         <span th:text="' — ' + ${similar.scorePercent()} + '%'"></span>
@@ -173,7 +173,7 @@
               th:text="' · общие темы: ' + ${#strings.listJoin(similar.commonTopics, ', ')}"></span>
     </li>
 </ul>
-<p th:if="${#lists.isEmpty(similarLectures)}" class="muted">
+<p th:if="${similarLectures == null or #lists.isEmpty(similarLectures)}" class="muted">
     Похожих лекций пока нет (нужны обработанные лекции с embeddings).
 </p>
 

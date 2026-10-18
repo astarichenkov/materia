@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${status} + ' — Lecture Processor'">Ошибка</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.2rem; margin-top: 1rem; }
+        .status { font-size: 2rem; font-weight: 700; color: #b00020; }
+        .muted { color: #666; }
+        code { background: #f4f4f4; padding: .1rem .3rem; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<h1>Lecture Processor</h1>
+<div class="card">
+    <div class="status" th:text="${status} + ' ' + ${error}">500</div>
+    <p th:text="${message}">Произошла ошибка.</p>
+    <p class="muted" th:if="${path != null and !#strings.isEmpty(path)}">
+        Запрос: <code th:text="${path}"></code>
+    </p>
+    <p class="muted" th:if="${correlationId != null and !#strings.isEmpty(correlationId)}">
+        Correlation ID: <code th:text="${correlationId}"></code> — укажите его при разборе лога.
+    </p>
+    <p>
+        <a href="/">← Библиотека лекций</a>
+        · <a href="/diagnostics">Диагностика установки</a>
+    </p>
+</div>
+</body>
+</html>

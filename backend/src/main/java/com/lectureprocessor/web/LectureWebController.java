@@ -3,6 +3,8 @@ package com.lectureprocessor.web;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +39,8 @@ import com.lectureprocessor.repository.SegmentRepository;
  */
 @Controller
 public class LectureWebController {
+
+    private static final Logger log = LoggerFactory.getLogger(LectureWebController.class);
 
     private final LectureService lectureService;
     private final RemoteLectureService remoteLectureService;
@@ -156,12 +160,20 @@ public class LectureWebController {
         model.addAttribute("job", jobStatusService.view(id));
         model.addAttribute("language", languages.get(id));
         model.addAttribute("translation", languages.view(id));
+        // Recommendations must never block or break the lecture card. Use the
+        // cached rows; a fresh computation is triggered explicitly from /discover.
         try {
-            model.addAttribute("similarLectures", similarities.similar(id));
+            model.addAttribute("similarLectures", similarities.cached(id));
         } catch (RuntimeException e) {
-            model.addAttribute("similarLectures", java.util.List.of());
+            log.warn("Similar lectures unavailable for {}: {}", id, e.getMessage());
+            model.addAttribute("similarLectures", List.of());
         }
-        model.addAttribute("discoveryProviders", discovery.providerStatuses());
+        try {
+            model.addAttribute("discoveryProviders", discovery.providerStatuses());
+        } catch (RuntimeException e) {
+            log.warn("Discovery provider status unavailable for {}: {}", id, e.getMessage());
+            model.addAttribute("discoveryProviders", List.of());
+        }
         model.addAttribute("transcriptSegments", segments.findByLecture(id));
         return "lecture";
     }
