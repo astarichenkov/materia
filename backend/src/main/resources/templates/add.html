@@ -14,41 +14,103 @@
 <main id="main" class="content" tabindex="-1">
 <nav th:replace="~{fragments/layout :: breadcrumbs('Добавить материал', '', '')}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Формы добавления работают без JavaScript; проверка ссылки и live-статус требуют JavaScript.</div></noscript>
 
 <div class="page-header">
     <div>
         <h1>Добавить материал</h1>
-        <p class="muted">Выберите существующий способ добавления. Единый мастер импорта появится на следующем UX-этапе.</p>
+        <p class="muted">Загрузите файл или вставьте ссылку. Полноценный мастер импорта появится на следующем UX-этапе; здесь используются существующие проверенные формы.</p>
     </div>
+    <a class="btn btn-secondary" href="/discover">Найти видео</a>
 </div>
 
 <div class="grid two">
-    <section class="card">
-        <h2>Видеофайл или ссылка</h2>
-        <p>Загрузите локальный видеофайл или вставьте ссылку на YouTube, VK Видео, VK или Rutube. Формы уже работают на главной странице.</p>
-        <div class="card-actions">
-            <a class="btn btn-primary" href="/#upload">Перейти к форме добавления</a>
-        </div>
+    <section class="card" id="upload" aria-labelledby="local-file-title">
+        <h2 id="local-file-title">Локальный файл</h2>
+        <form method="post" action="/lectures" enctype="multipart/form-data">
+            <div class="field">
+                <label for="lecture-file">Видеофайл</label>
+                <input id="lecture-file" type="file" name="file" accept="video/*" required>
+            </div>
+            <div class="grid">
+                <label>Язык источника
+                    <select name="languageMode">
+                        <option value="AUTO" selected>Auto</option>
+                        <option value="ENGLISH">English</option>
+                        <option value="RUSSIAN">Russian</option>
+                    </select>
+                </label>
+                <label>Перевод
+                    <select name="translationMode">
+                        <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
+                        <option value="BILINGUAL">Двуязычный</option>
+                        <option value="ORIGINAL_ONLY">Только оригинал</option>
+                    </select>
+                </label>
+            </div>
+            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
+            <label><input type="checkbox" name="clean"> очистка транскрипта</label>
+            <label><input type="checkbox" name="slides"> извлечь слайды</label>
+            <div class="actions">
+                <button type="submit">Загрузить и обработать</button>
+            </div>
+        </form>
     </section>
 
-    <section class="card">
-        <h2>Найти видео по теме</h2>
-        <p>Поиск по внешним платформам и импорт найденного видео с текущими настройками языка, перевода и слайдов.</p>
-        <div class="card-actions">
-            <a class="btn btn-secondary" href="/discover">Открыть поиск видео</a>
-        </div>
+    <section class="card" aria-labelledby="url-source-title">
+        <h2 id="url-source-title">Видео по ссылке</h2>
+        <p>Поддерживаются YouTube, VK Видео, VK, Rutube.</p>
+        <form hx-get="/lectures/preview" hx-target="#preview" hx-swap="innerHTML"
+              action="/lectures/preview" method="get">
+            <div class="field">
+                <label for="preview-url">Ссылка для проверки</label>
+                <input id="preview-url" type="url" name="url" th:value="${url}"
+                       placeholder="https://..." autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-secondary">Проверить</button>
+        </form>
+        <div id="preview" aria-live="polite"></div>
+        <form method="post" action="/lectures/from-url">
+            <div class="field">
+                <label for="download-url">Ссылка на видео</label>
+                <input id="download-url" type="url" name="url" th:value="${url}"
+                       placeholder="https://..." required autocomplete="off">
+                <p class="field-help" th:if="${!#strings.isEmpty(url)}">Ссылка перенесена с главной страницы. Проверьте параметры и запустите обработку.</p>
+            </div>
+            <div class="grid">
+                <label>Качество
+                    <select name="quality">
+                        <option value="auto">Auto</option>
+                        <option value="480p">480p</option>
+                        <option value="720p" selected>720p</option>
+                        <option value="1080p">1080p</option>
+                    </select>
+                </label>
+                <label>Язык источника
+                    <select name="languageMode">
+                        <option value="AUTO" selected>Auto</option>
+                        <option value="ENGLISH">English</option>
+                        <option value="RUSSIAN">Russian</option>
+                    </select>
+                </label>
+                <label>Перевод
+                    <select name="translationMode">
+                        <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
+                        <option value="BILINGUAL">Двуязычный</option>
+                        <option value="ORIGINAL_ONLY">Только оригинал</option>
+                    </select>
+                </label>
+            </div>
+            <label><input type="checkbox" name="audioOnly"> только аудио</label>
+            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
+            <label><input type="checkbox" name="clean"> очистка транскрипта</label>
+            <label><input type="checkbox" name="slides"> извлечь слайды</label>
+            <div class="actions">
+                <button type="submit">Скачать и обработать</button>
+            </div>
+        </form>
     </section>
 </div>
-
-<section class="card">
-    <h2>Что будет дальше</h2>
-    <ul>
-        <li>единый мастер «файл / ссылка / найденное видео»;</li>
-        <li>базовые и расширенные опции в одном месте;</li>
-        <li>восстановление после ошибок платформы с переходом на локальный файл.</li>
-    </ul>
-    <p class="muted">Поддержка локальных MP3/M4A/WAV пока не добавлена.</p>
-</section>
 
 </main>
 </div>

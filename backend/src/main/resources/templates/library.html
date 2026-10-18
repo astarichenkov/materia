@@ -14,21 +14,23 @@
 <main id="main" class="content" tabindex="-1">
 <nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '', '')}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
-<noscript><div class="alert alert--warning" role="alert">Фильтры библиотеки работают без JavaScript; для остальных интерактивных действий нужен JavaScript.</div></noscript>
+<noscript><div class="alert alert--warning" role="alert">Фильтры и страницы библиотеки работают без JavaScript.</div></noscript>
 
 <div class="page-header">
     <div>
         <h1>Библиотека</h1>
-        <p class="muted">Обработанные лекции, переводы и документы. Полная переработка библиотеки — следующий UX-этап.</p>
+        <p class="muted">Все добавленные материалы: статус обработки, язык, перевод и быстрый переход к результату.</p>
     </div>
     <a class="btn btn-primary" href="/add">Добавить материал</a>
 </div>
 
-<form method="get" action="/library" class="card">
+<form method="get" action="/library" class="card filters-card" role="search"
+      aria-label="Поиск и фильтры библиотеки">
     <div class="filters">
         <div class="field">
             <label for="library-q">Поиск по названию или теме</label>
-            <input id="library-q" type="search" name="q" th:value="${q}" placeholder="Например: машинное обучение">
+            <input id="library-q" type="search" name="q" th:value="${q}"
+                   placeholder="Например: машинное обучение">
         </div>
         <div class="field">
             <label for="library-language">Язык</label>
@@ -65,28 +67,57 @@
     </div>
     <div class="actions">
         <button type="submit">Применить</button>
-        <a class="btn btn-secondary" href="/library">Сбросить</a>
+        <a class="btn btn-secondary" href="/library"
+           th:if="${filtersActive}">Сбросить фильтры</a>
     </div>
 </form>
 
-<p class="muted">Найдено: <span th:text="${#lists.size(items)}">0</span></p>
+<p class="muted" role="status">
+    <span th:if="${result.total > 0}">
+        Найдено <span th:text="${result.total}">0</span>
+        <span th:if="${result.totalPages > 1}"
+              th:text="' · страница ' + ${result.page} + ' из ' + ${result.totalPages}"></span>
+    </span>
+    <span th:if="${result.total == 0}">Ничего не найдено.</span>
+</p>
 
-<div class="empty-state" th:if="${#lists.isEmpty(items)}">
-    <h2>Ничего не найдено</h2>
-    <p th:if="${q != null and !#strings.isEmpty(q)}">По запросу «<span th:text="${q}"></span>» нет материалов.</p>
-    <p th:unless="${q != null and !#strings.isEmpty(q)}">В библиотеке пока нет обработанных лекций.</p>
-    <a class="btn btn-primary" href="/add">Добавить материал</a>
+<div class="empty-state" th:if="${result.total == 0 and !anyLectures}">
+    <h2>Библиотека пока пуста</h2>
+    <p>Добавьте первый материал — после обработки он появится здесь вместе с конспектом и документами.</p>
+    <div class="actions actions--center">
+        <a class="btn btn-primary" href="/add">Добавить материал</a>
+        <a class="btn btn-secondary" href="/discover">Найти видео</a>
+    </div>
 </div>
 
-<ul class="tasks" th:unless="${#lists.isEmpty(items)}">
-    <li th:each="item : ${items}">
-        <div class="card">
+<div class="empty-state" th:if="${result.total == 0 and anyLectures and filtersActive}">
+    <h2>По выбранным условиям ничего нет</h2>
+    <p>Измените запрос или сбросьте фильтры — материалы в библиотеке есть.</p>
+    <a class="btn btn-primary" href="/library">Сбросить фильтры</a>
+</div>
+
+<div class="empty-state" th:if="${result.total == 0 and anyLectures and !filtersActive}">
+    <h2>Материалы не найдены</h2>
+    <p>Не удалось прочитать список материалов. Обновите страницу; если ошибка повторяется, откройте «Диагностику».</p>
+    <div class="actions actions--center">
+        <a class="btn btn-primary" href="/library">Обновить</a>
+        <a class="btn btn-secondary" href="/diagnostics">Диагностика</a>
+    </div>
+</div>
+
+<ul class="library-list" th:if="${result.total > 0}">
+    <li th:each="item : ${items}" class="library-list__item">
+        <article class="card library-card" th:attr="data-lecture-id=${item.lectureId}">
             <div class="card-header">
-                <div>
-                    <h2><a th:href="@{/lectures/{id}(id=${item.lectureId})}" th:text="${item.title()}">Лекция</a></h2>
+                <div class="library-card__heading">
+                    <h2>
+                        <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+                           th:text="${item.title()}">Материал</a>
+                    </h2>
                     <p class="muted">
                         <span th:text="${item.filename}">file.mp4</span>
-                        <span th:if="${item.detectedLanguage != null}" th:text="' · ' + ${item.detectedLanguage}"></span>
+                        <span th:if="${item.detectedLanguage != null}"
+                              th:text="' · ' + ${item.detectedLanguage}"></span>
                         <span th:if="${item.createdAt != null}"
                               th:text="' · ' + ${#strings.substring(item.createdAt.toString(), 0, 10)}"></span>
                     </p>
@@ -99,13 +130,24 @@
                 <span th:unless="${item.hasTranslation}">Перевод не выполнялся</span>
             </p>
             <div class="card-actions">
-                <a class="btn btn-secondary" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
-                <a class="btn btn-ghost" th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
-                <a class="btn btn-ghost" th:href="@{/discover(lectureId=${item.lectureId})}">Похожие</a>
+                <a class="btn btn-secondary btn-sm" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
+                <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
+                <a class="btn btn-ghost btn-sm" th:href="@{/discover(lectureId=${item.lectureId})}">Похожие</a>
             </div>
-        </div>
+        </article>
     </li>
 </ul>
+
+<nav class="pagination" th:if="${result.totalPages > 1}" aria-label="Страницы библиотеки">
+    <a class="btn btn-secondary btn-sm" th:if="${result.hasPrevious()}"
+       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},page=${result.page - 1})}"
+       rel="prev">Назад</a>
+    <span class="muted" aria-current="page"
+          th:text="'Страница ' + ${result.page} + ' из ' + ${result.totalPages}"></span>
+    <a class="btn btn-secondary btn-sm" th:if="${result.hasNext()}"
+       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},page=${result.page + 1})}"
+       rel="next">Вперёд</a>
+</nav>
 
 </main>
 </div>

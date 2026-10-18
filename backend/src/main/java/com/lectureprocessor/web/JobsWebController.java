@@ -13,11 +13,16 @@ import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.pipeline.PipelineJob;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.web.ui.JobRow;
 
 /**
  * Read-only jobs view built on the existing pipeline_job rows and
  * {@link JobStatusService}. Actions are posted to the existing lecture
  * endpoints; no new mutation or persistence logic is added.
+ *
+ * <p>Raw job state is never used for the visible status: a historical
+ * {@code pipeline_job=RUNNING} with a cancelled lecture must not appear as an
+ * active task.</p>
  */
 @Controller
 public class JobsWebController {
@@ -37,11 +42,9 @@ public class JobsWebController {
 
     @GetMapping("/jobs")
     public String jobs(Model model) {
-        List<Row> rows = new ArrayList<>();
-        for (PipelineJob job : jobs.findAll()) {
-            if (rows.size() >= LIMIT) {
-                break;
-            }
+        List<JobRow> rows = new ArrayList<>();
+        int active = 0;
+        for (PipelineJob job : jobs.findRecent(LIMIT)) {
             Lecture lecture = lectures.findById(job.lectureId()).orElse(null);
             if (lecture == null) {
                 continue;
@@ -52,12 +55,14 @@ public class JobsWebController {
             } catch (RuntimeException ignored) {
                 // A missing live snapshot must not break the whole jobs page.
             }
-            rows.add(new Row(job, lecture, view));
+            JobRow row = new JobRow(job, lecture, view);
+            if (!row.terminal()) {
+                active++;
+            }
+            rows.add(row);
         }
         model.addAttribute("jobs", rows);
+        model.addAttribute("activeJobs", active);
         return "jobs";
-    }
-
-    public record Row(PipelineJob job, Lecture lecture, JobStatusView view) {
     }
 }

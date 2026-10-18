@@ -19,7 +19,11 @@
 <div class="page-header">
     <div>
         <h1>Задачи обработки</h1>
-        <p class="muted">Последние 50 задач из очереди обработки. Данные читаются из существующих таблиц, новые действия не создаются.</p>
+        <p class="muted">
+            Последние 50 задач.
+            <span th:if="${activeJobs > 0}" th:text="'Сейчас выполняется: ' + ${activeJobs} + '.'"></span>
+            Статус отменённой задачи не считается выполняющимся.
+        </p>
     </div>
     <a class="btn btn-primary" href="/add">Добавить материал</a>
 </div>
@@ -43,34 +47,45 @@
         </tr>
         </thead>
         <tbody>
-        <tr th:each="row : ${jobs}">
+        <tr th:each="row : ${jobs}"
+            th:attr="data-lecture-id=${row.lecture.id},data-status=${row.status()},data-job-status=${row.job.state.name()},data-lecture-status=${row.lecture.status.name()}">
             <td>
-                <a th:href="@{/lectures/{id}(id=${row.lecture.id})}"
-                   th:text="${row.lecture.originalFilename ?: row.lecture.id}">Лекция</a>
+                <a class="item-title" th:href="@{/lectures/{id}(id=${row.lecture.id})}"
+                   th:text="${row.title()}">Материал</a>
                 <div class="muted" th:if="${row.job.updatedAt != null}"
                      th:text="${#strings.substring(row.job.updatedAt.toString(), 0, 16)}"></div>
             </td>
-            <td><span th:replace="~{fragments/status-badge :: badge(${row.lecture.status.name()})}"></span></td>
             <td>
-                <span th:if="${row.job.currentStage != null}"
-                      th:text="${row.job.currentStage.title()}">Этап</span>
-                <span th:unless="${row.job.currentStage != null}" class="muted">—</span>
+                <span th:replace="~{fragments/status-badge :: badge(${row.status()})}"></span>
+                <div class="muted" th:if="${row.job.state.name() != row.status()}"
+                     th:text="'в базе задачи: ' + ${row.job.state.name()}"></div>
+            </td>
+            <td>
+                <span th:if="${row.view != null and row.view.currentStageTitle != null}"
+                      th:text="${row.view.currentStageTitle}">Этап</span>
+                <span th:unless="${row.view != null and row.view.currentStageTitle != null}"
+                      class="muted">—</span>
             </td>
             <td>
                 <div th:if="${row.view != null}">
-                    <progress th:value="${row.view.progressPercent}" max="100"></progress>
-                    <span class="muted" th:text="${row.view.progressPercent} + '%'"></span>
+                    <progress th:value="${row.progressPercent()}" max="100"
+                              th:attr="aria-label=${'Прогресс: ' + row.title()}"></progress>
+                    <span class="muted" th:text="${row.progressPercent()} + '%'"></span>
                 </div>
                 <span th:unless="${row.view != null}" class="muted">—</span>
             </td>
             <td>
                 <div class="actions">
                     <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}(id=${row.lecture.id})}">Открыть</a>
-                    <form th:if="${!row.job.state.terminal}"
+                    <form th:if="${!row.terminal()}"
                           method="post" th:action="@{/lectures/{id}/cancel(id=${row.lecture.id})}">
                         <button type="submit" class="btn btn-secondary btn-sm">Отменить</button>
                     </form>
-                    <form th:if="${row.lecture.status.retryable}"
+                    <form th:if="${row.status() == 'CANCELLED'}"
+                          method="post" th:action="@{/lectures/{id}/process(id=${row.lecture.id})}">
+                        <button type="submit" class="btn btn-secondary btn-sm">Запустить повторно</button>
+                    </form>
+                    <form th:if="${row.status() == 'INTERRUPTED' or row.status() == 'FAILED' or row.status() == 'PARTIAL'}"
                           method="post" th:action="@{/lectures/{id}/resume(id=${row.lecture.id})}">
                         <button type="submit" class="btn btn-secondary btn-sm">Продолжить</button>
                     </form>

@@ -1,8 +1,7 @@
 package com.lectureprocessor.web;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -15,10 +14,13 @@ import com.lectureprocessor.web.ui.StatusLabels;
 
 /**
  * Read-only library view. It reuses {@link LectureLibraryService} and keeps the
- * existing query contract; no new search or persistence logic is introduced.
+ * existing query contract (`q`, `language`, `status`, `hasTranslation`, `sort`)
+ * while adding bounded server-side pagination.
  */
 @Controller
 public class LibraryWebController {
+
+    private static final int PAGE_SIZE = 12;
 
     private final LectureLibraryService library;
 
@@ -33,18 +35,15 @@ public class LibraryWebController {
             @RequestParam(name = "status", required = false) String status,
             @RequestParam(name = "hasTranslation", required = false) Boolean hasTranslation,
             @RequestParam(name = "sort", defaultValue = "date-desc") String sort,
+            @RequestParam(name = "page", defaultValue = "1") int page,
             Model model) {
-        List<LectureLibraryService.LibraryItem> items = library.search(query, language, status,
-                hasTranslation, sort);
-        List<String> languages = library.search(null, null, null, null, "date-desc").stream()
-                .map(LectureLibraryService.LibraryItem::detectedLanguage)
-                .filter(Objects::nonNull)
-                .map(value -> value.toLowerCase(Locale.ROOT))
-                .distinct()
-                .sorted()
-                .toList();
-        model.addAttribute("items", items);
-        model.addAttribute("languages", languages);
+        LectureLibraryService.LibraryPage result = library.searchPage(query, language, status,
+                hasTranslation, sort, page, PAGE_SIZE);
+        boolean filtersActive = !blank(query) || !blank(language) || !blank(status)
+                || hasTranslation != null;
+        model.addAttribute("items", result.items());
+        model.addAttribute("result", result);
+        model.addAttribute("languages", library.languages());
         model.addAttribute("statuses", JobStatus.values());
         model.addAttribute("statusLabels", StatusLabels.all());
         model.addAttribute("q", query == null ? "" : query);
@@ -52,6 +51,12 @@ public class LibraryWebController {
         model.addAttribute("status", status == null ? "" : status);
         model.addAttribute("hasTranslation", hasTranslation);
         model.addAttribute("sort", sort);
+        model.addAttribute("filtersActive", filtersActive);
+        model.addAttribute("anyLectures", library.countAll() > 0);
         return "library";
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 }

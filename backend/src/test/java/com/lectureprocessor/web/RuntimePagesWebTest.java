@@ -1,6 +1,7 @@
 package com.lectureprocessor.web;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -98,22 +99,36 @@ class RuntimePagesWebTest {
                 JobStatus.UPLOADED, null, null, false, false, null, null, null, null, now, now);
     }
 
+    private void mockEmptyDashboard() {
+        when(library.searchPage(any(), any(), any(), any(), anyString(), anyInt(),
+                anyInt())).thenReturn(new LectureLibraryService.LibraryPage(
+                        List.of(), 0, 1, 6, 0));
+        when(library.countAll()).thenReturn(0L);
+        when(library.recentByStatuses(any(), anyInt())).thenReturn(List.of());
+        when(pipelineJobs.findActive(anyInt())).thenReturn(List.of());
+    }
+
     @Test
     void libraryPageRenders() throws Exception {
-        when(library.search(any(), any(), any(), any(), anyString())).thenReturn(List.of());
-        when(lectureService.findAll()).thenReturn(List.of());
+        mockEmptyDashboard();
 
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("index"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Добавить материал")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Найти видео")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Пока нет ни одного материала")));
+
+        mockMvc.perform(get("/add"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("add"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Локальный файл")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Видео по ссылке")));
     }
 
     @Test
     void layoutShellRendersWithLocalAssetsAndNavigation() throws Exception {
-        when(library.search(any(), any(), any(), any(), anyString())).thenReturn(List.of());
-        when(lectureService.findAll()).thenReturn(List.of());
+        mockEmptyDashboard();
 
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
@@ -128,8 +143,12 @@ class RuntimePagesWebTest {
 
     @Test
     void workspacePagesRender() throws Exception {
-        when(library.search(any(), any(), any(), any(), anyString())).thenReturn(List.of());
-        when(pipelineJobs.findAll()).thenReturn(List.of());
+        when(library.searchPage(any(), any(), any(), any(), anyString(), anyInt(),
+                anyInt())).thenReturn(new LectureLibraryService.LibraryPage(
+                        List.of(), 0, 1, 12, 0));
+        when(library.languages()).thenReturn(List.of());
+        when(library.countAll()).thenReturn(0L);
+        when(pipelineJobs.findRecent(anyInt())).thenReturn(List.of());
 
         mockMvc.perform(get("/library"))
                 .andExpect(status().isOk())
@@ -219,9 +238,10 @@ class RuntimePagesWebTest {
     void statusFragmentRendersDownloadBytesWithoutTotal() throws Exception {
         when(lectureService.getRequired("l1")).thenReturn(lecture());
         when(jobStatusService.view("l1")).thenReturn(new JobStatusView(
-                "l1", "DOWNLOADING", "RUNNING", "DOWNLOADING", "Скачивание", 2, 10, 20,
-                "", new JobStatusView.DownloadView("DOWNLOADING", 87_171_045L, null, null,
-                        95_000.0, null, null), List.of(), List.of()));
+                "l1", "DOWNLOADING", "DOWNLOADING", "RUNNING", "RUNNING", "DOWNLOADING",
+                "Скачивание", 2, 10, 20, "", new JobStatusView.DownloadView("DOWNLOADING",
+                        87_171_045L, null, null, 95_000.0, null, null), List.of(), List.of(),
+                false));
 
         mockMvc.perform(get("/lectures/l1/status"))
                 .andExpect(status().isOk())

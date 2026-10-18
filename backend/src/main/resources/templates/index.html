@@ -16,141 +16,124 @@
 <div th:replace="~{fragments/layout :: flash}"></div>
 <noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<h1>Lecture Processor</h1>
 <div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
-<div class="source-box" id="upload">
-    <h3>Локальный файл</h3>
-    <form method="post" action="/lectures" enctype="multipart/form-data">
-        <label for="lecture-file">Видеофайл</label>
-        <input id="lecture-file" type="file" name="file" accept="video/*" required>
-        <label><input type="checkbox" name="clean"> очистка транскрипта</label>
-        <label><input type="checkbox" name="slides"> извлечь слайды</label>
-        <div class="grid">
-            <label>Язык источника
-                <select name="languageMode">
-                    <option value="AUTO" selected>Auto</option>
-                    <option value="ENGLISH">English</option>
-                    <option value="RUSSIAN">Russian</option>
-                </select>
-            </label>
-            <label>Перевод
-                <select name="translationMode">
-                    <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
-                    <option value="BILINGUAL">Двуязычный</option>
-                    <option value="ORIGINAL_ONLY">Только оригинал</option>
-                </select>
-            </label>
-            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
+<section class="hero" aria-labelledby="overview-title">
+    <div class="hero__content">
+        <h1 id="overview-title">Lecture Processor</h1>
+        <p class="hero__lead">
+            Добавьте лекцию или видео по ссылке — приложение распознает речь,
+            подготовит конспект и сохранит документ. Результат можно прочитать,
+            отредактировать и скачать.
+        </p>
+        <div class="hero__actions">
+            <a class="btn btn-primary btn-lg" href="/add">Добавить материал</a>
+            <a class="btn btn-secondary btn-lg" href="/discover">Найти видео</a>
         </div>
-        <button type="submit">Загрузить и обработать</button>
-    </form>
-</div>
-
-<div class="source-box">
-    <h3>Видео по ссылке</h3>
-    <p>Поддерживаются YouTube, VK Видео, VK, Rutube.</p>
-    <form hx-get="/lectures/preview" hx-target="#preview" hx-swap="innerHTML"
-          action="/lectures/preview" method="get" style="margin-bottom:.6rem">
-        <label for="preview-url" class="visually-hidden">Ссылка на видео для проверки</label>
-        <input id="preview-url" type="url" name="url" placeholder="https://..." size="60" required>
-        <button type="submit">Проверить</button>
-    </form>
-    <div id="preview"></div>
-    <form method="post" action="/lectures/from-url">
-        <label for="download-url">Ссылка на видео</label>
-        <input id="download-url" type="url" name="url" placeholder="https://..." size="60" required>
-        <select name="quality">
-            <option value="auto">Auto</option>
-            <option value="480p">480p</option>
-            <option value="720p" selected>720p</option>
-            <option value="1080p">1080p</option>
-        </select>
-        <label><input type="checkbox" name="audioOnly"> только аудио</label>
-        <label><input type="checkbox" name="clean"> очистка транскрипта</label>
-        <label><input type="checkbox" name="slides"> извлечь слайды</label>
-        <div class="grid">
-            <label>Язык источника
-                <select name="languageMode">
-                    <option value="AUTO" selected>Auto</option>
-                    <option value="ENGLISH">English</option>
-                    <option value="RUSSIAN">Russian</option>
-                </select>
-            </label>
-            <label>Перевод
-                <select name="translationMode">
-                    <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
-                    <option value="BILINGUAL">Двуязычный</option>
-                    <option value="ORIGINAL_ONLY">Только оригинал</option>
-                </select>
-            </label>
-            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
-        </div>
-        <button type="submit">Скачать и обработать</button>
-    </form>
-</div>
-
-<form method="get" action="/" class="source-box">
-    <h3>Библиотека лекций</h3>
-    <div class="grid">
-        <label>Поиск по названию/теме
-            <input name="q" th:value="${q}" placeholder="например: RAG">
-        </label>
-        <label>Язык
-            <input name="language" th:value="${language}" size="4" placeholder="en / ru">
-        </label>
-        <label>Статус
-            <select name="status">
-                <option value="">Любой</option>
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${statusLabels[s.name()]}"
-                        th:selected="${status == s.name()}"></option>
-            </select>
-        </label>
-        <label>Перевод
-            <select name="hasTranslation">
-                <option value="">Не важно</option>
-                <option value="true" th:selected="${hasTranslation == true}">Есть перевод</option>
-                <option value="false" th:selected="${hasTranslation == false}">Без перевода</option>
-            </select>
-        </label>
-        <label>Сортировка
-            <select name="sort">
-                <option value="date-desc" th:selected="${sort == 'date-desc'}">Сначала новые</option>
-                <option value="date-asc" th:selected="${sort == 'date-asc'}">Сначала старые</option>
-                <option value="title" th:selected="${sort == 'title'}">По названию</option>
-            </select>
-        </label>
-        <label>&nbsp;<button type="submit">Применить</button></label>
+        <form class="quick-add" method="get" action="/add">
+            <label for="quick-url">Ссылка на видео — откроем форму с уже заполненным адресом</label>
+            <div class="quick-add__row">
+                <input id="quick-url" type="url" name="url" placeholder="https://..."
+                       inputmode="url" autocomplete="off">
+                <button type="submit">Продолжить</button>
+            </div>
+            <p class="field-help">Поддерживаются YouTube, VK Видео, VK и Rutube. Параметры загрузки выбираются на следующем шаге.</p>
+        </form>
+        <ul class="hero__features">
+            <li>распознавание речи</li>
+            <li>конспект и DOCX</li>
+            <li>перевод и редактор</li>
+        </ul>
     </div>
-</form>
+</section>
 
-<table>
-    <thead>
-    <tr><th>Лекция</th><th>Язык</th><th>Статус</th><th>Перевод</th><th>Создано</th><th></th></tr>
-    </thead>
-    <tbody>
-    <tr th:each="item : ${items}">
-        <td>
-            <div th:text="${item.title}"></div>
-            <div class="muted" th:if="${item.title != item.filename}" th:text="${item.filename}"></div>
-        </td>
-        <td th:text="${item.detectedLanguage ?: '—'}"></td>
-        <td><span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span></td>
-        <td>
-            <span th:if="${item.hasTranslation}" class="ok"
-                  th:text="${item.segmentsTranslated} + '/' + ${item.segmentsTotal}"></span>
-            <span th:unless="${item.hasTranslation}" class="muted">нет</span>
-        </td>
-        <td th:text="${item.createdAt}"></td>
-        <td>
-            <a th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
-            · <a th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
-        </td>
-    </tr>
-    <tr th:if="${#lists.isEmpty(items)}"><td colspan="6">Пока нет лекций</td></tr>
-    </tbody>
-</table>
+<div class="empty-state" th:if="${!anyLectures}">
+    <h2>Пока нет ни одного материала</h2>
+    <p>Начните с видеофайла или ссылки — обработка запустится автоматически, а результат появится в библиотеке.</p>
+    <div class="actions actions--center">
+        <a class="btn btn-primary" href="/add">Добавить материал</a>
+        <a class="btn btn-secondary" href="/library">Открыть библиотеку</a>
+    </div>
+    <p class="muted">Настройки моделей и провайдеров находятся в разделе «Система» и не нужны для первого запуска.</p>
+</div>
 
+<th:block th:if="${anyLectures}">
+<div class="dashboard">
+
+    <section class="card dashboard__active" th:if="${!#lists.isEmpty(activeJobs)}"
+             aria-labelledby="active-title">
+        <div class="card-header">
+            <h2 id="active-title">Сейчас обрабатывается</h2>
+            <a class="btn btn-ghost btn-sm" href="/jobs">Все задачи</a>
+        </div>
+        <ul class="task-list">
+            <li th:each="row : ${activeJobs}" class="task-list__item">
+                <div class="task-list__main">
+                    <a class="item-title" th:href="@{/lectures/{id}(id=${row.lecture.id})}"
+                       th:text="${row.title()}">Материал</a>
+                    <p class="muted">
+                        <span th:text="${row.stageTitle()}">Этап</span>
+                        <span th:text="' · ' + ${row.progressPercent()} + '%'"></span>
+                    </p>
+                </div>
+                <div class="task-list__progress">
+                    <progress th:value="${row.progressPercent()}" max="100"
+                              th:attr="aria-label=${'Прогресс: ' + row.title()}"></progress>
+                </div>
+                <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}(id=${row.lecture.id})}">Открыть</a>
+            </li>
+        </ul>
+    </section>
+
+    <section class="card dashboard__attention" th:if="${!#lists.isEmpty(attention)}"
+             aria-labelledby="attention-title">
+        <div class="card-header">
+            <h2 id="attention-title">Требует внимания</h2>
+        </div>
+        <ul class="task-list">
+            <li th:each="item : ${attention}" class="task-list__item">
+                <div class="task-list__main">
+                    <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+                       th:text="${item.title()}">Материал</a>
+                    <p class="muted">
+                        <span th:text="${statusLabels[item.status.name()]}">Статус</span>
+                        <span th:text="' · ' + ${item.filename}"></span>
+                    </p>
+                </div>
+                <span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span>
+                <a class="btn btn-secondary btn-sm" th:href="@{/lectures/{id}(id=${item.lectureId})}">Подробнее</a>
+            </li>
+        </ul>
+    </section>
+
+    <section class="card dashboard__recent" aria-labelledby="recent-title">
+        <div class="card-header">
+            <h2 id="recent-title">Последние материалы</h2>
+            <a class="btn btn-ghost btn-sm" href="/library">Вся библиотека</a>
+        </div>
+        <ul class="item-list">
+            <li th:each="item : ${recent}" class="item-list__row">
+                <div class="item-list__main">
+                    <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+                       th:text="${item.title()}">Материал</a>
+                    <p class="muted">
+                        <span th:text="${item.filename}">file.mp4</span>
+                        <span th:if="${item.detectedLanguage != null}" th:text="' · ' + ${item.detectedLanguage}"></span>
+                        <span th:if="${item.createdAt != null}"
+                              th:text="' · ' + ${#strings.substring(item.createdAt.toString(), 0, 10)}"></span>
+                        <span th:if="${item.hasTranslation}"
+                              th:text="' · перевод ' + ${item.segmentsTranslated} + '/' + ${item.segmentsTotal}"></span>
+                    </p>
+                </div>
+                <span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span>
+                <a class="btn btn-secondary btn-sm" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
+            </li>
+            <li th:if="${#lists.isEmpty(recent)}" class="muted">Материалов пока нет.</li>
+        </ul>
+    </section>
+
+</div>
+</th:block>
 
 </main>
 </div>

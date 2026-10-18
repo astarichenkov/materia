@@ -1,5 +1,6 @@
 package com.lectureprocessor.web;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +32,11 @@ import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.pipeline.PipelineJob;
+import com.lectureprocessor.repository.LectureRepository;
+import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.web.ui.JobRow;
 import com.lectureprocessor.web.ui.StatusLabels;
 
 /**
@@ -57,6 +62,8 @@ public class LectureWebController {
     private final VideoDiscoveryService discovery;
     private final SegmentRepository segments;
     private final LectureLibraryService library;
+    private final PipelineJobRepository jobs;
+    private final LectureRepository lectures;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -64,7 +71,8 @@ public class LectureWebController {
             BenchmarkRunService benchmarkRuns, BenchmarkUsageService benchmarkUsage,
             LlmSettingsService llmSettings, LectureLanguageService languages,
             LocalSimilarityService similarities, VideoDiscoveryService discovery,
-            SegmentRepository segments, LectureLibraryService library) {
+            SegmentRepository segments, LectureLibraryService library,
+            PipelineJobRepository jobs, LectureRepository lectures) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -79,23 +87,41 @@ public class LectureWebController {
         this.discovery = discovery;
         this.segments = segments;
         this.library = library;
+        this.jobs = jobs;
+        this.lectures = lectures;
     }
 
+    /**
+     * Working dashboard: add material, continue processing, see problems and the
+     * latest results. All data comes from existing read-only services.
+     */
     @GetMapping("/")
-    public String index(Model model,
-            @RequestParam(name = "q", required = false) String query,
-            @RequestParam(name = "language", required = false) String language,
-            @RequestParam(name = "status", required = false) String status,
-            @RequestParam(name = "hasTranslation", required = false) Boolean hasTranslation,
-            @RequestParam(name = "sort", defaultValue = "date-desc") String sort) {
-        model.addAttribute("items", library.search(query, language, status, hasTranslation, sort));
-        model.addAttribute("lectures", lectureService.findAll());
-        model.addAttribute("q", query == null ? "" : query);
-        model.addAttribute("language", language == null ? "" : language);
-        model.addAttribute("status", status == null ? "" : status);
-        model.addAttribute("hasTranslation", hasTranslation);
-        model.addAttribute("sort", sort);
-        model.addAttribute("statuses", com.lectureprocessor.domain.JobStatus.values());
+    public String index(Model model) {
+        LectureLibraryService.LibraryPage recent = library.searchPage(null, null, null, null,
+                "date-desc", 1, 6);
+        List<JobRow> activeJobs = new ArrayList<>();
+        for (PipelineJob job : jobs.findActive(20)) {
+            Lecture lecture = lectures.findById(job.lectureId()).orElse(null);
+            if (lecture == null) {
+                continue;
+            }
+            try {
+                JobRow row = new JobRow(job, lecture, jobStatusService.view(job.lectureId()));
+                if (!row.terminal()) {
+                    activeJobs.add(row);
+                }
+            } catch (RuntimeException ignored) {
+                // A broken snapshot must not hide every other task.
+            }
+        }
+        List<LectureLibraryService.LibraryItem> attention = library.recentByStatuses(
+                List.of(com.lectureprocessor.domain.JobStatus.FAILED,
+                        com.lectureprocessor.domain.JobStatus.PARTIAL,
+                        com.lectureprocessor.domain.JobStatus.INTERRUPTED), 5);
+        model.addAttribute("recent", recent.items());
+        model.addAttribute("activeJobs", activeJobs);
+        model.addAttribute("attention", attention);
+        model.addAttribute("anyLectures", library.countAll() > 0);
         model.addAttribute("statusLabels", StatusLabels.all());
         return "index";
     }
@@ -221,9 +247,15 @@ public class LectureWebController {
     }
 
     @PostMapping("/lectures/{id}/cancel")
-    public String cancel(@PathVariable String id) {
+    public String cancel(@PathVariable String id, RedirectAttributes redirect) {
         lectureService.getRequired(id);
-        jobService.cancel(id);
+        boolean cancelled = jobService.cancel(id);
+        if (cancelled) {
+            redirect.addFlashAttribute("message",
+                    "Отмена запрошена. Текущий этап остановится, статус станет «Отменено».");
+        } else {
+            redirect.addFlashAttribute("message", "Задача уже не выполняется.");
+        }
         return "redirect:/lectures/" + id;
     }
 
