@@ -8,5 +8,6 @@ public enum StageState {
     COMPLETED,
     FAILED,
     CANCELLED,
+    INTERRUPTED,
     INVALIDATED
 }

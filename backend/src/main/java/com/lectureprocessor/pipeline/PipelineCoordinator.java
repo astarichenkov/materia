@@ -50,6 +50,11 @@ public class PipelineCoordinator {
     private final FileStorageService storage;
 
     private final Map<String, CancellationToken> tokens = new ConcurrentHashMap<>();
+    /**
+     * Cancellation requests that arrived before the worker registered its token
+     * (submit → executor hand-off). Consumed at the start of {@link #run(String)}.
+     */
+    private final java.util.Set<String> pendingCancellations = ConcurrentHashMap.newKeySet();
     private final String owner = "app-" + UUID.randomUUID();
 
     public PipelineCoordinator(List<StageExecutor> stages, PipelineJobRepository jobRepository,
@@ -74,10 +79,49 @@ public class PipelineCoordinator {
 
     public boolean cancel(String lectureId) {
         CancellationToken token = tokens.get(lectureId);
-        if (token == null) {
+        if (token != null) {
+            token.cancel();
+            return true;
+        }
+        Optional<PipelineJob> stored = jobRepository.find(lectureId);
+        if (stored.isEmpty()) {
             return false;
         }
-        token.cancel();
+        PipelineJob job = stored.get();
+        if (job.state() != JobState.QUEUED && job.state() != JobState.RUNNING) {
+            // Already finished, cancelled or interrupted: nothing to stop.
+            return false;
+        }
+        if (job.state() == JobState.QUEUED) {
+            // The worker may not have registered its token yet (submit → executor
+            // hand-off); remember the request and consume it at the start of run().
+            pendingCancellations.add(lectureId);
+            return true;
+        }
+        if (job.leaseUntil() == null || job.leaseUntil().isBefore(Instant.now())) {
+            return cancelPersisted(lectureId);
+        }
+        // A live lease without an in-process token cannot be cancelled safely.
+        return false;
+    }
+
+    /**
+     * Cancels a job whose worker is gone (expired lease). The persisted job, the
+     * active checkpoint and the lecture are all moved to a terminal state so the
+     * UI never shows a cancelled job with a running stage.
+     */
+    private boolean cancelPersisted(String lectureId) {
+        int updated = jobRepository.cancelStale(lectureId, Instant.now(), "Отменено пользователем");
+        if (updated == 0) {
+            pendingCancellations.remove(lectureId);
+            return false;
+        }
+        checkpointRepository.cancelRunning(lectureId);
+        lectureRepository.findById(lectureId).ifPresent(lecture ->
+                lectureRepository.save(lecture.withStatus(JobStatus.CANCELLED)));
+        progressRegistry.remove(lectureId);
+        pendingCancellations.remove(lectureId);
+        log.info("Lecture {} cancelled without a live worker (stale lease)", lectureId);
         return true;
     }
 
@@ -97,6 +141,7 @@ public class PipelineCoordinator {
         if (!jobRepository.claim(lectureId, owner, Instant.now().plus(LEASE_DURATION))) {
             log.info("Lecture {} is already leased by another run; skipping", lectureId);
             tokens.remove(lectureId);
+            pendingCancellations.remove(lectureId);
             progressRegistry.remove(lectureId);
             com.lectureprocessor.process.CancellationContext.clear();
             return;
@@ -106,6 +151,16 @@ public class PipelineCoordinator {
         JobContext context = new JobContext(lectureId, token);
         context.setLecture(loader.lecture(lectureId));
         try {
+            // A cancel may have raced with the executor hand-off.
+            if (pendingCancellations.remove(lectureId)) {
+                checkpointRepository.cancelRunning(lectureId);
+                updateStatus(context, JobStatus.CANCELLED);
+                jobRepository.finish(lectureId, JobState.CANCELLED, "Отменено пользователем");
+                progressRegistry.update(lectureId, p -> p == null ? null
+                        : p.withState(JobState.CANCELLED).withMessage("Отменено пользователем"));
+                log.info("Lecture {} cancelled before the first stage", lectureId);
+                return;
+            }
             int index = 0;
             for (StageExecutor stage : stages) {
                 token.throwIfCancelled();
@@ -162,6 +217,9 @@ public class PipelineCoordinator {
                 return;
             }
 
+            // Cancellation wins even when the last stage just finished: a late
+            // worker must never turn a cancelled request into COMPLETED.
+            token.throwIfCancelled();
             JobState finalState = context.partialSuccess() ? JobState.PARTIAL : JobState.COMPLETED;
             JobStatus finalStatus = context.partialSuccess() ? JobStatus.PARTIAL : JobStatus.COMPLETED;
             updateStatus(context, finalStatus);
@@ -171,14 +229,18 @@ public class PipelineCoordinator {
             log.info("Lecture {} finished with state {}", lectureId, finalState);
         } catch (ProcessCancelledException e) {
             log.info("Lecture {} cancelled", lectureId);
+            // A cancelled job must not keep an active-looking stage checkpoint.
+            checkpointRepository.cancelRunning(lectureId);
             updateStatus(context, JobStatus.CANCELLED);
             jobRepository.finish(lectureId, JobState.CANCELLED, "Отменено пользователем");
-            progressRegistry.update(lectureId, p -> p == null ? null : p.withState(JobState.CANCELLED));
+            progressRegistry.update(lectureId, p -> p == null ? null
+                    : p.withState(JobState.CANCELLED).withMessage("Отменено пользователем"));
         } catch (RuntimeException e) {
             log.error("Lecture {} pipeline failed: {}", lectureId, e.getMessage(), e);
             fail(context, lectureId, e.getMessage());
         } finally {
             tokens.remove(lectureId);
+            pendingCancellations.remove(lectureId);
             com.lectureprocessor.process.CancellationContext.clear();
         }
     }

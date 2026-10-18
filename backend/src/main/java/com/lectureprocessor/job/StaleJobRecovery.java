@@ -28,10 +28,13 @@ public class StaleJobRecovery implements ApplicationRunner {
 
     private final PipelineJobRepository jobRepository;
     private final LectureRepository lectureRepository;
+    private final com.lectureprocessor.repository.StageCheckpointRepository checkpointRepository;
 
-    public StaleJobRecovery(PipelineJobRepository jobRepository, LectureRepository lectureRepository) {
+    public StaleJobRecovery(PipelineJobRepository jobRepository, LectureRepository lectureRepository,
+            com.lectureprocessor.repository.StageCheckpointRepository checkpointRepository) {
         this.jobRepository = jobRepository;
         this.lectureRepository = lectureRepository;
+        this.checkpointRepository = checkpointRepository;
     }
 
     @Override
@@ -39,6 +42,12 @@ public class StaleJobRecovery implements ApplicationRunner {
         int interrupted = jobRepository.interruptAllRunning();
         if (interrupted > 0) {
             log.warn("Recovered {} interrupted pipeline job(s)", interrupted);
+        }
+        // A stage checkpoint must never stay RUNNING after a restart: the worker
+        // that owned it does not exist anymore.
+        int stages = checkpointRepository.interruptAllRunning();
+        if (stages > 0) {
+            log.warn("Marked {} interrupted stage checkpoint(s)", stages);
         }
         lectureRepository.findAll().stream()
                 .filter(lecture -> !lecture.status().isTerminal())

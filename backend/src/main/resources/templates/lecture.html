@@ -22,19 +22,27 @@
 <div th:replace="~{fragments/status :: status}"></div>
 
 <div class="actions">
-    <form method="post" th:action="@{/lectures/{id}/process(id=${lecture.id})}">
+    <form th:if="${lecture.status.name() == 'COMPLETED'}"
+          method="post" th:action="@{/lectures/{id}/process(id=${lecture.id})}">
         <button type="submit">Обработать заново</button>
     </form>
-    <form method="post" th:action="@{/lectures/{id}/resume(id=${lecture.id})}">
-        <button type="submit">Возобновить</button>
+    <form th:if="${lecture.status.name() == 'CANCELLED'}"
+          method="post" th:action="@{/lectures/{id}/process(id=${lecture.id})}">
+        <button type="submit">Запустить повторно</button>
     </form>
-    <form method="post" th:action="@{/lectures/{id}/cancel(id=${lecture.id})}">
-        <button type="submit">Отменить</button>
+    <form th:if="${lecture.status.name() == 'INTERRUPTED' or lecture.status.name() == 'FAILED' or lecture.status.name() == 'PARTIAL'}"
+          method="post" th:action="@{/lectures/{id}/resume(id=${lecture.id})}">
+        <button type="submit">Продолжить</button>
+    </form>
+    <form th:if="${!lecture.status.terminal}"
+          method="post" th:action="@{/lectures/{id}/cancel(id=${lecture.id})}">
+        <button type="submit" class="btn-secondary">Отменить</button>
     </form>
     <a th:href="@{/lectures/{id}/editor(id=${lecture.id})}"><b>Редактор и проверка качества</b></a>
     <a th:href="@{/lectures/{id}/chat(id=${lecture.id})}">Чат по лекции</a>
     <form method="post" th:action="@{/lectures/{id}/delete(id=${lecture.id})}">
-        <button type="submit">Удалить</button>
+        <button type="submit" class="btn-danger"
+                data-confirm="Удалить лекцию и все её результаты? Действие необратимо.">Удалить</button>
     </form>
 </div>
 

@@ -1,21 +1,42 @@
 <!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <body>
+<!--
+  Live job/status block. `data-status` keeps the effective state, `data-raw-status`
+  the persisted checkpoint state and `data-job-status`/`data-lecture-status` the
+  persisted container states. Diagnostic information is therefore never lost,
+  even when the view resolves a historical contradiction (JOB=CANCELLED,
+  STAGE=RUNNING).
+-->
 <div th:fragment="status"
-     th:attr="hx-get=${lecture.status.terminal ? null : '/lectures/' + lecture.id + '/status'},
-              hx-trigger=${lecture.status.terminal ? null : 'every 3s'},
-              hx-swap='outerHTML'">
-    <p>Статус: <span th:replace="~{fragments/status-badge :: badge(${lecture.status.name()})}"></span></p>
+     th:with="displayStatus=${job != null ? job.status : lecture.status.name()},
+              live=${job != null ? !job.terminal : !lecture.status.terminal}"
+     th:attr="hx-get=${live ? '/lectures/' + lecture.id + '/status' : null},
+              hx-trigger=${live ? 'every 3s' : null},
+              hx-swap='outerHTML',
+              data-status=${displayStatus},
+              data-job-status=${job != null ? job.jobState : null},
+              data-lecture-status=${lecture.status.name()}">
+    <p>
+        Статус:
+        <span th:replace="~{fragments/status-badge :: badge(${displayStatus})}"></span>
+        <span class="muted" th:if="${job != null and job.rawStatus != null and job.rawStatus != job.status}"
+              th:text="'· в базе лекции: ' + ${job.rawStatus}"></span>
+    </p>
 
     <div th:if="${job != null}">
         <p>
-            Этап:
+            <span th:text="${job.terminal ? 'Последний этап:' : 'Этап:'}">Этап:</span>
             <span th:if="${job.currentStageTitle != null}" th:text="${job.currentStageTitle}">—</span>
             <span th:unless="${job.currentStageTitle != null}" th:text="'ожидание'">ожидание</span>
             (<span th:text="${job.stageIndex}">0</span>/<span th:text="${job.totalStages}">0</span>)
         </p>
-        <progress th:value="${job.progressPercent}" max="100"></progress>
+        <p th:if="${job.message != null and !#strings.isEmpty(job.message)}"
+           th:text="${job.message}"></p>
+        <progress th:value="${job.progressPercent}" max="100"
+                  th:attr="aria-label=${job.terminal ? 'Достигнутый прогресс обработки' : 'Прогресс обработки'}"></progress>
         <span th:text="${job.progressPercent} + '%'"></span>
+        <span class="muted" th:if="${job.terminal}"> · обработка остановлена, дальнейшие этапы не запускались</span>
 
         <div th:if="${job.download != null}">
             <p>
@@ -39,11 +60,16 @@
         </div>
 
         <table th:if="${job.stages != null}">
-            <thead><tr><th>Этап</th><th>Состояние</th><th>Ошибка</th></tr></thead>
+            <caption class="visually-hidden">Этапы обработки и их фактические состояния</caption>
+            <thead><tr><th scope="col">Этап</th><th scope="col">Состояние</th><th scope="col">Ошибка</th></tr></thead>
             <tbody>
             <tr th:each="stage : ${job.stages}">
                 <td th:text="${stage.title}"></td>
-                <td><span th:replace="~{fragments/status-badge :: badge(${stage.state})}"></span></td>
+                <td>
+                    <span th:replace="~{fragments/status-badge :: badge(${stage.state})}"></span>
+                    <span class="muted" th:if="${stage.rawState != stage.state}"
+                          th:text="' · в базе: ' + ${stage.rawState}"></span>
+                </td>
                 <td th:text="${stage.error}"></td>
             </tr>
             </tbody>

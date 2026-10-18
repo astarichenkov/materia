@@ -95,6 +95,32 @@ public class StageCheckpointRepository {
     }
 
     /**
+     * Moves every stage left in RUNNING for this lecture to CANCELLED. A job that
+     * was cancelled must not leave an active-looking stage behind.
+     */
+    public int cancelRunning(String lectureId) {
+        return jdbc.update("""
+                UPDATE stage_checkpoint
+                SET state = ?, finished_at = ?, error = ?
+                WHERE lecture_id = ? AND state = ?
+                """, StageState.CANCELLED.name(), Instant.now().toString(), "Отменено пользователем",
+                lectureId, StageState.RUNNING.name());
+    }
+
+    /**
+     * Startup recovery: because the process just started, no stage can still be
+     * executing, so RUNNING checkpoints become INTERRUPTED (retryable).
+     */
+    public int interruptAllRunning() {
+        return jdbc.update("""
+                UPDATE stage_checkpoint
+                SET state = ?, finished_at = ?, error = ?
+                WHERE state = ?
+                """, StageState.INTERRUPTED.name(), Instant.now().toString(),
+                "Обработка прервана перезапуском приложения", StageState.RUNNING.name());
+    }
+
+    /**
      * Invalidate a stage and every stage that comes after it (dependents), so a
      * changed input re-runs downstream work but preserves upstream artifacts.
      */

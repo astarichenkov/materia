@@ -20,6 +20,7 @@
     <span th:case="'EXPORTING'" class="badge badge--info" th:attr="data-status=${status}">Сохранение документов</span>
     <span th:case="'RUNNING'" class="badge badge--info" th:attr="data-status=${status}">Выполняется</span>
     <span th:case="'PENDING'" class="badge badge--neutral" th:attr="data-status=${status}">Ожидает</span>
+    <span th:case="'SKIPPED'" class="badge badge--neutral" th:attr="data-status=${status},data-raw-status=${status}">Не выполнялся</span>
     <span th:case="'INVALIDATED'" class="badge badge--warning" th:attr="data-status=${status}">Нужно пересчитать</span>
     <span th:case="'OPEN'" class="badge badge--info" th:attr="data-status=${status}">Открыт</span>
     <span th:case="'IN_PROGRESS'" class="badge badge--warning" th:attr="data-status=${status}">В работе</span>

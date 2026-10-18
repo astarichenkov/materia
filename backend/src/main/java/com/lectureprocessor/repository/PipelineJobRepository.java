@@ -53,6 +53,21 @@ public class PipelineJobRepository {
         return jdbc.query("SELECT * FROM pipeline_job ORDER BY updated_at DESC", MAPPER);
     }
 
+    /** Newest jobs, bounded for read-only screens (no full-table load). */
+    public List<PipelineJob> findRecent(int limit) {
+        return jdbc.query("SELECT * FROM pipeline_job ORDER BY updated_at DESC LIMIT ?", MAPPER,
+                limit);
+    }
+
+    /** Jobs that may still be executing; callers must still check the effective view. */
+    public List<PipelineJob> findActive(int limit) {
+        return jdbc.query("""
+                SELECT * FROM pipeline_job
+                WHERE state IN (?, ?)
+                ORDER BY updated_at DESC LIMIT ?
+                """, MAPPER, JobState.QUEUED.name(), JobState.RUNNING.name(), limit);
+    }
+
     /**
      * Atomically claim the job for {@code owner} until {@code leaseUntil}. Succeeds
      * when the job is not actively leased (another run, a previous crashed run
@@ -118,6 +133,20 @@ public class PipelineJobRepository {
                 SET state = ?, lease_owner = NULL, lease_until = NULL, updated_at = ?
                 WHERE state = ?
                 """, JobState.INTERRUPTED.name(), Instant.now().toString(), JobState.RUNNING.name());
+    }
+
+    /**
+     * Cancels a RUNNING job only when its lease is gone/expired, i.e. no live
+     * worker can still own it. This never overwrites a fresh run.
+     */
+    public int cancelStale(String lectureId, Instant now, String error) {
+        return jdbc.update("""
+                UPDATE pipeline_job
+                SET state = ?, error = ?, lease_owner = NULL, lease_until = NULL, updated_at = ?
+                WHERE lecture_id = ? AND state = ?
+                  AND (lease_owner IS NULL OR lease_until IS NULL OR lease_until < ?)
+                """, JobState.CANCELLED.name(), error, now.toString(), lectureId,
+                JobState.RUNNING.name(), now.toString());
     }
 
     public void deleteByLecture(String lectureId) {
