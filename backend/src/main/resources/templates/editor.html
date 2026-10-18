@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор лекции</title>
+    <script type="application/json" id="editor-view" th:utext="${viewJson}"></script>
+    <style>
+        :root { --ok:#0a7d28; --bad:#b00020; --warn:#a15c00; --muted:#666; --line:#d8d8d8; }
+        body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 1250px; }
+        h1 { margin-bottom: .2rem; }
+        a { color: #14508c; }
+        .bar { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin:.8rem 0; }
+        .msg { padding:.6rem .8rem; border-radius:5px; background:#eef; margin:.5rem 0; }
+        .msg.err { background:#fee; color:var(--bad); }
+        .msg.ok { background:#e8f7ea; color:var(--ok); }
+        .card { border:1px solid var(--line); border-radius:7px; padding:.8rem 1rem; margin:.8rem 0; }
+        .tabs { display:flex; gap:.3rem; border-bottom:2px solid var(--line); margin-top:1rem; flex-wrap:wrap; }
+        .tab { padding:.5rem .9rem; cursor:pointer; border:1px solid transparent; border-bottom:none; }
+        .tab.active { border-color:var(--line); border-radius:6px 6px 0 0; background:#fff; font-weight:600; }
+        .panel { display:none; padding-top:1rem; }
+        .panel.active { display:block; }
+        .muted { color:var(--muted); font-size:.9rem; }
+        .ok { color:var(--ok); font-weight:600; }
+        .bad { color:var(--bad); font-weight:600; }
+        .warn { color:var(--warn); font-weight:600; }
+        table { border-collapse:collapse; width:100%; }
+        th,td { border:1px solid var(--line); padding:.4rem .5rem; vertical-align:top; text-align:left; }
+        textarea { width:100%; box-sizing:border-box; font:inherit; min-height:3.2rem; }
+        .seg { margin:.6rem 0; padding:.6rem; border:1px solid var(--line); border-radius:6px; }
+        .seg-head { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .badge { padding:.1rem .45rem; border-radius:10px; font-size:.8rem; background:#eee; }
+        .badge.WARNING { background:#fff1d6; color:var(--warn); }
+        .badge.MANUALLY_CORRECTED { background:#e0f0ff; color:#14508c; }
+        .badge.REVIEWED { background:#e8f7ea; color:var(--ok); }
+        .badge.STALE { background:#fee; color:var(--bad); }
+        .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.7rem; }
+        .slide img { width:100%; border:1px solid var(--line); border-radius:4px; }
+        .diff { font-family:ui-monospace,monospace; font-size:.85rem; white-space:pre-wrap; background:#fafafa; padding:.6rem; }
+        .diff .add { color:var(--ok); }
+        .diff .del { color:var(--bad); }
+        .suggestion { border:1px dashed #14508c; border-radius:6px; padding:.5rem; margin-top:.4rem; background:#f6faff; }
+        .filters { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin:.5rem 0; }
+        .state-STALE { color:var(--bad); font-weight:600; }
+        .state-CURRENT { color:var(--ok); font-weight:600; }
+        .quality { display:flex; gap:1rem; flex-wrap:wrap; }
+        .quality b { font-size:1.1rem; }
+    </style>
+</head>
+<body>
+<h1 th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор</h1>
+<div class="bar">
+    <a th:href="@{/lectures/{id}(id=${view.lecture.id})}">← Карточка лекции</a>
+    <a th:href="@{/support/lecture/{id}(id=${view.lecture.id})}">Помощь</a>
+    <span class="muted" th:text="'Язык: ' + (${view.detectedLanguage} ?: 'не определён')
+            + ' → ' + ${view.targetLanguage} + ' (' + ${view.translationMode} + ')'"></span>
+</div>
+
+<div id="flash" class="msg" style="display:none"></div>
+
+<div class="card">
+    <div class="quality">
+        <div>Сегментов: <b th:text="${view.quality.totalSegments}"></b></div>
+        <div>Переведено: <b class="ok" th:text="${view.quality.translated}"></b></div>
+        <div>WARNING: <b class="warn" th:text="${view.quality.warnings}"></b></div>
+        <div>Исправлено вручную: <b th:text="${view.quality.manuallyCorrected}"></b></div>
+        <div>Проверено: <b th:text="${view.quality.reviewed}"></b></div>
+        <div>Устарело: <b class="bad" th:text="${view.quality.stale}"></b></div>
+    </div>
+    <p class="muted">
+        Это журнал выполненных проверок, а не оценка объективной точности перевода.
+        Состояние документов:
+        <span th:text="'оригинал: ' + ${stateStatus['TRANSCRIPT']}"></span>,
+        <span th:text="'перевод: ' + ${stateStatus['TRANSLATION']}"></span>,
+        <span th:text="'конспект: ' + ${stateStatus['NOTES']}"></span>.
+    </p>
+</div>
+
+<div class="card">
+    <b>Повторная генерация документов без Whisper</b>
+    <div class="filters">
+        <button data-export="ORIGINAL">Original DOCX</button>
+        <button data-export="RUSSIAN">Russian DOCX</button>
+        <button data-export="BILINGUAL">Bilingual DOCX</button>
+        <button data-export="NOTES">Notes DOCX</button>
+    </div>
+    <div id="export-states" class="muted">
+        <div th:each="state : ${view.exports}">
+            <span th:text="${state.variant}"></span>:
+            <span th:if="${state.available and !state.stale}" class="ok">актуален</span>
+            <span th:if="${state.stale}" class="bad">устарел (документ изменён)</span>
+            <span th:if="${!state.available}" class="muted">ещё не создан</span>
+            <a th:if="${state.available}" th:href="@{/api/lectures/{id}/download/{artifact}(id=${view.lecture.id},artifact=${state.docxArtifact})}">скачать</a>
+        </div>
+    </div>
+    <div class="muted" style="margin-top:.5rem">
+        Экспорт использует уже сохранённые ревизии и существующие слайды. Он не запускает
+        скачивание, FFmpeg, Whisper, перевод или обработку текста.
+        <label style="margin-left:1rem">
+            <input type="checkbox" id="cloud-retry" th:checked="${view.allowCloudRetry}"
+                   th:disabled="${!view.cloudRetryConfigured}">
+            Разрешить облачный повтор перевода WARNING-сегментов
+        </label>
+    </div>
+</div>
+
+<div class="tabs">
+    <div class="tab active" data-tab="transcript">Оригинал</div>
+    <div class="tab" data-tab="translation">Перевод</div>
+    <div class="tab" data-tab="notes">Конспект</div>
+    <div class="tab" data-tab="slides">Слайды</div>
+    <div class="tab" data-tab="history">История изменений</div>
+</div>
+
+<!-- ------------------------------------------------------------ transcript -->
+<div class="panel active" id="panel-transcript">
+    <div class="bar">
+        <label>Описание правки <input id="transcript-description" size="42"
+                                     placeholder="например: исправлены термины"></label>
+        <button id="save-transcript">Сохранить изменения</button>
+        <button id="reset-transcript">Отменить несохранённые</button>
+        <span class="muted">Версия: <span id="transcript-revision"
+            th:text="${revisionNumbers['TRANSCRIPT']}"></span></span>
+    </div>
+    <p class="muted">Меняются только тексты. Таймкоды, порядок и исходный медиафайл не затрагиваются,
+        Whisper не перезапускается.</p>
+    <div class="seg" th:each="segment : ${view.transcriptSegments}">
+        <div class="seg-head">
+            <b th:text="${'[' + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.startMs) + ' — '
+                    + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.endMs) + ']'}"></b>
+            <span class="muted" th:text="'#' + ${segment.sequence}"></span>
+        </div>
+        <textarea class="transcript-text" th:attr="data-sequence=${segment.sequence}"
+                  th:text="${segment.text}"></textarea>
+    </div>
+</div>
+
+<!-- ----------------------------------------------------------- translation -->
+<div class="panel" id="panel-translation">
+    <div class="bar">
+        <label>Фильтр
+            <select id="translation-filter">
+                <option value="ALL">Все сегменты</option>
+                <option value="WARNING">Только WARNING</option>
+                <option value="MANUAL">Изменённые вручную</option>
+                <option value="STALE">Устаревшие</option>
+                <option value="UNREVIEWED">Требуют проверки</option>
+            </select>
+        </label>
+        <button id="save-translation">Сохранить изменённые</button>
+        <button id="reset-translation">Отменить несохранённые</button>
+        <span class="muted">Версия: <span id="translation-revision"
+            th:text="${revisionNumbers['TRANSLATION']}"></span></span>
+        <span class="muted" th:if="${view.translation.translationId != null}"
+              th:text="'Модель: ' + ${view.translation.provider} + ' / ' + ${view.translation.model}"></span>
+    </div>
+    <p class="muted" th:if="${view.translation.translationId == null}">
+        Перевод ещё не создан. Сначала запустите обработку лекции.
+    </p>
+    <div id="translation-list">
+        <div class="seg translation-seg" th:each="segment : ${view.translation.segments}"
+             th:attr="data-sequence=${segment.sequence},data-status=${segment.status.name()}">
+            <div class="seg-head">
+                <b th:text="${'[' + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.startMs) + ' — '
+                        + T(com.lectureprocessor.domain.Transcript).formatTimestamp(segment.endMs) + ']'}"></b>
+                <span class="badge" th:classappend="${segment.status.name()}"
+                      th:text="${segment.status.name()}"></span>
+                <span class="badge" th:if="${segment.warning != null}" th:text="${segment.warning}"></span>
+                <span class="muted" th:text="'#' + ${segment.sequence}"></span>
+            </div>
+            <div class="muted" style="margin:.3rem 0"><b>EN:</b> <span th:text="${segment.sourceText}"></span></div>
+            <textarea class="translation-text" th:attr="data-sequence=${segment.sequence}"
+                      th:text="${segment.translatedText}"></textarea>
+            <div class="bar">
+                <button class="review-seg" th:attr="data-sequence=${segment.sequence}">Проверено</button>
+                <button class="retry-seg" th:attr="data-sequence=${segment.sequence}">Повторить перевод</button>
+                <span class="muted" th:if="${segment.error != null}" th:text="${segment.error}"></span>
+            </div>
+            <div class="suggestion" style="display:none"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ----------------------------------------------------------------- notes -->
+<div class="panel" id="panel-notes">
+    <div class="bar">
+        <label>Описание правки <input id="notes-description" size="42"
+                                     placeholder="например: уточнён заголовок"></label>
+        <button id="save-notes">Сохранить конспект</button>
+        <button id="preview-notes">Предпросмотр</button>
+        <button id="regenerate-notes">Пересоздать конспект из перевода</button>
+        <span class="muted">Версия: <span id="notes-revision"
+            th:text="${revisionNumbers['NOTES']}"></span></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+        <div>
+            <div class="muted">Markdown</div>
+            <textarea id="notes-markdown" style="min-height:28rem"
+                      th:text="${view.notesMarkdown}"></textarea>
+        </div>
+        <div>
+            <div class="muted">Безопасный предпросмотр (HTML не исполняется)</div>
+            <div id="notes-preview" class="card" style="min-height:26rem;overflow:auto"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ---------------------------------------------------------------- slides -->
+<div class="panel" id="panel-slides">
+    <p class="muted">
+        Слайды уже извлечены и привязаны к таймкодам. Текстовая правка не требует повторного
+        извлечения; экспорт использует эти же изображения и не теряет их.
+    </p>
+    <div class="grid">
+        <div class="slide" th:each="slide : ${view.slides}">
+            <img th:src="@{/api/lectures/{id}/slides/{seq}/image(id=${view.lecture.id},seq=${slide.sequence})}"
+                 th:alt="'Слайд ' + ${slide.sequence}">
+            <div class="muted" th:text="${'[' + T(com.lectureprocessor.domain.Transcript).formatTimestamp(slide.timestampMs)
+                    + '] · слайд ' + slide.sequence}"></div>
+        </div>
+        <p th:if="${#lists.isEmpty(view.slides)}" class="muted">
+            Слайды не извлекались (лекция обработана без опции «извлечь слайды»).
+        </p>
+    </div>
+</div>
+
+<!-- --------------------------------------------------------------- history -->
+<div class="panel" id="panel-history">
+    <div class="bar">
+        <label>Документ
+            <select id="history-type">
+                <option value="TRANSCRIPT">Оригинал</option>
+                <option value="TRANSLATION">Перевод</option>
+                <option value="NOTES">Конспект</option>
+            </select>
+        </label>
+        <label>От <select id="history-from"></select></label>
+        <label>До <select id="history-to"></select></label>
+        <button id="compare-revisions">Сравнить</button>
+        <button id="restore-revision">Восстановить «До»</button>
+    </div>
+    <div id="history-list"></div>
+    <pre id="history-diff" class="diff" style="display:none"></pre>
+</div>
+
+<script th:inline="javascript">
+    const lectureId = /*[[${view.lecture.id}]]*/ '';
+    const csrf = /*[[${csrf}]]*/ '';
+    const initial = JSON.parse(document.getElementById('editor-view').textContent);
+    const state = {
+        transcriptRevision: initial.revisions && initial.revisions.TRANSCRIPT
+            ? initial.revisions.TRANSCRIPT.revisionNumber : 0,
+        translationRevision: initial.revisions && initial.revisions.TRANSLATION
+            ? initial.revisions.TRANSLATION.revisionNumber : 0,
+        notesRevision: initial.revisions && initial.revisions.NOTES
+            ? initial.revisions.NOTES.revisionNumber : 0,
+        histories: {}
+    };
+    const initialText = { transcript: {}, translation: {}, notes: initial.notesMarkdown || '' };
+
+    function flash(message, error) {
+        const box = document.getElementById('flash');
+        box.textContent = message;
+        box.className = 'msg' + (error ? ' err' : ' ok');
+        box.style.display = 'block';
+        setTimeout(() => { box.style.display = 'none'; }, 7000);
+    }
+
+    async function api(path, options = {}) {
+        const response = await fetch('/api/lectures/' + encodeURIComponent(lectureId) + '/editor' + path, {
+            method: options.method || 'GET',
+            headers: Object.assign({'Content-Type': 'application/json', 'X-Editor-Csrf': csrf},
+                options.headers || {}),
+            body: options.body
+        });
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { data = {error: text}; }
+        if (!response.ok) {
+            if (response.status === 409) {
+                throw new Error((data && data.error) || 'Конфликт версий: документ изменён в другой вкладке');
+            }
+            throw new Error((data && data.error) || ('HTTP ' + response.status));
+        }
+        return data;
+    }
+
+    // ---------------------------------------------------------------- tabs
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'history') { loadHistory(); }
+    }));
+
+    // ------------------------------------------------------------ transcript
+    document.querySelectorAll('.transcript-text').forEach(area => {
+        initialText.transcript[area.dataset.sequence] = area.value;
+    });
+    document.getElementById('save-transcript').addEventListener('click', async () => {
+        const edits = [];
+        document.querySelectorAll('.transcript-text').forEach(area => {
+            if (area.value !== initialText.transcript[area.dataset.sequence]) {
+                edits.push({sequence: Number(area.dataset.sequence), text: area.value});
+            }
+        });
+        if (!edits.length) { flash('Нет изменений', true); return; }
+        try {
+            const revision = await api('/transcript', {method: 'POST', body: JSON.stringify({
+                expectedRevision: state.transcriptRevision, edits: edits,
+                description: document.getElementById('transcript-description').value
+            })});
+            state.transcriptRevision = revision.revisionNumber;
+            document.getElementById('transcript-revision').textContent = revision.revisionNumber;
+            edits.forEach(edit => {
+                initialText.transcript[edit.sequence] = edit.text;
+            });
+            flash('Расшифровка сохранена как версия #' + revision.revisionNumber
+                + '. Зависимые перевод и конспект помечены как устаревшие.', false);
+        } catch (e) { flash(e.message, true); }
+    });
+    document.getElementById('reset-transcript').addEventListener('click', () => {
+        document.querySelectorAll('.transcript-text').forEach(area => {
+            area.value = initialText.transcript[area.dataset.sequence] || '';
+        });
+        flash('Несохранённые изменения отменены', false);
+    });
+
+    // ----------------------------------------------------------- translation
+    document.querySelectorAll('.translation-text').forEach(area => {
+        initialText.translation[area.dataset.sequence] = area.value;
+    });
+    document.getElementById('save-translation').addEventListener('click', async () => {
+        const edits = [];
+        document.querySelectorAll('.translation-text').forEach(area => {
+            if (area.value !== initialText.translation[area.dataset.sequence]) {
+                edits.push({sequence: Number(area.dataset.sequence), text: area.value,
+                    aiAssisted: false});
+            }
+        });
+        if (!edits.length) { flash('Нет изменений перевода', true); return; }
+        await saveTranslationEdits(edits);
+    });
+
+    async function saveTranslationEdits(edits, description) {
+        try {
+            const revision = await api('/translation', {method: 'POST', body: JSON.stringify({
+                expectedRevision: state.translationRevision, edits: edits,
+                description: description || ''
+            })});
+            state.translationRevision = revision.revisionNumber;
+            document.getElementById('translation-revision').textContent = revision.revisionNumber;
+            edits.forEach(edit => { initialText.translation[edit.sequence] = edit.text; });
+            flash('Перевод сохранён как версия #' + revision.revisionNumber
+                + '. Конспект помечен как устаревший.', false);
+            refreshSegments(edits);
+        } catch (e) { flash(e.message, true); }
+    }
+
+    function refreshSegments(edits) {
+        edits.forEach(edit => {
+            const seg = document.querySelector('.translation-seg[data-sequence="' + edit.sequence + '"]');
+            if (!seg) { return; }
+            seg.dataset.status = edit.aiAssisted ? 'MANUALLY_CORRECTED' : 'MANUALLY_CORRECTED';
+            const badge = seg.querySelector('.badge');
+            if (badge) { badge.textContent = 'MANUALLY_CORRECTED'; badge.className = 'badge MANUALLY_CORRECTED'; }
+        });
+    }
+
+    document.getElementById('reset-translation').addEventListener('click', () => {
+        document.querySelectorAll('.translation-text').forEach(area => {
+            area.value = initialText.translation[area.dataset.sequence] || '';
+        });
+        flash('Несохранённые изменения перевода отменены', false);
+    });
+
+    document.getElementById('translation-filter').addEventListener('change', event => {
+        const value = event.target.value;
+        document.querySelectorAll('.translation-seg').forEach(seg => {
+            const status = seg.dataset.status;
+            let show = true;
+            if (value === 'WARNING') { show = status === 'WARNING'; }
+            else if (value === 'MANUAL') { show = status === 'MANUALLY_CORRECTED' || status === 'REVIEWED'; }
+            else if (value === 'STALE') { show = status === 'STALE'; }
+            else if (value === 'UNREVIEWED') { show = status === 'WARNING' || status === 'TRANSLATED'; }
+            seg.style.display = show ? '' : 'none';
+        });
+    });
+
+    document.querySelectorAll('.review-seg').forEach(button => button.addEventListener('click', async () => {
+        const sequence = Number(button.dataset.sequence);
+        try {
+            await api('/translation/segments/' + sequence + '/review', {method: 'POST'});
+            const seg = document.querySelector('.translation-seg[data-sequence="' + sequence + '"]');
+            seg.dataset.status = 'REVIEWED';
+            const badge = seg.querySelector('.badge');
+            badge.textContent = 'REVIEWED';
+            badge.className = 'badge REVIEWED';
+            flash('Сегмент ' + sequence + ' отмечен как проверенный', false);
+        } catch (e) { flash(e.message, true); }
+    }));
+
+    document.querySelectorAll('.retry-seg').forEach(button => button.addEventListener('click', async () => {
+        const sequence = Number(button.dataset.sequence);
+        button.disabled = true;
+        button.textContent = 'Запрос к модели…';
+        try {
+            const preview = await api('/translation/segments/' + sequence + '/retry', {method: 'POST'});
+            const seg = document.querySelector('.translation-seg[data-sequence="' + sequence + '"]');
+            const box = seg.querySelector('.suggestion');
+            const suggestion = preview.suggestion;
+            box.style.display = 'block';
+            box.innerHTML = '';
+            const title = document.createElement('div');
+            title.innerHTML = '<b>Предложение модели</b> ' + suggestion.provider + ' / ' + suggestion.model
+                + (suggestion.warning ? ' · <span class="warn">' + escapeHtml(suggestion.warning) + '</span>'
+                    : ' · <span class="ok">OK</span>')
+                + (preview.humanCorrectionProtected
+                    ? ' · <span class="warn">сегмент был исправлен вручную — при принятии создаётся новая версия</span>'
+                    : '');
+            const textarea = document.createElement('textarea');
+            textarea.value = suggestion.suggestedText;
+            const actions = document.createElement('div');
+            actions.className = 'bar';
+            const accept = document.createElement('button');
+            accept.textContent = 'Принять вариант';
+            const dismiss = document.createElement('button');
+            dismiss.textContent = 'Отклонить';
+            actions.append(accept, dismiss);
+            box.append(title, textarea, actions);
+            dismiss.addEventListener('click', () => { box.style.display = 'none'; });
+            accept.addEventListener('click', async () => {
+                await saveTranslationEdits([{sequence: sequence, text: textarea.value,
+                    provider: suggestion.provider, model: suggestion.model, aiAssisted: true}],
+                    'Принят повторный перевод сегмента ' + sequence);
+                box.style.display = 'none';
+                // The accepted text must also be visible in the textarea.
+                seg.querySelector('.translation-text').value = textarea.value;
+                initialText.translation[sequence] = textarea.value;
+            });
+        } catch (e) {
+            flash(e.message, true);
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Повторить перевод';
+        }
+    }));
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : value;
+        return div.innerHTML;
+    }
+
+    // ---------------------------------------------------------------- notes
+    document.getElementById('save-notes').addEventListener('click', async () => {
+        const markdown = document.getElementById('notes-markdown').value;
+        try {
+            const revision = await api('/notes', {method: 'POST', body: JSON.stringify({
+                expectedRevision: state.notesRevision, markdown: markdown,
+                description: document.getElementById('notes-description').value
+            })});
+            state.notesRevision = revision.revisionNumber;
+            document.getElementById('notes-revision').textContent = revision.revisionNumber;
+            initialText.notes = markdown;
+            flash('Конспект сохранён как версия #' + revision.revisionNumber, false);
+        } catch (e) { flash(e.message, true); }
+    });
+    async function previewNotes() {
+        const markdown = document.getElementById('notes-markdown').value;
+        try {
+            const data = await api('/notes/preview', {method: 'POST', body: JSON.stringify({markdown: markdown})});
+            document.getElementById('notes-preview').innerHTML = data.html;
+        } catch (e) { flash(e.message, true); }
+    }
+    document.getElementById('preview-notes').addEventListener('click', previewNotes);
+    document.getElementById('regenerate-notes').addEventListener('click', async () => {
+        if (!confirm('Пересоздать конспект из перевода? Текущая версия останется в истории.')) { return; }
+        try {
+            const revision = await api('/notes/regenerate', {method: 'POST'});
+            state.notesRevision = revision.revisionNumber;
+            document.getElementById('notes-revision').textContent = revision.revisionNumber;
+            document.getElementById('notes-markdown').value = revision.content;
+            initialText.notes = revision.content;
+            flash('Конспект пересоздан как версия #' + revision.revisionNumber
+                + ' (сравните с предыдущей в истории).', false);
+            previewNotes();
+        } catch (e) { flash(e.message, true); }
+    });
+
+    // --------------------------------------------------------------- export
+    document.querySelectorAll('[data-export]').forEach(button => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+            const result = await api('/export', {method: 'POST',
+                body: JSON.stringify({variant: button.dataset.export})});
+            flash('Экспорт ' + result.variant + ' создан из ревизий ('
+                + result.sizeBytes + ' байт). Скачать: ' + result.artifact, false);
+            refreshExports();
+        } catch (e) {
+            flash(e.message, true);
+        } finally {
+            button.disabled = false;
+        }
+    }));
+
+    async function refreshExports() {
+        try {
+            const list = await api('/exports');
+            const container = document.getElementById('export-states');
+            container.innerHTML = '';
+            const variants = ['ORIGINAL', 'RUSSIAN', 'BILINGUAL', 'NOTES'];
+            variants.forEach(variant => {
+                const last = list.find(item => item.variant === variant);
+                const row = document.createElement('div');
+                row.textContent = variant + ': '
+                    + (last ? (last.status === 'COMPLETED'
+                        ? 'создан ' + last.createdAt + ' (' + last.sizeBytes + ' байт)'
+                        : 'ошибка: ' + last.error)
+                        : 'ещё не создан');
+                container.appendChild(row);
+            });
+        } catch (e) { /* non-critical */ }
+    }
+
+    const cloudRetry = document.getElementById('cloud-retry');
+    if (cloudRetry) {
+        cloudRetry.addEventListener('change', async () => {
+            try {
+                const result = await api('/settings/cloud-retry', {method: 'PUT',
+                    body: JSON.stringify({enabled: cloudRetry.checked})});
+                cloudRetry.checked = result.allowCloudRetry;
+                flash('Облачный повтор перевода: ' + (result.allowCloudRetry ? 'включён' : 'выключен'), false);
+            } catch (e) { flash(e.message, true); }
+        });
+    }
+
+    // -------------------------------------------------------------- history
+    const historyType = document.getElementById('history-type');
+    const historyFrom = document.getElementById('history-from');
+    const historyTo = document.getElementById('history-to');
+
+    async function loadHistory() {
+        const type = historyType.value;
+        try {
+            state.histories[type] = await api('/revisions?type=' + type + '&limit=50');
+        } catch (e) {
+            state.histories[type] = state.histories[type] || [];
+            flash(e.message, true);
+        }
+        const revisions = state.histories[type] || [];
+        const list = document.getElementById('history-list');
+        list.innerHTML = '';
+        historyFrom.innerHTML = '';
+        historyTo.innerHTML = '';
+        revisions.forEach(revision => {
+            const row = document.createElement('div');
+            row.className = 'seg';
+            row.textContent = '#' + revision.revisionNumber + ' · ' + revision.editSource
+                + ' · ' + revision.createdAt + (revision.description
+                    ? ' · ' + revision.description : '');
+            list.appendChild(row);
+            [historyFrom, historyTo].forEach(select => {
+                const option = document.createElement('option');
+                option.value = revision.id;
+                option.textContent = '#' + revision.revisionNumber + ' (' + revision.editSource + ')';
+                select.appendChild(option);
+            });
+        });
+        if (revisions.length > 1) {
+            historyFrom.value = revisions[1].id;
+            historyTo.value = revisions[0].id;
+        }
+    }
+
+    document.getElementById('compare-revisions').addEventListener('click', async () => {
+        const type = historyType.value;
+        if (!historyFrom.value || !historyTo.value) { flash('Нужно минимум две версии', true); return; }
+        try {
+            const diff = await api('/compare?type=' + type + '&from=' + historyFrom.value
+                + '&to=' + historyTo.value);
+            const box = document.getElementById('history-diff');
+            box.style.display = 'block';
+            box.innerHTML = '';
+            diff.forEach(line => {
+                const div = document.createElement('div');
+                div.className = line.type === 'ADDED' ? 'add' : line.type === 'REMOVED' ? 'del' : '';
+                div.textContent = (line.type === 'ADDED' ? '+ ' : line.type === 'REMOVED' ? '- ' : '  ')
+                    + line.text;
+                box.appendChild(div);
+            });
+        } catch (e) { flash(e.message, true); }
+    });
+
+    document.getElementById('restore-revision').addEventListener('click', async () => {
+        const type = historyType.value;
+        if (!historyFrom.value) { flash('Выберите версию для восстановления', true); return; }
+        if (!confirm('Восстановить выбранную версию? Она станет новой ревизией; история сохранится.')) {
+            return;
+        }
+        try {
+            const revision = await api('/revisions/' + historyFrom.value + '/restore?type=' + type,
+                {method: 'POST'});
+            flash('Восстановлена версия, создана ревизия #' + revision.revisionNumber, false);
+            setTimeout(() => window.location.reload(), 800);
+        } catch (e) { flash(e.message, true); }
+    });
+
+    historyType.addEventListener('change', loadHistory);
+    loadHistory();
+    previewNotes();
+</script>
+</body>
+</html>

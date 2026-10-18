@@ -22,6 +22,7 @@ import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.download.MediaQuality;
 import com.lectureprocessor.job.LectureJobService;
 import com.lectureprocessor.lecture.InvalidUploadException;
+import com.lectureprocessor.lecture.LectureLibraryService;
 import com.lectureprocessor.lecture.LectureService;
 import com.lectureprocessor.lecture.RemoteLectureService;
 import com.lectureprocessor.llm.LlmRunConfig;
@@ -50,6 +51,7 @@ public class LectureWebController {
     private final LocalSimilarityService similarities;
     private final VideoDiscoveryService discovery;
     private final SegmentRepository segments;
+    private final LectureLibraryService library;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -57,7 +59,7 @@ public class LectureWebController {
             BenchmarkRunService benchmarkRuns, BenchmarkUsageService benchmarkUsage,
             LlmSettingsService llmSettings, LectureLanguageService languages,
             LocalSimilarityService similarities, VideoDiscoveryService discovery,
-            SegmentRepository segments) {
+            SegmentRepository segments, LectureLibraryService library) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -71,11 +73,24 @@ public class LectureWebController {
         this.similarities = similarities;
         this.discovery = discovery;
         this.segments = segments;
+        this.library = library;
     }
 
     @GetMapping("/")
-    public String index(Model model) {
+    public String index(Model model,
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(name = "language", required = false) String language,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "hasTranslation", required = false) Boolean hasTranslation,
+            @RequestParam(name = "sort", defaultValue = "date-desc") String sort) {
+        model.addAttribute("items", library.search(query, language, status, hasTranslation, sort));
         model.addAttribute("lectures", lectureService.findAll());
+        model.addAttribute("q", query == null ? "" : query);
+        model.addAttribute("language", language == null ? "" : language);
+        model.addAttribute("status", status == null ? "" : status);
+        model.addAttribute("hasTranslation", hasTranslation);
+        model.addAttribute("sort", sort);
+        model.addAttribute("statuses", com.lectureprocessor.domain.JobStatus.values());
         return "index";
     }
 

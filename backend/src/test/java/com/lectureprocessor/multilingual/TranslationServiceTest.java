@@ -181,6 +181,39 @@ class TranslationServiceTest {
         assertThat(outcome.segments().get(1).done()).isFalse();
     }
 
+    @Test
+    void preservesHumanCorrectionsOnResume() {
+        List<TranscriptSegment> segments = List.of(
+                new TranscriptSegment(0, 0, 1000, "First segment"),
+                new TranscriptSegment(1, 1000, 2000, "Second segment"));
+        var first = service.translate(request(segments));
+        assertThat(first.status()).isEqualTo(TranslationStatus.COMPLETED);
+        long translationId = first.translation().id();
+        List<TranslationSegment> stored = repository.segments(translationId);
+        List<TranslationSegment> corrected = List.of(stored.get(0).corrected("Ручной перевод"),
+                stored.get(1));
+        repository.upsertSegments(translationId, corrected);
+
+        int callsBefore = llm.chatCalls().size();
+        var second = service.translate(request(segments));
+
+        assertThat(second.status()).isEqualTo(TranslationStatus.COMPLETED);
+        TranslationSegment human = second.segments().stream()
+                .filter(segment -> segment.sequence() == 0).findFirst().orElseThrow();
+        assertThat(human.translatedText()).isEqualTo("Ручной перевод");
+        assertThat(human.status()).isEqualTo(SegmentTranslationStatus.MANUALLY_CORRECTED);
+        // Nothing had to be sent to the model: the human correction is final.
+        assertThat(llm.chatCalls()).hasSize(callsBefore);
+    }
+
+    @Test
+    void staleTranslationIsNotTreatedAsDone() {
+        TranslationSegment stale = new TranslationSegment(0, 0, 1000, "new source",
+                "старый перевод", SegmentTranslationStatus.STALE, "OK", "оригинал изменён", null, 1);
+        assertThat(stale.done()).isFalse();
+        assertThat(stale.toTranscriptSegment().text()).isEqualTo("new source");
+    }
+
     private TranslationService.TranslationRequest request(List<TranscriptSegment> segments) {
         return request(segments, "test-model");
     }

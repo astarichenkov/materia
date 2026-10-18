@@ -91,21 +91,68 @@
     </form>
 </div>
 
+<form method="get" action="/" class="source-box">
+    <h3>Библиотека лекций</h3>
+    <div class="grid">
+        <label>Поиск по названию/теме
+            <input name="q" th:value="${q}" placeholder="например: RAG">
+        </label>
+        <label>Язык
+            <input name="language" th:value="${language}" size="4" placeholder="en / ru">
+        </label>
+        <label>Статус
+            <select name="status">
+                <option value="">Любой</option>
+                <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"
+                        th:selected="${status == s.name()}"></option>
+            </select>
+        </label>
+        <label>Перевод
+            <select name="hasTranslation">
+                <option value="">Не важно</option>
+                <option value="true" th:selected="${hasTranslation == true}">Есть перевод</option>
+                <option value="false" th:selected="${hasTranslation == false}">Без перевода</option>
+            </select>
+        </label>
+        <label>Сортировка
+            <select name="sort">
+                <option value="date-desc" th:selected="${sort == 'date-desc'}">Сначала новые</option>
+                <option value="date-asc" th:selected="${sort == 'date-asc'}">Сначала старые</option>
+                <option value="title" th:selected="${sort == 'title'}">По названию</option>
+            </select>
+        </label>
+        <label>&nbsp;<button type="submit">Применить</button></label>
+    </div>
+</form>
+
 <table>
     <thead>
-    <tr><th>Файл</th><th>Статус</th><th>Создано</th><th></th></tr>
+    <tr><th>Лекция</th><th>Язык</th><th>Статус</th><th>Перевод</th><th>Создано</th><th></th></tr>
     </thead>
     <tbody>
-    <tr th:each="lecture : ${lectures}">
-        <td th:text="${lecture.originalFilename}"></td>
-        <td th:classappend="'status-' + ${lecture.status}" th:text="${lecture.status}"></td>
-        <td th:text="${lecture.createdAt}"></td>
-        <td><a th:href="@{/lectures/{id}(id=${lecture.id})}">Открыть</a></td>
+    <tr th:each="item : ${items}">
+        <td>
+            <div th:text="${item.title}"></div>
+            <div class="muted" th:if="${item.title != item.filename}" th:text="${item.filename}"></div>
+        </td>
+        <td th:text="${item.detectedLanguage ?: '—'}"></td>
+        <td th:classappend="'status-' + ${item.status}" th:text="${item.status}"></td>
+        <td>
+            <span th:if="${item.hasTranslation}" class="ok"
+                  th:text="${item.segmentsTranslated} + '/' + ${item.segmentsTotal}"></span>
+            <span th:unless="${item.hasTranslation}" class="muted">нет</span>
+        </td>
+        <td th:text="${item.createdAt}"></td>
+        <td>
+            <a th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
+            · <a th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
+        </td>
     </tr>
-    <tr th:if="${#lists.isEmpty(lectures)}"><td colspan="4">Пока нет лекций</td></tr>
+    <tr th:if="${#lists.isEmpty(items)}"><td colspan="6">Пока нет лекций</td></tr>
     </tbody>
 </table>
 <p><a href="/discover">Smart Video Discovery</a> · <a href="/benchmarks">Бенчмарки</a> ·
-    <a href="/assistant">Ассистент разработчика</a></p>
+    <a href="/assistant">Ассистент разработчика</a> · <a href="/diagnostics">Диагностика установки</a>
+    · <a href="/settings">Настройки</a></p>
 </body>
 </html>
