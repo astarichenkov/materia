@@ -33,13 +33,15 @@ public class LectureLibraryService {
             SELECT l.*, ll.detected_language, ll.translation_mode,
                    t.id AS translation_id, t.status AS translation_status,
                    t.segments_translated, t.segments_total,
-                   tp.title AS topic_title, tp.keywords AS topic_keywords
+                   tp.title AS topic_title, tp.keywords AS topic_keywords,
+                   th.status AS thumbnail_status, th.relative_path AS thumbnail_path
             """;
 
     private static final String FROM_JOINS = """
             FROM lecture l
             LEFT JOIN lecture_language ll ON ll.lecture_id = l.id
             LEFT JOIN lecture_topic tp ON tp.lecture_id = l.id
+            LEFT JOIN lecture_thumbnail th ON th.lecture_id = l.id
             LEFT JOIN lecture_translation t ON t.id = (
                 SELECT MAX(id) FROM lecture_translation WHERE lecture_id = l.id)
             """;
@@ -199,7 +201,9 @@ public class LectureLibraryService {
                 rs.getObject("segments_translated") == null ? 0 : rs.getInt("segments_translated"),
                 rs.getObject("segments_total") == null ? 0 : rs.getInt("segments_total"),
                 rs.getString("topic_title"),
-                rs.getString("topic_keywords"));
+                rs.getString("topic_keywords"),
+                rs.getString("thumbnail_status"),
+                rs.getString("thumbnail_path"));
     }
 
     private static String escapeLike(String value) {
@@ -241,7 +245,13 @@ public class LectureLibraryService {
             int segmentsTranslated,
             int segmentsTotal,
             String topicTitle,
-            String topicKeywords) {
+            String topicKeywords,
+            String thumbnailStatus,
+            String thumbnailPath) {
+
+        public boolean hasThumbnail() {
+            return "READY".equals(thumbnailStatus) && thumbnailPath != null;
+        }
 
         public boolean hasTranslation() {
             return translationStatus != null && segmentsTranslated > 0

@@ -11,10 +11,12 @@ import com.lectureprocessor.editor.EditorProperties;
 import com.lectureprocessor.fileagent.FileAgentProperties;
 import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.support.SupportProperties;
+import com.lectureprocessor.thumbnail.ThumbnailProperties;
 
 @SpringBootApplication
 @EnableConfigurationProperties({AppProperties.class, SupportProperties.class, FileAgentProperties.class,
-        MultilingualProperties.class, DiscoveryProperties.class, EditorProperties.class})
+        MultilingualProperties.class, DiscoveryProperties.class, EditorProperties.class,
+        ThumbnailProperties.class})
 @EnableScheduling
 public class LectureProcessorApplication {
 

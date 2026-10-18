@@ -73,7 +73,8 @@ class SchemaMigratorTest {
                 "translation_glossary", "lecture_topic", "lecture_similarity",
                 "video_discovery_cache", "discovered_video",
                 "lecture_document_revision", "lecture_segment_correction",
-                "lecture_document_state", "lecture_export")) {
+                "lecture_document_state", "lecture_export",
+                "lecture_thumbnail", "lecture_processing_profile", "lecture_output_variant")) {
             Long count = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", Long.class, table);
             assertThat(count).as("table %s", table).isEqualTo(1L);
@@ -101,10 +102,13 @@ class SchemaMigratorTest {
         // Day 35 lecture editor migration.
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM schema_migration WHERE version = 9", Long.class)).isEqualTo(1L);
+        // Nightly roadmap: thumbnails, processing profiles, output variants.
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM schema_migration WHERE version = 10", Long.class)).isEqualTo(1L);
 
         // Running the migrator again is idempotent.
         new SchemaMigrator(jdbc).run(null);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(8L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(9L);
         assertThat(Files.exists(db)).isTrue();
     }
 }

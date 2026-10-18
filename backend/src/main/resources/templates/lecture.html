@@ -17,8 +17,26 @@
 <div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 <noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>
-
+<div class="lecture-hero">
+    <div class="lecture-hero__thumb">
+        <img th:if="${thumbnailReady}"
+             th:src="@{/api/lectures/{id}/thumbnail(id=${lecture.id})}"
+             alt="Обложка материала" loading="lazy" width="480" height="270">
+        <span th:unless="${thumbnailReady}" class="library-card__placeholder">
+            <span th:text="${lecture.status.name() == 'COMPLETED' ? 'Обложка готовится' : 'Обложка появится после обработки'}">Обложка</span>
+        </span>
+    </div>
+    <div class="lecture-hero__meta">
+        <h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>
+        <p class="muted">
+            <span th:text="${lecture.status.name()}">STATUS</span>
+            <span th:if="${lecture.durationMs != null and lecture.durationMs > 0}"
+                  th:text="' · ' + ${T(com.lectureprocessor.domain.Transcript).formatTimestamp(lecture.durationMs)}"></span>
+            <span th:if="${lecture.sizeBytes > 0}"
+                  th:text="' · ' + ${T(com.lectureprocessor.importing.ImportCapabilities).formatBytes(lecture.sizeBytes)}"></span>
+        </p>
+    </div>
+</div>
 
 <div th:replace="~{fragments/status :: status}"></div>
 
@@ -143,6 +161,117 @@
         </li>
     </ul>
 </details>
+
+
+<section class="card" id="result-profile" aria-labelledby="result-profile-title">
+    <h2 id="result-profile-title">Результат и шаблон</h2>
+    <p class="muted">
+        Текущий профиль:
+        <b th:text="${profile.outputFormat().label()}">Формат</b>
+        <span th:text="' · ' + ${profile.materialType().label()}"></span>
+        <span th:text="' · ' + ${profile.detailLevel().label()}"></span>
+        <span class="muted" th:if="${!profile.explicit()}"> (используется настройка по умолчанию)</span>
+    </p>
+    <form method="post" th:action="@{/lectures/{id}/rerun(id=${lecture.id})}">
+        <div class="grid">
+            <div class="field">
+                <label for="profile-material">Тип исходного материала</label>
+                <select id="profile-material"
+                    th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
+                    hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="materialType">
+                    <option th:each="type : ${materialTypes}" th:value="${type.name()}"
+                            th:text="${type.label()}"
+                            th:selected="${type == profile.materialType()}"></option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="profile-format">Формат результата</label>
+                <select id="profile-format"
+                    th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
+                    hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="outputFormat">
+                    <option th:each="format : ${outputFormats}" th:value="${format.name()}"
+                            th:text="${format.label()}"
+                            th:selected="${format == profile.outputFormat()}"></option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="profile-detail">Детализация</label>
+                <select id="profile-detail"
+                    th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
+                    hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="detailLevel">
+                    <option th:each="level : ${detailLevels}" th:value="${level.name()}"
+                            th:text="${level.label()}"
+                            th:selected="${level == profile.detailLevel()}"></option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="profile-prompt">Prompt Template</label>
+                <select id="profile-prompt"
+                    th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
+                    hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="promptTemplate">
+                    <option value="">По формату (рекомендуется)</option>
+                    <option th:each="template : ${promptTemplates}" th:value="${template.name()}"
+                            th:text="${template.label()}"
+                            th:selected="${template.name() == profile.resolvedPrompt()}"></option>
+                </select>
+            </div>
+        </div>
+        <p class="muted">
+            <span th:text="${profile.outputFormat().description()}"></span>
+            <span th:text="' ' + ${profile.materialType().description()}"></span>
+        </p>
+        <div class="actions actions--start">
+            <button type="submit" class="btn btn-primary">Пересоздать результат</button>
+            <span class="muted">Скачивание и распознавание речи не повторяются, если они уже готовы.</span>
+        </div>
+        <noscript>
+            <p class="muted">Предпросмотр плана требует JavaScript; запуск пересоздания работает и без него.</p>
+        </noscript>
+    </form>
+    <div id="rerun-plan" aria-live="polite">
+        <div th:replace="~{fragments/rerun-plan :: plan}"></div>
+    </div>
+</section>
+
+<h2>История результатов</h2>
+<div class="empty-state" th:if="${#lists.isEmpty(variants)}">
+    <p>Варианты появятся после первого пересоздания результата. Текущие документы доступны ниже.</p>
+</div>
+<div class="table-scroll" th:if="${!#lists.isEmpty(variants)}">
+    <table class="table">
+        <caption class="muted">Каждый запуск сохраняется отдельно; старые варианты не перезаписываются.</caption>
+        <thead>
+        <tr>
+            <th scope="col">Дата</th>
+            <th scope="col">Формат</th>
+            <th scope="col">Шаблон</th>
+            <th scope="col">Модель</th>
+            <th scope="col">Документы</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="variant : ${variants}">
+            <td th:text="${#strings.substring(variant.createdAt().toString(), 0, 16)}">2026-01-01</td>
+            <td>
+                <span th:text="${variant.outputFormat().label()}">Формат</span>
+                <div class="muted" th:text="${variant.materialType().label()} + ' · ' + ${variant.detailLevel().label()}"></div>
+            </td>
+            <td th:text="${variant.promptTemplate()}">prompt</td>
+            <td>
+                <span th:text="${variant.provider() ?: '—'}">provider</span>
+                <div class="muted" th:text="${variant.model() ?: ''}"></div>
+            </td>
+            <td class="actions actions--start">
+                <a class="btn btn-ghost btn-sm" th:if="${variant.hasMarkdown()}"
+                   th:href="@{/api/lectures/{id}/variants/{variantId}/md(id=${lecture.id},variantId=${variant.id()})}">Markdown</a>
+                <a class="btn btn-ghost btn-sm" th:if="${variant.hasDocx()}"
+                   th:href="@{/api/lectures/{id}/variants/{variantId}/docx(id=${lecture.id},variantId=${variant.id()})}">DOCX</a>
+                <span class="muted" th:unless="${variant.hasDocx()}">DOCX не создан</span>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
 
 <h2>Документы</h2>
 <ul>

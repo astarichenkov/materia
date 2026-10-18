@@ -43,6 +43,38 @@ class TextProcessingServiceTest {
     }
 
     @Test
+    void passesFormattingInstructionsToTheModel() {
+        java.util.List<String> userMessages = new java.util.ArrayList<>();
+        llm.setChatFunction((system, user) -> {
+            userMessages.add(user);
+            return "## Раздел\n\nТекст.";
+        });
+
+        service.generateStructuredNotes(llm, segments, LlmOptions.of("fake-model"),
+                PromptTemplates.NOTES_HOWTO, "Тип исходного материала: Практический видеоурок.");
+
+        assertThat(userMessages).isNotEmpty();
+        assertThat(userMessages.getFirst())
+                .contains("Тип исходного материала: Практический видеоурок.")
+                .contains("Фрагмент 1 из");
+    }
+
+    @Test
+    void cleanTranscriptDocumentKeepsTimeSpansAndPlainText() {
+        llm.setChatFunction((system, user) -> "Очищенный текст.");
+
+        TextProcessingService.CleanedTranscriptDocument document =
+                service.cleanTranscriptDocument(segments, LlmOptions.of("fake-model"),
+                        PromptTemplates.CLEAN_TRANSCRIPT_V2);
+
+        assertThat(document.cleanedText()).contains("Очищенный текст.");
+        assertThat(document.notes().markdown()).startsWith("# Расшифровка лекции");
+        assertThat(document.notes().sections()).isNotEmpty();
+        assertThat(document.notes().sections().getFirst().startMs()).isZero();
+        assertThat(document.notes().summary()).isEmpty();
+    }
+
+    @Test
     void rejectsEmptyLlmOutput() {
         llm.setChatFunction((system, user) -> "   ");
         assertThatThrownBy(() -> service.cleanTranscript(segments, LlmOptions.of("fake-model")))

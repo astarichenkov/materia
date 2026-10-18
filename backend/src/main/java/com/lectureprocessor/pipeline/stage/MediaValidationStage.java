@@ -12,6 +12,7 @@ import com.lectureprocessor.pipeline.PipelineStage;
 import com.lectureprocessor.pipeline.StageExecutor;
 import com.lectureprocessor.pipeline.StageResult;
 import com.lectureprocessor.repository.LectureRepository;
+import com.lectureprocessor.thumbnail.ThumbnailService;
 import com.lectureprocessor.video.FfmpegService;
 
 /**
@@ -23,10 +24,13 @@ public class MediaValidationStage implements StageExecutor {
 
     private final FfmpegService ffmpeg;
     private final LectureRepository lectureRepository;
+    private final ThumbnailService thumbnails;
 
-    public MediaValidationStage(FfmpegService ffmpeg, LectureRepository lectureRepository) {
+    public MediaValidationStage(FfmpegService ffmpeg, LectureRepository lectureRepository,
+            ThumbnailService thumbnails) {
         this.ffmpeg = ffmpeg;
         this.lectureRepository = lectureRepository;
+        this.thumbnails = thumbnails;
     }
 
     @Override
@@ -60,6 +64,8 @@ public class MediaValidationStage implements StageExecutor {
         } else {
             context.addWarning("FFprobe не смог определить длительность медиафайла");
         }
+        // Poster generation is best-effort and never fails media validation.
+        thumbnails.generateQuietly(context.lectureId());
         return StageResult.completed(id(), ArtifactManifest.empty(), elapsed(start));
     }
 

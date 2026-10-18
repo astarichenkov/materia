@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Server-computed preview of a selective re-run. Nothing here starts a job:
+  every row comes from persisted checkpoints and artifacts.
+-->
+<div th:fragment="plan" class="rerun-plan">
+    <div th:if="${rerunPlan == null}" class="alert alert--warning" role="alert">
+        Не удалось рассчитать план. Проверьте состояние обработки на карточке материала.
+    </div>
+
+    <th:block th:if="${rerunPlan != null}">
+        <div class="alert alert--danger" role="alert" th:if="${rerunPlan.blocked}">
+            <b>Запуск заблокирован.</b>
+            <span th:text="${rerunPlan.blockedReason}">Причина</span>
+        </div>
+
+        <div class="rerun-summary">
+            <p>
+                <b>Профиль:</b>
+                <span th:text="${rerunPlan.requested.outputFormat().label()}">Формат</span>
+                <span class="muted" th:text="' · ' + ${rerunPlan.requested.materialType().label()}"></span>
+                <span class="muted" th:text="' · ' + ${rerunPlan.requested.detailLevel().label()}"></span>
+                <span class="muted" th:text="' · шаблон: ' + ${rerunPlan.requested.resolvedPrompt()}"></span>
+            </p>
+            <p th:if="${rerunPlan.needsRerun()}">
+                <b>Будут выполнены стадии:</b>
+                <span th:each="stage, iter : ${rerunPlan.rerunStages()}">
+                    <span class="badge badge--warning" th:text="${stage.stageTitle()}">Стадия</span>
+                    <span th:if="${!iter.last}">, </span>
+                </span>
+            </p>
+            <p class="muted" th:unless="${rerunPlan.needsRerun()}">
+                Всё уже готово для выбранного профиля — запуск не требуется.
+            </p>
+        </div>
+
+        <div class="alert alert--warning" role="alert" th:if="${rerunPlan.manualEditsPresent}">
+            <b>Ручные правки.</b>
+            <span th:text="${rerunPlan.manualEditsWarning}">Предупреждение</span>
+            <a th:href="@{/lectures/{id}/editor(id=${rerunPlan.lectureId})}">Открыть редактор</a>
+        </div>
+
+        <ul class="rerun-warnings" th:if="${!#lists.isEmpty(rerunPlan.warnings)}">
+            <li th:each="warning : ${rerunPlan.warnings}" class="muted" th:text="${warning}"></li>
+        </ul>
+
+        <div class="table-scroll">
+            <table class="table rerun-table">
+                <caption class="muted">План по стадиям</caption>
+                <thead>
+                <tr>
+                    <th scope="col">Стадия</th>
+                    <th scope="col">Решение</th>
+                    <th scope="col">Причина</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="stage : ${rerunPlan.stages}" th:attr="data-decision=${stage.decision().name()}">
+                    <th scope="row" th:text="${stage.stageTitle()}">Стадия</th>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${stage.decision().name() == 'REUSE'} ? ' badge--success'
+                                  : (${stage.decision().name() == 'RERUN'} ? ' badge--warning' : ' badge--neutral')"
+                              th:text="${stage.decision().label()}">Решение</span>
+                    </td>
+                    <td th:text="${stage.reason()}">Причина</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="rerun-artifacts">
+            <div>
+                <b>Используется повторно</b>
+                <ul th:if="${!#lists.isEmpty(rerunPlan.reusedArtifacts)}">
+                    <li th:each="artifact : ${rerunPlan.reusedArtifacts}" th:text="${artifact}"></li>
+                </ul>
+                <p class="muted" th:if="${#lists.isEmpty(rerunPlan.reusedArtifacts)}">Готовых артефактов нет.</p>
+            </div>
+            <div>
+                <b>Будет создано</b>
+                <ul>
+                    <li th:each="artifact : ${rerunPlan.producedArtifacts}" th:text="${artifact}"></li>
+                </ul>
+            </div>
+        </div>
+    </th:block>
+</div>
+</body>
+</html>

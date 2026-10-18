@@ -61,6 +61,18 @@ app:
     interval-seconds: 30
     max-images: 40
     hash-distance-threshold: 6
+  # Library poster cache. Generation runs in a background queue or inside a
+  # pipeline job, never inside an HTTP request for /library.
+  thumbnails:
+    enabled: ${THUMBNAILS_ENABLED:true}
+    width: ${THUMBNAILS_WIDTH:480}
+    max-remote-bytes: ${THUMBNAILS_MAX_REMOTE_BYTES:5242880}
+    remote-timeout: ${THUMBNAILS_REMOTE_TIMEOUT:20s}
+    # Bounded, idempotent backfill for lectures imported before the cache existed.
+    backfill-batch: ${THUMBNAILS_BACKFILL_BATCH:10}
+    backfill-on-startup: ${THUMBNAILS_BACKFILL_ON_STARTUP:true}
+    failed-retry-after: ${THUMBNAILS_FAILED_RETRY_AFTER:6h}
+    jpeg-quality: 0.85
   chat:
     max-history-messages: 10
     max-question-chars: 2000

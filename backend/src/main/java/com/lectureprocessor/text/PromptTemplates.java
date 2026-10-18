@@ -57,6 +57,16 @@ public class PromptTemplates {
     public static final String CLEAN_TRANSCRIPT_V2 = "clean-transcript-v2";
     public static final String STRUCTURED_NOTES_V2 = "structured-notes-v2";
 
+    /** PROMPT-1B output format presets (one template per requested document format). */
+    public static final String NOTES_ACADEMIC = "notes-academic-v1";
+    public static final String NOTES_BRIEF = "notes-brief-v1";
+    public static final String NOTES_HOWTO = "notes-howto-v1";
+    public static final String NOTES_INTERVIEW = "notes-interview-v1";
+    public static final String NOTES_METHODICAL = "notes-methodical-v1";
+    public static final String NOTES_ARTICLE = "notes-article-v1";
+    public static final String NOTES_FAQ = "notes-faq-v1";
+    public static final String NOTES_MEETING = "notes-meeting-v1";
+
     /** A versioned prompt template exposed to the benchmark UI. */
     public record Template(String name, String label, String description) {
     }
@@ -75,7 +85,23 @@ public class PromptTemplates {
                 new Template(STRUCTURED_NOTES_V2, "structured-notes-v2",
                         "Сжатый структурированный конспект (экспериментальный оптимизированный)."),
                 new Template(LECTURE_TRANSLATION, "lecture-translation-v1",
-                        "Сегментный перевод лекции с сохранением терминов и структуры (Week 8)."));
+                        "Сегментный перевод лекции с сохранением терминов и структуры (Week 8)."),
+                new Template(NOTES_ACADEMIC, "notes-academic-v1",
+                        "Подробный конспект академической лекции: определения, аргументы, выводы."),
+                new Template(NOTES_BRIEF, "notes-brief-v1",
+                        "Краткий конспект: только главные идеи и выводы."),
+                new Template(NOTES_HOWTO, "notes-howto-v1",
+                        "Пошаговая инструкция: шаги, команды, параметры, ожидаемый результат."),
+                new Template(NOTES_INTERVIEW, "notes-interview-v1",
+                        "Вопросы и ответы интервью без выдуманной атрибуции реплик."),
+                new Template(NOTES_METHODICAL, "notes-methodical-v1",
+                        "Методическое пособие: цели, порядок изучения, задания."),
+                new Template(NOTES_ARTICLE, "notes-article-v1",
+                        "Связная статья по материалу лекции."),
+                new Template(NOTES_FAQ, "notes-faq-v1",
+                        "FAQ: вопросы и ответы строго по материалу."),
+                new Template(NOTES_MEETING, "notes-meeting-v1",
+                        "Протокол встречи: повестка, решения, задачи, открытые вопросы."));
     }
 
     public boolean exists(String name) {

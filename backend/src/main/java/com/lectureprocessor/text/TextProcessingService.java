@@ -81,11 +81,24 @@ public class TextProcessingService {
     /** Mode 2 against an explicitly resolved provider (per-task model routing). */
     public StructuredNotes generateStructuredNotes(LlmProvider provider, List<TranscriptSegment> segments,
             LlmOptions options, String promptTemplate) {
+        return generateStructuredNotes(provider, segments, options, promptTemplate, null);
+    }
+
+    /**
+     * Mode 2 with an extra formatting instruction (material type + detail level).
+     * The instruction is appended to the user message and never overrides the
+     * reliability rules of the prompt template itself.
+     */
+    public StructuredNotes generateStructuredNotes(LlmProvider provider, List<TranscriptSegment> segments,
+            LlmOptions options, String promptTemplate, String instructions) {
         List<SegmentChunk> chunks = chunksOf(segments);
         List<NoteSection> sections = new ArrayList<>();
         int index = 0;
         for (SegmentChunk chunk : chunks) {
-            String user = "Фрагмент " + (++index) + " из " + chunks.size() + ":\n\n" + chunk.text();
+            String user = "Фрагмент " + (++index) + " из " + chunks.size() + ":"
+                    + (instructions == null || instructions.isBlank() ? ""
+                            : "\n\n" + instructions)
+                    + "\n\n" + chunk.text();
             String part = provider.chat(prompts.get(promptTemplate), user, options);
             sections.add(new NoteSection(index, chunk.startMs(), chunk.endMs(),
                     validate(part, "структурирование конспекта")));
@@ -94,6 +107,39 @@ public class TextProcessingService {
                 sections.stream().map(NoteSection::markdown).reduce("", (a, b) -> a + "\n\n" + b), options);
         String markdown = buildMarkdown(summary, sections);
         return new StructuredNotes(markdown, summary, sections);
+    }
+
+    /** Cleaned transcript deliverable against the default provider. */
+    public CleanedTranscriptDocument cleanTranscriptDocument(List<TranscriptSegment> segments,
+            LlmOptions options, String promptTemplate) {
+        return cleanTranscriptDocument(llm, segments, options, promptTemplate);
+    }
+
+    /**
+     * Produces the "cleaned transcript" deliverable: the text stays close to the
+     * original, is split into readable paragraphs and is not summarised. Sections
+     * preserve the source time span so slides are still placed correctly.
+     */
+    public CleanedTranscriptDocument cleanTranscriptDocument(LlmProvider provider,
+            List<TranscriptSegment> segments, LlmOptions options, String promptTemplate) {
+        List<SegmentChunk> chunks = chunksOf(segments);
+        List<NoteSection> sections = new ArrayList<>();
+        StringBuilder cleaned = new StringBuilder();
+        int index = 0;
+        for (SegmentChunk chunk : chunks) {
+            String part = provider.chat(prompts.get(promptTemplate), chunk.text(), options);
+            String validated = validate(part, "очистку транскрипта");
+            sections.add(new NoteSection(++index, chunk.startMs(), chunk.endMs(), validated));
+            cleaned.append(validated).append("\n\n");
+        }
+        String markdown = "# Расшифровка лекции\n\n"
+                + sections.stream().map(NoteSection::markdown).reduce("", (a, b) -> a + "\n\n" + b);
+        return new CleanedTranscriptDocument(new StructuredNotes(markdown.strip(), "", sections),
+                cleaned.toString().strip());
+    }
+
+    /** Result of the cleaned-transcript mode: the document plus the plain text. */
+    public record CleanedTranscriptDocument(StructuredNotes notes, String cleanedText) {
     }
 
     static String buildMarkdown(String summary, List<NoteSection> sections) {

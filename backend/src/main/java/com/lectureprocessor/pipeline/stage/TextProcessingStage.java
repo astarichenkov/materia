@@ -19,6 +19,9 @@ import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.multilingual.TranslationRepository;
 import com.lectureprocessor.multilingual.TranslationSegment;
 import com.lectureprocessor.multilingual.TranslationStatus;
+import com.lectureprocessor.processing.OutputVariantService;
+import com.lectureprocessor.processing.ProcessingProfile;
+import com.lectureprocessor.processing.ProcessingProfileService;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.HeavyStageLimiter;
@@ -52,11 +55,14 @@ public class TextProcessingStage implements StageExecutor {
     private final TranslationRepository translations;
     private final LectureLanguageRepository languageRepository;
     private final MultilingualProperties multilingual;
+    private final ProcessingProfileService profiles;
+    private final OutputVariantService variants;
 
     public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
             HeavyStageLimiter limiter, PipelineDataLoader loader, TranslationRepository translations,
-            LectureLanguageRepository languageRepository, MultilingualProperties multilingual) {
+            LectureLanguageRepository languageRepository, MultilingualProperties multilingual,
+            ProcessingProfileService profiles, OutputVariantService variants) {
         this.textProcessing = textProcessing;
         this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
@@ -67,6 +73,8 @@ public class TextProcessingStage implements StageExecutor {
         this.translations = translations;
         this.languageRepository = languageRepository;
         this.multilingual = multilingual;
+        this.profiles = profiles;
+        this.variants = variants;
     }
 
     @Override
@@ -82,12 +90,14 @@ public class TextProcessingStage implements StageExecutor {
         String translationKey = translations.findLatest(context.lectureId())
                 .map(t -> t.id() + ":" + t.status() + ":" + t.segmentsTranslated())
                 .orElse("none");
+        ProcessingProfile profile = profiles.get(context.lectureId());
         return Fingerprints.of("text-processing", transcriptKey, translationKey,
                 String.valueOf(config.provider()),
                 String.valueOf(config.model()), String.valueOf(config.temperature()),
                 String.valueOf(config.maxTokens()), String.valueOf(config.contextWindow()),
                 String.valueOf(config.thinking()), String.valueOf(config.promptTemplate()),
-                String.valueOf(context.lecture() != null && context.lecture().cleanTranscript()));
+                String.valueOf(context.lecture() != null && context.lecture().cleanTranscript()),
+                profile.fingerprintPart());
     }
 
     @Override
@@ -114,24 +124,41 @@ public class TextProcessingStage implements StageExecutor {
         LlmRunConfig config = resolved.config();
         context.setLlmConfig(config);
         LlmOptions options = resolved.options();
-        String notesPrompt = config.promptTemplate() == null
-                ? PromptTemplates.STRUCTURED_NOTES : config.promptTemplate();
+        ProcessingProfile profile = profiles.get(context.lectureId());
+        String notesPrompt = profile.resolvedPrompt();
         boolean clean = context.lecture() != null && context.lecture().cleanTranscript();
         final Transcript source = translatedTranscript(context, transcript);
 
-        String cleaned = limiter.run(context.cancellation(),
-                () -> clean ? textProcessing.cleanTranscript(resolved.provider(), source.segments(), options)
-                        : null);
-        context.cancellation().throwIfCancelled();
-        StructuredNotes notes = limiter.run(context.cancellation(),
-                () -> textProcessing.generateStructuredNotes(resolved.provider(), source.segments(), options,
-                        notesPrompt));
+        String cleaned = null;
+        StructuredNotes notes;
+        if (profile.outputFormat().cleanTranscript()) {
+            final String prompt = notesPrompt;
+            TextProcessingService.CleanedTranscriptDocument document = limiter.run(
+                    context.cancellation(),
+                    () -> textProcessing.cleanTranscriptDocument(resolved.provider(),
+                            source.segments(), options, prompt));
+            cleaned = document.cleanedText();
+            notes = document.notes();
+        } else {
+            final String instructions = profile.instructions();
+            cleaned = limiter.run(context.cancellation(),
+                    () -> clean ? textProcessing.cleanTranscript(resolved.provider(),
+                            source.segments(), options)
+                            : null);
+            context.cancellation().throwIfCancelled();
+            notes = limiter.run(context.cancellation(),
+                    () -> textProcessing.generateStructuredNotes(resolved.provider(),
+                            source.segments(), options, notesPrompt, instructions));
+        }
         context.cancellation().throwIfCancelled();
 
         loader.writeNotes(context.lectureId(), notes);
         if (cleaned != null) {
             loader.writeString(context.lectureId(), PipelineDataLoader.CLEANED_TXT, cleaned);
         }
+        // Archive the produced variant before any later stage can overwrite the
+        // working notes.md / notes.docx.
+        variants.archive(context.lectureId(), profile, config, notes.markdown());
         context.setNotes(notes);
         context.setTextProcessed(true);
         timings.record(context.lectureId(), TimingRepository.LLM, System.currentTimeMillis() - start);

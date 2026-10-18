@@ -36,6 +36,8 @@ import com.lectureprocessor.lecture.RemoteLectureService;
 import com.lectureprocessor.media.MediaMetadata;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.pipeline.JobStatusView;
+import com.lectureprocessor.processing.OutputVariant;
+import com.lectureprocessor.processing.OutputVariantService;
 import com.lectureprocessor.repository.SlideRepository;
 import com.lectureprocessor.storage.FileStorageService;
 
@@ -53,10 +55,12 @@ public class LectureApiController {
     private final LectureChatService chatService;
     private final SlideRepository slideRepository;
     private final FileStorageService storage;
+    private final OutputVariantService variants;
 
     public LectureApiController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
-            LectureChatService chatService, SlideRepository slideRepository, FileStorageService storage) {
+            LectureChatService chatService, SlideRepository slideRepository, FileStorageService storage,
+            OutputVariantService variants) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -64,6 +68,7 @@ public class LectureApiController {
         this.chatService = chatService;
         this.slideRepository = slideRepository;
         this.storage = storage;
+        this.variants = variants;
     }
 
     @GetMapping
@@ -179,6 +184,34 @@ public class LectureApiController {
     @GetMapping("/metadata")
     public MediaMetadata metadata(@RequestParam("url") String url) {
         return remoteLectureService.preview(url);
+    }
+
+    @GetMapping("/{id}/variants")
+    public List<OutputVariant> variants(@PathVariable String id) {
+        lectureService.getRequired(id);
+        return variants.list(id);
+    }
+
+    /**
+     * Downloads an archived document variant. Only artifacts referenced by the
+     * variant row of this lecture are served, so the endpoint cannot be used to
+     * read arbitrary files.
+     */
+    @GetMapping("/{id}/variants/{variantId}/{artifact}")
+    public ResponseEntity<Resource> variantArtifact(@PathVariable String id,
+            @PathVariable long variantId, @PathVariable String artifact) {
+        lectureService.getRequired(id);
+        OutputVariant variant = variants.find(id, variantId)
+                .orElseThrow(() -> new LectureNotFoundException(id + "/variant/" + variantId));
+        Path path = variants.artifactPath(variant, artifact);
+        if (path == null) {
+            throw new LectureNotFoundException("Артефакт варианта не найден: " + artifact);
+        }
+        MediaType type = path.getFileName().toString().endsWith(".docx")
+                ? MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                : MediaType.TEXT_MARKDOWN;
+        return file(path, type);
     }
 
     @GetMapping("/{id}/download/{artifact}")

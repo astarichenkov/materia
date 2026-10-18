@@ -19,9 +19,21 @@
 <div class="page-header">
     <div>
         <h1>Библиотека</h1>
-        <p class="muted">Все добавленные материалы: статус обработки, язык, перевод и быстрый переход к результату.</p>
+        <p class="muted">Все добавленные материалы: обложка, статус обработки, язык, перевод и быстрый переход к результату.</p>
     </div>
-    <a class="btn btn-primary" href="/add">Добавить материал</a>
+    <div class="actions actions--start">
+        <div class="view-toggle" role="group" aria-label="Вид библиотеки">
+            <a class="btn btn-sm"
+               th:classappend="${view == 'grid'} ? ' btn-primary' : ' btn-secondary'"
+               th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},view='grid',page=${result.page})}"
+               th:attr="aria-current=${view == 'grid'} ? 'true' : 'false'">Карточки</a>
+            <a class="btn btn-sm"
+               th:classappend="${view == 'list'} ? ' btn-primary' : ' btn-secondary'"
+               th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},view='list',page=${result.page})}"
+               th:attr="aria-current=${view == 'list'} ? 'true' : 'false'">Список</a>
+        </div>
+        <a class="btn btn-primary" href="/add">Добавить материал</a>
+    </div>
 </div>
 
 <form method="get" action="/library" class="card filters-card" role="search"
@@ -66,6 +78,7 @@
         </div>
     </div>
     <div class="actions">
+        <input type="hidden" name="view" th:value="${view}">
         <button type="submit">Применить</button>
         <a class="btn btn-secondary" href="/library"
            th:if="${filtersActive}">Сбросить фильтры</a>
@@ -105,34 +118,47 @@
     </div>
 </div>
 
-<ul class="library-list" th:if="${result.total > 0}">
+<ul class="library-list"
+    th:classappend="${view == 'list'} ? 'library-list--list' : 'library-list--grid'"
+    th:if="${result.total > 0}">
     <li th:each="item : ${items}" class="library-list__item">
         <article class="card library-card" th:attr="data-lecture-id=${item.lectureId}">
-            <div class="card-header">
-                <div class="library-card__heading">
-                    <h2>
-                        <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
-                           th:text="${item.title()}">Материал</a>
-                    </h2>
-                    <p class="muted">
-                        <span th:text="${item.filename}">file.mp4</span>
-                        <span th:if="${item.detectedLanguage != null}"
-                              th:text="' · ' + ${item.detectedLanguage}"></span>
-                        <span th:if="${item.createdAt != null}"
-                              th:text="' · ' + ${#strings.substring(item.createdAt.toString(), 0, 10)}"></span>
-                    </p>
+            <a class="library-card__thumb" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+               tabindex="-1" aria-hidden="true">
+                <img th:if="${item.hasThumbnail()}"
+                     th:src="@{/api/lectures/{id}/thumbnail(id=${item.lectureId})}"
+                     alt="" loading="lazy" decoding="async" width="480" height="270">
+                <span th:unless="${item.hasThumbnail()}" class="library-card__placeholder">
+                    <span class="muted" th:text="${item.hasTranslation() ? 'Перевод' : 'Материал'}">Материал</span>
+                </span>
+            </a>
+            <div class="library-card__body">
+                <div class="card-header">
+                    <div class="library-card__heading">
+                        <h2>
+                            <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+                               th:text="${item.title()}">Материал</a>
+                        </h2>
+                        <p class="muted">
+                            <span th:text="${item.filename}">file.mp4</span>
+                            <span th:if="${item.detectedLanguage != null}"
+                                  th:text="' · ' + ${item.detectedLanguage}"></span>
+                            <span th:if="${item.createdAt != null}"
+                                  th:text="' · ' + ${#strings.substring(item.createdAt.toString(), 0, 10)}"></span>
+                        </p>
+                    </div>
+                    <span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span>
                 </div>
-                <span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span>
-            </div>
-            <p class="muted">
-                <span th:if="${item.hasTranslation}"
-                      th:text="'Перевод: ' + ${item.segmentsTranslated} + '/' + ${item.segmentsTotal}">Перевод есть</span>
-                <span th:unless="${item.hasTranslation}">Перевод не выполнялся</span>
-            </p>
-            <div class="card-actions">
-                <a class="btn btn-secondary btn-sm" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
-                <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
-                <a class="btn btn-ghost btn-sm" th:href="@{/discover(lectureId=${item.lectureId})}">Похожие</a>
+                <p class="muted">
+                    <span th:if="${item.hasTranslation}"
+                          th:text="'Перевод: ' + ${item.segmentsTranslated} + '/' + ${item.segmentsTotal}">Перевод есть</span>
+                    <span th:unless="${item.hasTranslation}">Перевод не выполнялся</span>
+                </p>
+                <div class="card-actions">
+                    <a class="btn btn-secondary btn-sm" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
+                    <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
+                    <a class="btn btn-ghost btn-sm" th:href="@{/discover(lectureId=${item.lectureId})}">Похожие</a>
+                </div>
             </div>
         </article>
     </li>
@@ -140,12 +166,12 @@
 
 <nav class="pagination" th:if="${result.totalPages > 1}" aria-label="Страницы библиотеки">
     <a class="btn btn-secondary btn-sm" th:if="${result.hasPrevious()}"
-       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},page=${result.page - 1})}"
+       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},view=${view},page=${result.page - 1})}"
        rel="prev">Назад</a>
     <span class="muted" aria-current="page"
           th:text="'Страница ' + ${result.page} + ' из ' + ${result.totalPages}"></span>
     <a class="btn btn-secondary btn-sm" th:if="${result.hasNext()}"
-       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},page=${result.page + 1})}"
+       th:href="@{/library(q=${q},language=${language},status=${status},hasTranslation=${hasTranslation},sort=${sort},view=${view},page=${result.page + 1})}"
        rel="next">Вперёд</a>
 </nav>
 

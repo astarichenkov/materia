@@ -74,6 +74,9 @@ public class LectureRepository {
 
     public void deleteById(String id) {
         // Explicit cleanup (SQLite FK cascades are not guaranteed to be enabled).
+        jdbc.update("DELETE FROM lecture_output_variant WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_processing_profile WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_thumbnail WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM lecture_export WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM lecture_document_state WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM lecture_segment_correction WHERE lecture_id = ?", id);

@@ -107,6 +107,34 @@ public class FfmpegService {
         return extracted;
     }
 
+    /**
+     * Extracts a single thumbnail candidate frame at {@code timestampMs}, scaled
+     * to {@code width} pixels. Used by the library thumbnail cache; it never
+     * touches slide extraction.
+     *
+     * @return the written file, or {@code null} when FFmpeg did not produce a
+     *         non-empty image
+     */
+    public Path extractThumbnailFrame(Path video, Path output, long timestampMs, int width) {
+        double seconds = Math.max(0L, timestampMs) / 1000.0;
+        ProcessResult result = executor.execute(List.of(
+                properties.tools().ffmpegPath(),
+                "-hide_banner", "-y",
+                "-ss", String.format(java.util.Locale.ROOT, "%.3f", seconds),
+                "-i", video.toAbsolutePath().toString(),
+                "-frames:v", "1",
+                "-vf", "scale=" + Math.max(16, width) + ":-2",
+                "-q:v", "3",
+                output.toAbsolutePath().toString()),
+                Duration.ofMinutes(2), null);
+        if (!result.isSuccess()) {
+            log.debug("FFmpeg thumbnail frame at {} ms failed: {}", timestampMs,
+                    result.outputForError());
+            return null;
+        }
+        return Files.isRegularFile(output) && sizeOf(output) > 0 ? output : null;
+    }
+
     private static void requireSuccess(ProcessResult result, String operation) {
         if (!result.isSuccess()) {
             throw new ProcessExecutionException(operation + " завершилась с ошибкой: " + result.outputForError());

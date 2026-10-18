@@ -445,3 +445,48 @@ CREATE TABLE IF NOT EXISTS lecture_export (
     created_at              TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_lecture_export_lecture ON lecture_export(lecture_id, id);
+
+-- Nightly roadmap: cached lecture thumbnails (LIBRARY-1).
+CREATE TABLE IF NOT EXISTS lecture_thumbnail (
+    lecture_id    TEXT PRIMARY KEY,
+    status        TEXT NOT NULL,
+    source        TEXT NOT NULL,
+    relative_path TEXT,
+    size_bytes    INTEGER NOT NULL DEFAULT 0,
+    error         TEXT,
+    updated_at    TEXT NOT NULL,
+    FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_lecture_thumbnail_status
+    ON lecture_thumbnail(status, updated_at);
+
+-- Nightly roadmap: per-lecture output profile (material type + document format).
+CREATE TABLE IF NOT EXISTS lecture_processing_profile (
+    lecture_id      TEXT PRIMARY KEY,
+    material_type   TEXT NOT NULL,
+    output_format   TEXT NOT NULL,
+    detail_level    TEXT NOT NULL,
+    prompt_template TEXT,
+    updated_at      TEXT NOT NULL,
+    FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
+);
+
+-- Nightly roadmap: immutable archive of produced document variants.
+CREATE TABLE IF NOT EXISTS lecture_output_variant (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    lecture_id      TEXT NOT NULL,
+    material_type   TEXT NOT NULL,
+    output_format   TEXT NOT NULL,
+    detail_level    TEXT NOT NULL,
+    prompt_template TEXT,
+    provider        TEXT,
+    model           TEXT,
+    notes_markdown  TEXT NOT NULL,
+    markdown_artifact TEXT,
+    docx_artifact   TEXT,
+    content_hash    TEXT,
+    created_at      TEXT NOT NULL,
+    FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_lecture_variant_lecture
+    ON lecture_output_variant(lecture_id, id);

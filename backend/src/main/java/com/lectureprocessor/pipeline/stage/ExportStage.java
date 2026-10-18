@@ -21,6 +21,7 @@ import com.lectureprocessor.multilingual.TranslationMode;
 import com.lectureprocessor.multilingual.TranslationRepository;
 import com.lectureprocessor.multilingual.TranslationSegment;
 import com.lectureprocessor.multilingual.TranslationStatus;
+import com.lectureprocessor.processing.OutputVariantService;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.JobContext;
@@ -55,12 +56,13 @@ public class ExportStage implements StageExecutor {
     private final TranslationRepository translations;
     private final LectureLanguageRepository languageRepository;
     private final MultilingualProperties multilingual;
+    private final OutputVariantService variants;
 
     public ExportStage(MarkdownBuilder markdownBuilder, DocxExporter docxExporter,
             SlideRepository slideRepository, LectureRepository lectureRepository,
             FileStorageService storage, TimingRepository timings, PipelineDataLoader loader,
             TranslationRepository translations, LectureLanguageRepository languageRepository,
-            MultilingualProperties multilingual) {
+            MultilingualProperties multilingual, OutputVariantService variants) {
         this.markdownBuilder = markdownBuilder;
         this.docxExporter = docxExporter;
         this.slideRepository = slideRepository;
@@ -71,6 +73,7 @@ public class ExportStage implements StageExecutor {
         this.translations = translations;
         this.languageRepository = languageRepository;
         this.multilingual = multilingual;
+        this.variants = variants;
     }
 
     @Override
@@ -128,6 +131,9 @@ public class ExportStage implements StageExecutor {
 
         Path docx = storage.resolve(context.lectureId(), PipelineDataLoader.DOCX);
         docxExporter.export(docx, title, notes, slideImages);
+        // Keep a downloadable copy of this run next to the permanent working
+        // artifacts, so a later re-generation never destroys the previous result.
+        variants.attachExport(context.lectureId(), docx);
 
         List<ArtifactManifest.ArtifactRef> artifacts = new ArrayList<>(List.of(
                 ArtifactManifest.required("transcript-md", PipelineDataLoader.TRANSCRIPT_MD),

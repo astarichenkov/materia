@@ -43,9 +43,18 @@ import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.pipeline.PipelineJob;
+import com.lectureprocessor.processing.OutputFormat;
+import com.lectureprocessor.processing.OutputVariantService;
+import com.lectureprocessor.processing.ProcessingProfile;
+import com.lectureprocessor.processing.ProcessingProfileService;
+import com.lectureprocessor.processing.RerunPlan;
+import com.lectureprocessor.processing.RerunPlanService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
+import com.lectureprocessor.thumbnail.ThumbnailService;
 import com.lectureprocessor.web.ui.JobRow;
 import com.lectureprocessor.web.ui.StatusLabels;
 
@@ -76,6 +85,12 @@ public class LectureWebController {
     private final LectureRepository lectures;
     private final ImportDeduplicationService importDeduplication;
     private final ImportCapabilitiesService importCapabilities;
+    private final ThumbnailService thumbnails;
+    private final ThumbnailJobQueue thumbnailQueue;
+    private final ProcessingProfileService profiles;
+    private final RerunPlanService rerunPlans;
+    private final OutputVariantService variants;
+    private final PromptTemplates promptTemplates;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -86,7 +101,10 @@ public class LectureWebController {
             SegmentRepository segments, LectureLibraryService library,
             PipelineJobRepository jobs, LectureRepository lectures,
             ImportDeduplicationService importDeduplication,
-            ImportCapabilitiesService importCapabilities) {
+            ImportCapabilitiesService importCapabilities, ThumbnailService thumbnails,
+            ThumbnailJobQueue thumbnailQueue, ProcessingProfileService profiles,
+            RerunPlanService rerunPlans, OutputVariantService variants,
+            PromptTemplates promptTemplates) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -105,6 +123,12 @@ public class LectureWebController {
         this.lectures = lectures;
         this.importDeduplication = importDeduplication;
         this.importCapabilities = importCapabilities;
+        this.thumbnails = thumbnails;
+        this.thumbnailQueue = thumbnailQueue;
+        this.profiles = profiles;
+        this.rerunPlans = rerunPlans;
+        this.variants = variants;
+        this.promptTemplates = promptTemplates;
     }
 
     /**
@@ -135,6 +159,11 @@ public class LectureWebController {
                         com.lectureprocessor.domain.JobStatus.PARTIAL,
                         com.lectureprocessor.domain.JobStatus.INTERRUPTED), 5);
         model.addAttribute("recent", recent.items());
+        recent.items().forEach(item -> {
+            if (!item.hasThumbnail()) {
+                thumbnailQueue.enqueue(item.lectureId());
+            }
+        });
         model.addAttribute("activeJobs", activeJobs);
         model.addAttribute("attention", attention);
         model.addAttribute("anyLectures", library.countAll() > 0);
@@ -322,7 +351,102 @@ public class LectureWebController {
             model.addAttribute("discoveryProviders", List.of());
         }
         model.addAttribute("transcriptSegments", segments.findByLecture(id));
+        // Cached poster; generation is queued in the background, never inline.
+        boolean thumbnailReady = thumbnails.isReady(id);
+        model.addAttribute("thumbnailReady", thumbnailReady);
+        if (!thumbnailReady) {
+            thumbnailQueue.enqueue(id);
+        }
+        addProcessingProfileModel(id, model);
         return "lecture";
+    }
+
+    /**
+     * Adds the output profile form, the produced variants and the pre-computed
+     * re-run plan to the lecture page. Everything is read-only derived state.
+     */
+    private void addProcessingProfileModel(String id, Model model) {
+        ProcessingProfile profile = profiles.get(id);
+        model.addAttribute("profile", profile);
+        model.addAttribute("materialTypes", profiles.materialTypes());
+        model.addAttribute("outputFormats", profiles.outputFormats());
+        model.addAttribute("detailLevels", profiles.detailLevels());
+        model.addAttribute("promptTemplates", notesPrompts());
+        model.addAttribute("variants", variants.list(id));
+        try {
+            model.addAttribute("rerunPlan", rerunPlans.plan(id, profile));
+        } catch (RuntimeException e) {
+            log.warn("Rerun plan unavailable for {}: {}", id, e.getMessage());
+            model.addAttribute("rerunPlan", null);
+        }
+    }
+
+    /** Prompt templates that can produce a document (assistant/translation excluded). */
+    private List<PromptTemplates.Template> notesPrompts() {
+        return promptTemplates.list().stream()
+                .filter(t -> t.name().startsWith("notes-")
+                        || t.name().startsWith("clean-transcript")
+                        || t.name().startsWith("structured-notes"))
+                .toList();
+    }
+
+    /** Preview of the re-run plan for a profile that is not saved yet. */
+    @GetMapping("/lectures/{id}/rerun-plan")
+    public String rerunPlan(@PathVariable String id,
+            @RequestParam(name = "materialType", required = false) String materialType,
+            @RequestParam(name = "outputFormat", required = false) String outputFormat,
+            @RequestParam(name = "detailLevel", required = false) String detailLevel,
+            @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
+            Model model) {
+        lectureService.getRequired(id);
+        ProcessingProfile preview = profiles.preview(materialType, outputFormat, detailLevel,
+                promptTemplate);
+        model.addAttribute("previewProfile", preview);
+        model.addAttribute("rerunPlan", rerunPlans.plan(id, preview));
+        model.addAttribute("promptTemplates", notesPrompts());
+        return "fragments/rerun-plan :: plan";
+    }
+
+    /**
+     * Saves the selected profile and starts a re-run. The orchestrator reuses
+     * every valid checkpoint: changing only the document format never re-downloads
+     * media and never re-runs Whisper.
+     */
+    @PostMapping("/lectures/{id}/rerun")
+    public String rerun(@PathVariable String id,
+            @RequestParam(name = "materialType", required = false) String materialType,
+            @RequestParam(name = "outputFormat", required = false) String outputFormat,
+            @RequestParam(name = "detailLevel", required = false) String detailLevel,
+            @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
+            RedirectAttributes redirect) {
+        lectureService.getRequired(id);
+        try {
+            ProcessingProfile profile = profiles.save(id, materialType, outputFormat, detailLevel,
+                    promptTemplate);
+            RerunPlan plan = rerunPlans.plan(id, profile);
+            if (plan.blocked()) {
+                redirect.addFlashAttribute("error", "Пересоздание не запущено: "
+                        + plan.blockedReason());
+                return "redirect:/lectures/" + id;
+            }
+            boolean submitted = jobService.submit(id);
+            if (submitted) {
+                String formats = OutputFormat.from(outputFormat).label();
+                redirect.addFlashAttribute("message", "Профиль «" + formats
+                        + "» сохранён, пересоздание запущено. Повторно скачиваться и распознаваться "
+                        + "материал не будет.");
+            } else {
+                redirect.addFlashAttribute("message",
+                        "Профиль сохранён. Задача уже выполняется — новый результат появится после "
+                                + "её завершения.");
+            }
+        } catch (IllegalArgumentException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (JobQueueFullException e) {
+            redirect.addFlashAttribute("error",
+                    "Профиль сохранён, но очередь обработки переполнена. Запустите пересоздание позже.");
+        }
+        return "redirect:/lectures/" + id;
     }
 
     @PostMapping("/lectures/{id}/language")

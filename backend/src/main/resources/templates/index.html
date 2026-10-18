@@ -113,6 +113,12 @@
         </div>
         <ul class="item-list">
             <li th:each="item : ${recent}" class="item-list__row">
+                <a class="item-list__thumb" th:href="@{/lectures/{id}(id=${item.lectureId})}"
+                   tabindex="-1" aria-hidden="true">
+                    <img th:if="${item.hasThumbnail()}"
+                         th:src="@{/api/lectures/{id}/thumbnail(id=${item.lectureId})}"
+                         alt="" loading="lazy" width="120" height="68">
+                </a>
                 <div class="item-list__main">
                     <a class="item-title" th:href="@{/lectures/{id}(id=${item.lectureId})}"
                        th:text="${item.title()}">Материал</a>

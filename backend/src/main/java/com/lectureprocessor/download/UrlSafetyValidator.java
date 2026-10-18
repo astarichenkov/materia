@@ -71,6 +71,46 @@ public class UrlSafetyValidator {
         return platform;
     }
 
+    /**
+     * Validates a non-media resource URL (for example a thumbnail advertised by
+     * the extractor metadata). Unlike {@link #validate(String)} it does not
+     * require a supported video platform, but it still enforces the scheme and
+     * public-host policy, so a compromised metadata payload cannot turn into an
+     * SSRF request against the local network.
+     *
+     * @return the parsed URI of a safe resource
+     */
+    public URI validateResourceUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new UnsafeMediaUrlException("URL ресурса не задан");
+        }
+        String trimmed = url.trim();
+        if (trimmed.length() > MAX_URL_LENGTH) {
+            throw new UnsafeMediaUrlException("Слишком длинный URL ресурса");
+        }
+        URI uri;
+        try {
+            uri = new URI(trimmed);
+        } catch (URISyntaxException e) {
+            throw new UnsafeMediaUrlException("Некорректный URL ресурса: " + e.getMessage());
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+        boolean allowHttp = properties.downloader().allowHttp();
+        if (!"https".equals(scheme) && !(allowHttp && "http".equals(scheme))) {
+            throw new UnsafeMediaUrlException("Разрешён только HTTPS для ресурса (получено: "
+                    + scheme + ")");
+        }
+        if (uri.getUserInfo() != null) {
+            throw new UnsafeMediaUrlException("URL ресурса не должен содержать учётные данные");
+        }
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new UnsafeMediaUrlException("Не удалось определить хост ресурса");
+        }
+        assertPublicHost(host);
+        return uri;
+    }
+
     /** Rejects hosts that resolve to non-public addresses (SSRF protection). */
     public void assertPublicHost(String host) {
         InetAddress[] addresses;

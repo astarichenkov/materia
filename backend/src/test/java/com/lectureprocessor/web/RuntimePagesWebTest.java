@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -41,9 +42,19 @@ import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.pipeline.JobStatusView;
+import com.lectureprocessor.processing.DetailLevel;
+import com.lectureprocessor.processing.MaterialType;
+import com.lectureprocessor.processing.OutputFormat;
+import com.lectureprocessor.processing.OutputVariantService;
+import com.lectureprocessor.processing.ProcessingProfile;
+import com.lectureprocessor.processing.ProcessingProfileService;
+import com.lectureprocessor.processing.RerunPlanService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
+import com.lectureprocessor.thumbnail.ThumbnailService;
 
 /**
  * Renders the operational pages through Spring MVC + Thymeleaf. These tests
@@ -99,6 +110,30 @@ class RuntimePagesWebTest {
     private ImportCapabilitiesService importCapabilities;
     @MockitoBean
     private ImportDeduplicationService importDeduplication;
+    @MockitoBean
+    private ProcessingProfileService processingProfiles;
+    @MockitoBean
+    private RerunPlanService rerunPlans;
+    @MockitoBean
+    private OutputVariantService outputVariants;
+    @MockitoBean
+    private PromptTemplates promptTemplates;
+    @MockitoBean
+    private ThumbnailService thumbnails;
+    @MockitoBean
+    private ThumbnailJobQueue thumbnailQueue;
+
+    @BeforeEach
+    void commonStubs() {
+        when(promptTemplates.list()).thenReturn(List.of());
+        when(processingProfiles.materialTypes()).thenReturn(List.of(MaterialType.AUTO));
+        when(processingProfiles.outputFormats()).thenReturn(List.of(OutputFormat.DETAILED_NOTES));
+        when(processingProfiles.detailLevels()).thenReturn(List.of(DetailLevel.STANDARD));
+        when(processingProfiles.get(anyString())).thenReturn(ProcessingProfile.legacy("structured-notes-v1"));
+        when(outputVariants.list(any())).thenReturn(List.of());
+        when(rerunPlans.plan(anyString(), any())).thenReturn(null);
+        when(thumbnails.isReady(anyString())).thenReturn(false);
+    }
 
     private static Lecture lecture() {
         Instant now = Instant.now();
