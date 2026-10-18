@@ -37,6 +37,8 @@ import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.pipeline.JobStatusView;
+import com.lectureprocessor.repository.LectureRepository;
+import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
 
 /**
@@ -46,7 +48,8 @@ import com.lectureprocessor.repository.SegmentRepository;
  * template/model mismatch.
  */
 @WebMvcTest(controllers = {LectureWebController.class, DiscoveryWebController.class,
-        DiagnosticsController.class, AppVersionController.class})
+        DiagnosticsController.class, AppVersionController.class, LibraryWebController.class,
+        AddMaterialWebController.class, JobsWebController.class})
 class RuntimePagesWebTest {
 
     @Autowired
@@ -84,6 +87,10 @@ class RuntimePagesWebTest {
     private DiagnosticsService diagnostics;
     @MockitoBean
     private MultilingualProperties multilingual;
+    @MockitoBean
+    private PipelineJobRepository pipelineJobs;
+    @MockitoBean
+    private LectureRepository lectureRepository;
 
     private static Lecture lecture() {
         Instant now = Instant.now();
@@ -101,6 +108,41 @@ class RuntimePagesWebTest {
                 .andExpect(view().name("index"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Локальный файл")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Видео по ссылке")));
+    }
+
+    @Test
+    void layoutShellRendersWithLocalAssetsAndNavigation() throws Exception {
+        when(library.search(any(), any(), any(), any(), anyString())).thenReturn(List.of());
+        when(lectureService.findAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"viewport\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/vendor/htmx.min.js")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"app-sidebar\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Добавить материал")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Задачи обработки")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("href=\"/support\""))));
+    }
+
+    @Test
+    void workspacePagesRender() throws Exception {
+        when(library.search(any(), any(), any(), any(), anyString())).thenReturn(List.of());
+        when(pipelineJobs.findAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/library"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("library"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Библиотека")));
+        mockMvc.perform(get("/add"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("add"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Добавить материал")));
+        mockMvc.perform(get("/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("jobs"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Задачи обработки")));
     }
 
     @Test

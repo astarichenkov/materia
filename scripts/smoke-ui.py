@@ -22,6 +22,9 @@ from pathlib import Path
 
 PAGES = [
     ("/", ["Lecture Processor", "Локальный файл", "Видео по ссылке"]),
+    ("/library", ["Библиотека"]),
+    ("/add", ["Добавить материал"]),
+    ("/jobs", ["Задачи обработки"]),
     ("/discover", ["Smart Video Discovery"]),
     ("/diagnostics", ["Java runtime", "SQLite"]),
     ("/settings", ["Ollama", "DeepSeek"]),

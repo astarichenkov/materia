@@ -527,6 +527,45 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 Подробно: `docs/editor-guide.md`, установка — `docs/installation-windows.md`,
 отчёт — `docs/week7-day35-report.md`, демо — `demos/day35/demo-scenario.md`.
 
+## Интерфейс и навигация (UX-2)
+
+Единая оболочка приложения — `templates/fragments/layout.html`: desktop sidebar,
+mobile drawer, topbar, breadcrumbs, flash-сообщения. Страницы подключают общие
+ассеты через `fragments/layout :: assets`; inline `<style>` и CDN больше не
+используются.
+
+Статические ресурсы лежат в `backend/src/main/resources/static/`:
+
+- `css/tokens.css`, `base.css`, `components.css`, `pages.css`;
+- `js/app.js` (drawer, `<details>`, confirm, HTMX error notice);
+- `vendor/htmx.min.js` — htmx **1.9.12**, SHA-256
+  `6431769c4eac98fd9ae82b893a467ab9d154bc756ce86a39947e6d7c656a3f1c`
+  (файл начинается с license-комментария). Внешний CDN в runtime не нужен.
+
+Навигация: Обзор `/`, Библиотека `/library`, Добавить материал `/add`, Задачи
+обработки `/jobs`, Поиск видео `/discover`; свёрнутые группы «Инструменты
+разработчика» и «Система». Support Assistant намеренно отсутствует в меню,
+карточке и редакторе, но прямой `/support` продолжает работать.
+
+Единый компонент статусов — `templates/fragments/status-badge.html`: показывает
+человеческую подпись и сохраняет исходный статус в `data-status`.
+
+Проверки интерфейса:
+
+```bash
+export JAVA_HOME=/c/tools/jdk-25.0.2-full
+./mvnw verify
+
+# изолированный storage root, чтобы не трогать пользовательские данные
+LECTURE_STORAGE_ROOT='C:/Projects/lecture-processor/target/ux2-e2e' ASSISTANT_AUTO_INDEX=false CODE_REVIEW_ENABLED=false FILE_AGENT_ENABLED=false SERVER_PORT=18095 ./mvnw -pl backend spring-boot:run
+
+python scripts/smoke-ui.py --base-url http://127.0.0.1:18095
+cd e2e && LP_BASE_URL=http://127.0.0.1:18095 npx playwright test
+```
+
+Для заполненной библиотеки задайте `LP_E2E_LECTURE=<id>`, чтобы Playwright
+дополнительно проверил карточку и редактор.
+
 ## Тесты и проверки
 
 ```bash
