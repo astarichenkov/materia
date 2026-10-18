@@ -54,7 +54,13 @@ import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.processing.OutputVariantService;
+import com.lectureprocessor.processing.ProcessingProfileService;
+import com.lectureprocessor.processing.RerunPlanService;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
+import com.lectureprocessor.thumbnail.ThumbnailService;
 
 /**
  * Behaviour of the UX-4 import wizard wiring: the page must reuse the existing
@@ -103,6 +109,18 @@ class AddMaterialImportWebTest {
     private ImportCapabilitiesService importCapabilities;
     @MockitoBean
     private ImportDeduplicationService importDeduplication;
+    @MockitoBean
+    private ThumbnailService thumbnails;
+    @MockitoBean
+    private ThumbnailJobQueue thumbnailQueue;
+    @MockitoBean
+    private ProcessingProfileService processingProfiles;
+    @MockitoBean
+    private RerunPlanService rerunPlans;
+    @MockitoBean
+    private OutputVariantService outputVariants;
+    @MockitoBean
+    private PromptTemplates promptTemplates;
 
     @BeforeEach
     void setUp() {

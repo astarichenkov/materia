@@ -43,6 +43,29 @@ class LectureServiceTest {
     }
 
     @Test
+    void acceptsAudioUploadAndNeverEnablesSlides() {
+        when(storage.saveSource(anyString(), anyString(), any())).thenReturn(Path.of("source.mp3"));
+        MockMultipartFile file = new MockMultipartFile("file", "lecture.mp3", "audio/mpeg",
+                new byte[100]);
+
+        Lecture lecture = service.create(file, false, true);
+
+        assertThat(lecture.originalFilename()).isEqualTo("lecture.mp3");
+        assertThat(lecture.contentType()).isEqualTo("audio/mpeg");
+        // Slides cannot exist in an audio file even if the form requested them.
+        assertThat(lecture.extractSlides()).isFalse();
+        assertThat(LectureService.isAudioFile("lecture.mp3")).isTrue();
+        assertThat(LectureService.isAudioFile("lecture.mp4")).isFalse();
+    }
+
+    @Test
+    void acceptsFlacAndWavExtensions() {
+        assertThat(LectureService.isAllowedExtension("a.flac")).isTrue();
+        assertThat(LectureService.isAllowedExtension("a.wav")).isTrue();
+        assertThat(LectureService.isAllowedExtension("a.m4a")).isTrue();
+    }
+
+    @Test
     void rejectsEmptyUpload() {
         MockMultipartFile file = new MockMultipartFile("file", "lecture.mp4", "video/mp4", new byte[0]);
         assertThatThrownBy(() -> service.create(file, false, false))

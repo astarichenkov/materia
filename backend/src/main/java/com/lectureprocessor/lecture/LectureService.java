@@ -30,8 +30,13 @@ import com.lectureprocessor.storage.FileStorageService;
 public class LectureService {
 
     private static final Logger log = LoggerFactory.getLogger(LectureService.class);
+    /** Video formats plus audio-only lectures (MEDIA-1). */
     private static final Set<String> ALLOWED_EXTENSIONS =
-            Set.of(".mp4", ".mkv", ".mov", ".webm", ".avi", ".m4v");
+            Set.of(".mp4", ".mkv", ".mov", ".webm", ".avi", ".m4v",
+                    ".mp3", ".m4a", ".wav", ".flac");
+
+    /** Formats that never carry a video stream, so slides must stay disabled. */
+    static final Set<String> AUDIO_EXTENSIONS = Set.of(".mp3", ".m4a", ".wav", ".flac");
 
     private final LectureRepository repository;
     private final FileStorageService storage;
@@ -62,6 +67,8 @@ public class LectureService {
         validate(file);
         String id = UUID.randomUUID().toString();
         String original = sanitizeFilename(file.getOriginalFilename());
+        // An audio file cannot contain slides; never pretend otherwise.
+        boolean slides = extractSlides && !isAudioFile(original);
         try (InputStream in = file.getInputStream()) {
             storage.saveSource(id, original, in);
         } catch (IOException e) {
@@ -71,7 +78,7 @@ public class LectureService {
         Instant now = Instant.now();
         Lecture lecture = new Lecture(id, original, storedFilename, file.getSize(),
                 file.getContentType(), JobStatus.UPLOADED, null, null,
-                cleanTranscript, extractSlides, null, null, null, null, now, now);
+                cleanTranscript, slides, null, null, null, null, now, now);
         repository.save(lecture);
         languageRepository.save(LectureLanguage.defaults(id, languageMode, translationMode,
                 targetLanguage, autoTranslate));
@@ -105,7 +112,8 @@ public class LectureService {
         }
         String extension = FileStorageService.extensionOf(file.getOriginalFilename());
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new InvalidUploadException("Неподдерживаемый формат видео: " + extension);
+            throw new InvalidUploadException("Неподдерживаемый формат файла: " + extension
+                    + ". Поддерживаются видео MP4/MKV/MOV/WEBM/AVI/M4V и аудио MP3/M4A/WAV/FLAC.");
         }
     }
 
@@ -117,6 +125,13 @@ public class LectureService {
         base = base.substring(base.lastIndexOf('/') + 1);
         String cleaned = base.replaceAll("[^a-zA-Z0-9а-яА-ЯёЁ._ -]", "_").strip();
         return cleaned.isEmpty() ? "lecture.mp4" : cleaned;
+    }
+
+    /** True when the file can only contain audio (no video frames to extract). */
+    public static boolean isAudioFile(String filename) {
+        return filename != null
+                && AUDIO_EXTENSIONS.contains(FileStorageService.extensionOf(
+                        filename.toLowerCase(Locale.ROOT)));
     }
 
     static boolean isAllowedExtension(String filename) {

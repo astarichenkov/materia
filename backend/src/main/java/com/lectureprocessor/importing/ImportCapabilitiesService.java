@@ -24,7 +24,8 @@ public class ImportCapabilitiesService {
 
     /** Extensions accepted by {@code LectureService}; kept in sync explicitly. */
     static final List<String> FILE_EXTENSIONS =
-            List.of(".mp4", ".mkv", ".mov", ".webm", ".avi", ".m4v");
+            List.of(".mp4", ".mkv", ".mov", ".webm", ".avi", ".m4v",
+                    ".mp3", ".m4a", ".wav", ".flac");
 
     private static final Duration CACHE_TTL = Duration.ofSeconds(30);
 

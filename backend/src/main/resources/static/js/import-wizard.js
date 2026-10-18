@@ -141,6 +141,17 @@
       fileError.hidden = !problem;
       fileError.textContent = problem;
     }
+    // Audio-only lectures have no frames: keep the slides option honest.
+    var audioExtensions = [".mp3", ".m4a", ".wav", ".flac"];
+    var isAudio = audioExtensions.indexOf(extensionOf(file.name)) !== -1;
+    var fileForm = formFor("file");
+    var slides = fileForm ? fileForm.querySelector('input[name="slides"]') : null;
+    if (slides) {
+      slides.disabled = isAudio;
+      if (isAudio) slides.checked = false;
+    }
+    var audioNote = wizard.querySelector("[data-audio-note]");
+    if (audioNote) audioNote.hidden = !isAudio;
     updateSummary();
     return !problem;
   }

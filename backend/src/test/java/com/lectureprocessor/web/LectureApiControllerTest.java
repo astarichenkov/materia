@@ -31,6 +31,7 @@ import com.lectureprocessor.lecture.LectureNotFoundException;
 import com.lectureprocessor.lecture.LectureService;
 import com.lectureprocessor.lecture.RemoteLectureService;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.processing.OutputVariantService;
 import com.lectureprocessor.repository.SlideRepository;
 import com.lectureprocessor.storage.FileStorageService;
 
@@ -54,6 +55,8 @@ class LectureApiControllerTest {
     private SlideRepository slideRepository;
     @MockitoBean
     private FileStorageService storage;
+    @MockitoBean
+    private OutputVariantService outputVariants;
 
     private static Lecture lecture(String id) {
         Instant now = Instant.now();

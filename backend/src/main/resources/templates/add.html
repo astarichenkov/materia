@@ -79,7 +79,7 @@
             <input type="hidden" name="requestId" th:value="${requestId}">
 
             <div class="dropzone" data-dropzone>
-                <p class="dropzone__hint">Перетащите видео сюда или выберите файл на компьютере</p>
+                <p class="dropzone__hint">Перетащите видео или аудио сюда либо выберите файл на компьютере</p>
                 <label class="btn btn-secondary dropzone__button" for="lecture-file">Выбрать файл</label>
                 <input class="dropzone__input" id="lecture-file" type="file" name="file"
                        th:attr="accept=${acceptAttr},data-max-bytes=${capabilities.maxFileSizeBytes}"
@@ -88,8 +88,11 @@
                    th:text="${'Форматы: ' + capabilities.formattedExtensions() + '. Максимальный размер — '
                              + capabilities.formattedMaxFileSize() + '.'}"></p>
                 <p class="field-help">
-                    Аудиофайлы (MP3, M4A, WAV) пока не поддерживаются — их можно добавить только
-                    видеоформатом.
+                    Аудио (MP3, M4A, WAV, FLAC) тоже поддерживается: будет создан транскрипт и
+                    документы, без слайдов.
+                </p>
+                <p class="field-help" data-audio-note hidden>
+                    Для аудиофайла слайды недоступны — изображений в нём нет.
                 </p>
             </div>
 

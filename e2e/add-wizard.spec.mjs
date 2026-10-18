@@ -151,11 +151,22 @@ test('url form error keeps the entered link and creates nothing', async ({ page 
   await expect(page.locator('[data-source-panel="url"]')).toBeVisible();
 });
 
-test('local audio is not promised as supported', async ({ page }) => {
+test('local audio is supported and slides stay unavailable for it', async ({ page }) => {
   await page.goto('/add');
   const accept = await page.locator('input[type=file][name=file]').getAttribute('accept');
-  expect(accept).not.toMatch(/mp3|m4a|wav/);
-  await expect(page.locator('[data-source-panel="file"]')).toContainText('MP3, M4A, WAV');
+  expect(accept).toMatch(/mp3/);
+  expect(accept).toMatch(/m4a/);
+  expect(accept).toMatch(/wav/);
+  await expect(page.locator('[data-source-panel="file"]')).toContainText('MP3, M4A, WAV, FLAC');
+
+  // Selecting an audio file disables the slides option (no video frames exist).
+  await page.locator('input[type=file][name=file]').setInputFiles({
+    name: 'lecture.mp3', mimeType: 'audio/mpeg', buffer: Buffer.from('ID3')
+  });
+  const slides = page.locator('form[action="/lectures"] input[name=slides]');
+  await expect(slides).toBeDisabled();
+  await expect(slides).not.toBeChecked();
+  await expect(page.locator('[data-audio-note]')).toBeVisible();
 });
 
 test('wizard is usable at 390 px and 1440 px without page overflow', async ({ page }) => {
