@@ -26,6 +26,9 @@ import com.lectureprocessor.chat.LectureChatService;
 import com.lectureprocessor.diagnostics.DiagnosticsService;
 import com.lectureprocessor.discovery.LocalSimilarityService;
 import com.lectureprocessor.discovery.VideoDiscoveryService;
+import com.lectureprocessor.importing.ImportCapabilities;
+import com.lectureprocessor.importing.ImportCapabilitiesService;
+import com.lectureprocessor.importing.ImportDeduplicationService;
 import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.job.LectureJobService;
@@ -92,11 +95,21 @@ class RuntimePagesWebTest {
     private PipelineJobRepository pipelineJobs;
     @MockitoBean
     private LectureRepository lectureRepository;
+    @MockitoBean
+    private ImportCapabilitiesService importCapabilities;
+    @MockitoBean
+    private ImportDeduplicationService importDeduplication;
 
     private static Lecture lecture() {
         Instant now = Instant.now();
         return new Lecture("l1", "lecture.mp4", "source.mp4", 100, "video/mp4",
                 JobStatus.UPLOADED, null, null, false, false, null, null, null, null, now, now);
+    }
+
+    private void mockImportCapabilities() {
+        when(importCapabilities.capabilities()).thenReturn(new ImportCapabilities(
+                List.of(".mp4", ".mkv"), 4_294_967_296L, List.of("YouTube", "Rutube"),
+                true, true, "720p", false));
     }
 
     private void mockEmptyDashboard() {
@@ -111,6 +124,7 @@ class RuntimePagesWebTest {
     @Test
     void libraryPageRenders() throws Exception {
         mockEmptyDashboard();
+        mockImportCapabilities();
 
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
@@ -123,7 +137,14 @@ class RuntimePagesWebTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("add"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Локальный файл")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Видео по ссылке")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Видео по ссылке")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Добавить и начать обработку")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"requestId\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/lectures\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/lectures/from-url\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/js/import-wizard.js")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("href=\"/support\""))));
     }
 
     @Test
@@ -143,6 +164,7 @@ class RuntimePagesWebTest {
 
     @Test
     void workspacePagesRender() throws Exception {
+        mockImportCapabilities();
         when(library.searchPage(any(), any(), any(), any(), anyString(), anyInt(),
                 anyInt())).thenReturn(new LectureLibraryService.LibraryPage(
                         List.of(), 0, 1, 12, 0));
@@ -174,6 +196,26 @@ class RuntimePagesWebTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("discover"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Smart Video Discovery")));
+    }
+
+    @Test
+    void discoveryResultsOfferWizardHandoff() throws Exception {
+        when(lectureService.findAll()).thenReturn(List.of());
+        when(discovery.providerStatuses()).thenReturn(List.of());
+        when(discovery.recent()).thenReturn(List.of());
+        com.lectureprocessor.discovery.DiscoveredVideo video =
+                new com.lectureprocessor.discovery.DiscoveredVideo(1L, "youtube", "abc",
+                        "https://www.youtube.com/watch?v=abc", "Lecture 1", "description",
+                        "Channel", 600_000L, "en", Instant.now(), null, "ml", 0.9,
+                        "совпадение по названию", null);
+        when(discovery.search(any())).thenReturn(
+                new VideoDiscoveryService.DiscoverySearchResponse("ml", List.of("ml"),
+                        List.of(video), List.of(), List.of(), "title", false));
+
+        mockMvc.perform(get("/discover").param("query", "ml"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Открыть в мастере")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/add?url=")));
     }
 
     @Test

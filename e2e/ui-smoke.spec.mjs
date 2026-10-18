@@ -16,9 +16,12 @@ test('home renders and navigation is not broken', async ({ page }) => {
 
   await page.goto('/add');
   await expect(page.getByRole('heading', { name: 'Добавить материал', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Загрузить и обработать' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Проверить' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Скачать и обработать' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Добавить и начать обработку' }).first()).toBeVisible();
+  // The URL controls live in the second wizard panel; switching is required.
+  await expect(page.getByRole('button', { name: 'Проверить ссылку' })).toBeHidden();
+  await page.getByText('Вставить ссылку', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Проверить ссылку' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Добавить и начать обработку' }).first()).toBeVisible();
 
   await page.locator('.sidebar').getByRole('link', { name: 'Поиск видео' }).click();
   await expect(page).toHaveURL(/\/discover/);
@@ -131,8 +134,9 @@ test('local upload opens a lecture card', async ({ page }) => {
   const localForm = page.locator('form[action="/lectures"]');
   await localForm.locator('select[name=languageMode]').selectOption('RUSSIAN');
   await localForm.locator('select[name=translationMode]').selectOption('ORIGINAL_ONLY');
+  await localForm.locator('details.advanced summary').click();
   await localForm.locator('input[name=autoTranslate]').uncheck();
-  await page.getByRole('button', { name: 'Загрузить и обработать' }).click();
+  await page.getByRole('button', { name: 'Добавить и начать обработку' }).first().click();
   await expect(page).toHaveURL(/\/lectures\//);
   await expect(page.locator('body')).toContainText('Статус:');
   await expect(page.locator('[data-status]').first()).toHaveAttribute('data-status',
