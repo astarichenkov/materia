@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title}">Lecture Processor</title>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
+</head>
+<body>
+
+<th:block th:fragment="assets">
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <script src="/vendor/htmx.min.js" defer></script>
+    <script src="/js/app.js" defer></script>
+</th:block>
+
+<header th:fragment="appbar(active, title)" class="appbar">
+    <button type="button" class="appbar__menu" data-sidebar-toggle
+            aria-controls="app-sidebar" aria-expanded="false"
+            aria-label="Открыть меню">
+        <span aria-hidden="true">☰</span>
+    </button>
+    <a class="appbar__brand" href="/">
+        <span class="appbar__logo" aria-hidden="true">LP</span>
+        <span>Lecture Processor</span>
+    </a>
+    <span class="appbar__title" th:text="${title}">Раздел</span>
+    <span class="appbar__spacer"></span>
+    <a class="appbar__add" href="/add">
+        <span aria-hidden="true">+</span>
+        <span class="appbar__add-label">Добавить материал</span>
+    </a>
+</header>
+
+<aside th:fragment="sidebar(active)" id="app-sidebar" class="sidebar" aria-label="Навигация">
+    <nav class="sidebar__nav" aria-label="Основная навигация">
+        <div class="nav-label">Основное</div>
+
+        <a class="nav-link" href="/" th:classappend="${active == 'overview'} ? ' is-active'"
+           th:attr="aria-current=${active == 'overview'} ? 'page' : null">Обзор</a>
+        <a class="nav-link" href="/library" th:classappend="${active == 'library'} ? ' is-active'"
+           th:attr="aria-current=${active == 'library'} ? 'page' : null">Библиотека</a>
+        <a class="nav-link" href="/add" th:classappend="${active == 'add'} ? ' is-active'"
+           th:attr="aria-current=${active == 'add'} ? 'page' : null">Добавить материал</a>
+        <a class="nav-link" href="/jobs" th:classappend="${active == 'jobs'} ? ' is-active'"
+           th:attr="aria-current=${active == 'jobs'} ? 'page' : null">Задачи обработки</a>
+        <a class="nav-link" href="/discover" th:classappend="${active == 'discover'} ? ' is-active'"
+           th:attr="aria-current=${active == 'discover'} ? 'page' : null">Поиск видео</a>
+
+        <details class="nav-group" data-group="dev"
+                 th:attr="open=${active == 'assistant' or active == 'code-review' or active == 'file-agent'}">
+            <summary>Инструменты разработчика</summary>
+            <div class="nav-group__items">
+                <a class="nav-link" href="/assistant" th:classappend="${active == 'assistant'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'assistant'} ? 'page' : null">Developer Assistant</a>
+                <a class="nav-link" href="/code-review" th:classappend="${active == 'code-review'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'code-review'} ? 'page' : null">Code Review</a>
+                <a class="nav-link" href="/file-agent" th:classappend="${active == 'file-agent'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'file-agent'} ? 'page' : null">File Agent</a>
+            </div>
+        </details>
+
+        <details class="nav-group" data-group="system"
+                 th:attr="open=${active == 'settings' or active == 'diagnostics' or active == 'benchmarks'}">
+            <summary>Система</summary>
+            <div class="nav-group__items">
+                <a class="nav-link" href="/settings" th:classappend="${active == 'settings'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'settings'} ? 'page' : null">Настройки</a>
+                <a class="nav-link" href="/diagnostics" th:classappend="${active == 'diagnostics'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'diagnostics'} ? 'page' : null">Диагностика</a>
+                <a class="nav-link" href="/benchmarks" th:classappend="${active == 'benchmarks'} ? ' is-active'"
+                   th:attr="aria-current=${active == 'benchmarks'} ? 'page' : null">Бенчмарки</a>
+            </div>
+        </details>
+    </nav>
+</aside>
+
+<nav th:fragment="breadcrumbs(section, sectionHref, title)" class="breadcrumbs"
+     aria-label="Хлебные крошки"
+     th:if="${section != null and !#strings.isEmpty(section)}">
+    <ol>
+        <li><a href="/">Обзор</a></li>
+        <li>
+            <a th:if="${sectionHref != null and !#strings.isEmpty(sectionHref)}"
+               th:href="${sectionHref}" th:text="${section}">Раздел</a>
+            <span th:unless="${sectionHref != null and !#strings.isEmpty(sectionHref)}"
+                  th:text="${section}">Раздел</span>
+        </li>
+        <li th:if="${title != null and !#strings.isEmpty(title)}">
+            <span aria-current="page" th:text="${title}">Страница</span>
+        </li>
+    </ol>
+</nav>
+
+<div th:fragment="flash" th:if="${message != null and !#strings.isEmpty(message)}"
+     class="alert alert--success" role="status" aria-live="polite" th:text="${message}"></div>
+
+<th:block th:fragment="scripts">
+    <div class="sidebar-overlay" data-sidebar-close aria-hidden="true"></div>
+</th:block>
+
+</body>
+</html>

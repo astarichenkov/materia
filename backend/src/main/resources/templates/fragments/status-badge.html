@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Human-readable job/stage status with the raw value preserved in data-status. -->
+<th:block th:fragment="badge(status)" th:switch="${status}">
+    <span th:case="'COMPLETED'" class="badge badge--success" th:attr="data-status=${status}">Готово</span>
+    <span th:case="'PARTIAL'" class="badge badge--warning" th:attr="data-status=${status}">Готово частично</span>
+    <span th:case="'INTERRUPTED'" class="badge badge--warning" th:attr="data-status=${status}">Прервано</span>
+    <span th:case="'FAILED'" class="badge badge--danger" th:attr="data-status=${status}">Ошибка</span>
+    <span th:case="'CANCELLED'" class="badge badge--neutral" th:attr="data-status=${status}">Отменено</span>
+    <span th:case="'UPLOADED'" class="badge badge--neutral" th:attr="data-status=${status}">В очереди</span>
+    <span th:case="'DOWNLOADING'" class="badge badge--info" th:attr="data-status=${status}">Скачивание</span>
+    <span th:case="'VALIDATING'" class="badge badge--info" th:attr="data-status=${status}">Проверка файла</span>
+    <span th:case="'EXTRACTING_AUDIO'" class="badge badge--info" th:attr="data-status=${status}">Подготовка аудио</span>
+    <span th:case="'TRANSCRIBING'" class="badge badge--info" th:attr="data-status=${status}">Распознавание речи</span>
+    <span th:case="'TRANSLATING'" class="badge badge--info" th:attr="data-status=${status}">Перевод</span>
+    <span th:case="'PROCESSING_TEXT'" class="badge badge--info" th:attr="data-status=${status}">Составление конспекта</span>
+    <span th:case="'EXTRACTING_SLIDES'" class="badge badge--info" th:attr="data-status=${status}">Извлечение слайдов</span>
+    <span th:case="'EXPORTING'" class="badge badge--info" th:attr="data-status=${status}">Сохранение документов</span>
+    <span th:case="'RUNNING'" class="badge badge--info" th:attr="data-status=${status}">Выполняется</span>
+    <span th:case="'PENDING'" class="badge badge--neutral" th:attr="data-status=${status}">Ожидает</span>
+    <span th:case="'INVALIDATED'" class="badge badge--warning" th:attr="data-status=${status}">Нужно пересчитать</span>
+    <span th:case="'OPEN'" class="badge badge--info" th:attr="data-status=${status}">Открыт</span>
+    <span th:case="'IN_PROGRESS'" class="badge badge--warning" th:attr="data-status=${status}">В работе</span>
+    <span th:case="'RESOLVED'" class="badge badge--success" th:attr="data-status=${status}">Решён</span>
+    <span th:case="'CLOSED'" class="badge badge--neutral" th:attr="data-status=${status}">Закрыт</span>
+    <span th:case="*" class="badge badge--neutral" th:attr="data-status=${status}"
+          th:text="${status}">Неизвестный статус</span>
+</th:block>
+
+</body>
+</html>

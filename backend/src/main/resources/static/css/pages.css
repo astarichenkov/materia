@@ -1,0 +1,91 @@
+/* Page-specific rules that are not part of the shared component set. */
+
+/* ---------- Lecture card / editor ---------- */
+
+.transcript-text,
+.translation-text,
+.transcript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.seg-list { margin: 0; padding: 0; list-style: none; }
+.seg {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.seg:last-child { border-bottom: 0; }
+.seg-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.translation-seg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+@media (max-width: 900px) {
+  .translation-seg { grid-template-columns: 1fr; }
+}
+.slide { margin: 0 0 var(--space-4); }
+.slide img { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+
+/* ---------- Discovery ---------- */
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.filters .actions { grid-column: 1 / -1; }
+
+/* ---------- Benchmarks ---------- */
+
+.model-select,
+.provider-select,
+.quality { max-width: 320px; }
+.model-list { color: var(--color-text-muted); font-size: var(--text-sm); }
+
+/* ---------- Code review ---------- */
+
+.review-seg,
+.retry-seg { margin: var(--space-2) 0; }
+.review-seg textarea,
+.retry-seg textarea { width: 100%; }
+.suggestion { color: var(--color-text-muted); }
+.files { font-size: var(--text-sm); }
+
+/* ---------- File agent ---------- */
+
+.files .file { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.approve .btn, .approve button { white-space: nowrap; }
+.reject .btn, .reject button { white-space: nowrap; }
+
+/* ---------- Settings ---------- */
+
+.notice code { background: rgba(255, 255, 255, .7); }
+.model-list span { overflow-wrap: anywhere; }
+
+/* ---------- Diagnostics ---------- */
+
+.banner.ok, .banner.bad { border-left-width: 4px; }
+
+/* ---------- Tables on small screens ---------- */
+
+@media (max-width: 768px) {
+  .content table { font-size: var(--text-sm); }
+  .content table th,
+  .content table td { padding: 6px; }
+}
+
+/* ---------- HTMX swap feedback ---------- */
+
+.htmx-swapping { opacity: .65; transition: opacity var(--transition-fast); }
+.htmx-added { opacity: 0; }
+.htmx-settling { opacity: 1; transition: opacity var(--transition-fast); }
