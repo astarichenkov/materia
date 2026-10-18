@@ -12,6 +12,7 @@ Usage:
 import argparse
 import json
 import mimetypes
+import re
 import sys
 import time
 import urllib.error
@@ -21,9 +22,9 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 
 PAGES = [
-    ("/", ["Lecture Processor", "Локальный файл", "Видео по ссылке"]),
+    ("/", ["Lecture Processor", "Добавить материал", "Найти видео"]),
     ("/library", ["Библиотека"]),
-    ("/add", ["Добавить материал"]),
+    ("/add", ["Локальный файл", "Видео по ссылке"]),
     ("/jobs", ["Задачи обработки"]),
     ("/discover", ["Smart Video Discovery"]),
     ("/diagnostics", ["Java runtime", "SQLite"]),
@@ -145,7 +146,7 @@ def main():
         while time.time() < deadline:
             status, _, body, _ = client.get(f"/lectures/{lecture_id}/status", timeout=30)
             last = body.decode("utf-8", "replace")
-            if any(state in last for state in ("COMPLETED", "PARTIAL", "FAILED", "CANCELLED")):
+            if re.search(r'data-lecture-status="(?:COMPLETED|PARTIAL|FAILED|CANCELLED)"', last):
                 break
             time.sleep(3)
         print(f"UPLOAD final fragment: {' '.join(last.split())[:300]}")

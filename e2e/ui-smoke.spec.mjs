@@ -10,6 +10,12 @@ test('home renders and navigation is not broken', async ({ page }) => {
   const response = await page.goto('/');
   expect(response.status()).toBe(200);
   await expect(page.getByRole('heading', { name: 'Lecture Processor', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Добавить материал' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Найти видео' }).first()).toBeVisible();
+  await expect(page.getByLabel('Ссылка на видео — откроем форму с уже заполненным адресом')).toBeVisible();
+
+  await page.goto('/add');
+  await expect(page.getByRole('heading', { name: 'Добавить материал', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Загрузить и обработать' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Проверить' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Скачать и обработать' })).toBeVisible();
@@ -119,8 +125,8 @@ test('unknown page shows the friendly error page, not Whitelabel', async ({ page
 
 test('local upload opens a lecture card', async ({ page }) => {
   test.skip(process.env.LP_E2E_UPLOAD !== '1', 'set LP_E2E_UPLOAD=1 to run a real upload');
-  await page.goto('/');
-  const fixture = process.env.LP_E2E_FIXTURE || path.resolve('target/e2e-test.mp4');
+  await page.goto('/add');
+  const fixture = process.env.LP_E2E_FIXTURE || path.resolve('..', 'target', 'e2e-test.mp4');
   await page.locator('input[type=file][name=file]').setInputFiles(fixture);
   const localForm = page.locator('form[action="/lectures"]');
   await localForm.locator('select[name=languageMode]').selectOption('RUSSIAN');
@@ -129,7 +135,8 @@ test('local upload opens a lecture card', async ({ page }) => {
   await page.getByRole('button', { name: 'Загрузить и обработать' }).click();
   await expect(page).toHaveURL(/\/lectures\//);
   await expect(page.locator('body')).toContainText('Статус:');
-  await expect(page.locator('body')).toContainText(/UPLOADED|DOWNLOADING|VALIDATING|EXTRACTING_AUDIO|TRANSCRIBING|TRANSLATING|PROCESSING_TEXT|EXTRACTING_SLIDES|EXPORTING|COMPLETED|PARTIAL|FAILED|CANCELLED/);
+  await expect(page.locator('[data-status]').first()).toHaveAttribute('data-status',
+    /UPLOADED|DOWNLOADING|VALIDATING|EXTRACTING_AUDIO|TRANSCRIBING|TRANSLATING|PROCESSING_TEXT|EXTRACTING_SLIDES|EXPORTING|COMPLETED|PARTIAL|FAILED|CANCELLED/);
 });
 
 test('lecture card and editor render without Support links', async ({ page }) => {
@@ -140,11 +147,35 @@ test('lecture card and editor render without Support links', async ({ page }) =>
   for (const route of [`/lectures/${id}`, `/lectures/${id}/editor`]) {
     const response = await page.goto(route);
     expect(response.status(), route).toBe(200);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     await expect(page.locator('a[href^="/support"]')).toHaveCount(0);
     const overflow = await page.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${route} overflow`).toBeLessThanOrEqual(1);
   }
   expect(errors).toEqual([]);
+});
+
+test('dashboard quick URL carries the link to the add form', async ({ page }) => {
+  await page.goto('/');
+  const url = 'https://example.com/lecture';
+  await page.getByLabel('Ссылка на видео — откроем форму с уже заполненным адресом').fill(url);
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(page).toHaveURL(/\/add\?url=/);
+  await expect(page.getByLabel('Ссылка на видео')).toHaveValue(url);
+});
+
+test('library filters and pagination keep their query contract', async ({ page }) => {
+  await page.goto('/library');
+  await expect(page.getByRole('heading', { name: 'Библиотека', level: 1 })).toBeVisible();
+  await page.getByLabel('Поиск по названию или теме').fill('zzz-no-such-lecture');
+  await page.getByLabel('Статус').selectOption('COMPLETED');
+  await page.getByRole('button', { name: 'Применить' }).click();
+  await expect(page).toHaveURL(/q=zzz-no-such-lecture/);
+  await expect(page).toHaveURL(/status=COMPLETED/);
+  await expect(page.locator('.empty-state').first()).toBeVisible();
+  await expect(page.locator('.empty-state').first()).toContainText(
+    /Библиотека пока пуста|По выбранным условиям ничего нет/);
+  await page.getByRole('link', { name: 'Сбросить фильтры' }).first().click();
+  await expect(page).toHaveURL(/\/library$/);
 });
