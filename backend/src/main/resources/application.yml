@@ -245,6 +245,7 @@ app:
   # Day 35 lecture editor: revision limits, size guards and cloud-retry consent.
   editor:
     enabled: ${EDITOR_ENABLED:true}
+    # Upper bound for the explicit prune API; saving never deletes history.
     max-revisions-per-document: ${EDITOR_MAX_REVISIONS:100}
     max-segment-chars: ${EDITOR_MAX_SEGMENT_CHARS:8000}
     max-notes-chars: ${EDITOR_MAX_NOTES_CHARS:400000}

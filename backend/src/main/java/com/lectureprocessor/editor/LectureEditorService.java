@@ -590,6 +590,16 @@ public class LectureEditorService {
         return revisions.history(lectureId, type, limit);
     }
 
+    /** Explicit cleanup of old revisions; never runs implicitly on save. */
+    public int pruneRevisions(String lectureId, DocumentType type, int keep) {
+        requireLecture(lectureId);
+        if (keep < 2) {
+            throw EditorException.validation("Нужно сохранить минимум 2 ревизии "
+                    + "(включая исходную)");
+        }
+        return revisions.prune(lectureId, type, keep);
+    }
+
     public List<LineDiff.Line> compare(String lectureId, DocumentType type, long fromId, long toId) {
         requireLecture(lectureId);
         LectureDocumentRevision from = revisions.find(lectureId, type, fromId)

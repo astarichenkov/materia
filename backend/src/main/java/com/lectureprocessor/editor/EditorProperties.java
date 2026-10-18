@@ -7,7 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * server: the UI cannot bypass them.
  *
  * @param enabled              master switch for the editor endpoints
- * @param maxRevisionsPerDocument number of revisions kept per document type
+ * @param maxRevisionsPerDocument upper bound for explicit revision cleanup (no
+ *                                automatic pruning on save)
  * @param maxSegmentChars      maximum length of one transcript/translation segment
  * @param maxNotesChars        maximum length of the Markdown notes document
  * @param maxBatchSegments     maximum number of segments in one save request

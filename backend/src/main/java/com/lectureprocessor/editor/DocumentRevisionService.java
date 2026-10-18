@@ -177,13 +177,23 @@ public class DocumentRevisionService {
             EditSource source, String description, Long parentId) {
         int number = revisions.nextRevisionNumber(lectureId, type);
         String hash = FileChecksum.sha256(content == null ? "" : content);
-        LectureDocumentRevision revision = revisions.insert(lectureId, type, number,
-                content == null ? "" : content, hash, parentId, source, description);
-        int removed = revisions.prune(lectureId, type, properties.maxRevisionsPerDocument());
+        return revisions.insert(lectureId, type, number, content == null ? "" : content, hash,
+                parentId, source, description);
+    }
+
+    /**
+     * Explicit revision cleanup. Never called automatically: the original
+     * revision is always preserved and the operator must request retention.
+     */
+    public int prune(String lectureId, DocumentType type, int keep) {
+        int limit = Math.min(Math.max(keep, 2), Math.max(2,
+                properties.maxRevisionsPerDocument()));
+        int removed = revisions.prune(lectureId, type, limit);
         if (removed > 0) {
-            log.info("Pruned {} old {} revision(s) for lecture {}", removed, type, lectureId);
+            log.info("Pruned {} old {} revision(s) for lecture {} (explicit request)",
+                    removed, type, lectureId);
         }
-        return revision;
+        return removed;
     }
 
     public Optional<LectureDocumentRevision> latest(String lectureId, DocumentType type) {

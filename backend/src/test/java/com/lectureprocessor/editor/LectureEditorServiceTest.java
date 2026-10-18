@@ -343,6 +343,11 @@ class LectureEditorServiceTest {
                     List.of(new EditorRequests.SegmentEdit(0, "text " + i)), null));
             expected++;
         }
+        // Saving never deletes history implicitly.
+        assertThat(service.history(lectureId, DocumentType.TRANSCRIPT, 100)).hasSize(16);
+        // Cleanup is an explicit operation and always keeps the original revision.
+        int removed = service.pruneRevisions(lectureId, DocumentType.TRANSCRIPT, 10);
+        assertThat(removed).isPositive();
         List<LectureDocumentRevision> history = service.history(lectureId,
                 DocumentType.TRANSCRIPT, 100);
         assertThat(history).hasSizeLessThanOrEqualTo(11);

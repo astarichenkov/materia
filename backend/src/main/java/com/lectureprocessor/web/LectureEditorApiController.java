@@ -147,6 +147,14 @@ public class LectureEditorApiController {
         return editor.restore(id, DocumentType.from(type), revisionId);
     }
 
+    @PostMapping("/revisions/prune")
+    public Map<String, Object> prune(@PathVariable String id, @RequestParam("type") String type,
+            @RequestParam(name = "keep", defaultValue = "20") int keep, HttpServletRequest http) {
+        access.requireCsrf(http);
+        int removed = editor.pruneRevisions(id, DocumentType.from(type), keep);
+        return Map.of("removed", removed, "documentType", type, "kept", keep);
+    }
+
     @GetMapping("/compare")
     public List<LineDiff.Line> compare(@PathVariable String id, @RequestParam("type") String type,
             @RequestParam("from") long from, @RequestParam("to") long to) {
