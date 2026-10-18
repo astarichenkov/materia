@@ -59,7 +59,10 @@ ignored by project policy).
 
 ## Verification
 
-- `./mvnw verify` — run at the end of the session (see final report / journal).
+- `./mvnw verify -Dspring-boot.repackage.skip=true` — BUILD SUCCESS,
+  502 backend tests (1 skipped) + 28 private-ai tests. Repackage is skipped only
+  because the owner's running application holds the jar file; it is unrelated to
+  the code changes.
 - E2E on an isolated storage root and port 18110 with real FFmpeg, whisper.cpp,
   qwen3:1.7b:
   - fresh upload → COMPLETED, thumbnail READY (`VIDEO_FRAME`), variant 1 archived;
@@ -69,7 +72,8 @@ ignored by project policy).
   - manual notes edit → rerun → HUMAN revision preserved; restore works; stale
     save returns 409;
   - server restart → thumbnail still served, mtime unchanged (no regeneration);
-  - Playwright: all existing pages + 4 new cover/profile/plan/mobile tests pass.
+  - Playwright: 29/29 passed (including real wizard upload and the new
+  cover/profile/plan/mobile/editor tests); HTTP smoke `scripts/smoke-ui.py` OK.
 
 ## Not done / known limitations
 
