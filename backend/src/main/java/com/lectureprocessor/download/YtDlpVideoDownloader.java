@@ -276,7 +276,12 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
     }
 
     Optional<Path> locateOutput(Path dir, boolean audioOnly) {
-        List<String> extensions = audioOnly ? AUDIO_EXTENSIONS : VIDEO_EXTENSIONS;
+        // yt-dlp falls back from `bestaudio/best` to `best` for platforms that
+        // do not expose an audio-only stream, so an audio-only request can
+        // legitimately produce source.mp4 or source.mkv. Accept every media
+        // extension; the requested mode only affects format selection.
+        List<String> extensions = new ArrayList<>(AUDIO_EXTENSIONS);
+        extensions.addAll(VIDEO_EXTENSIONS);
         try (Stream<Path> stream = Files.list(dir)) {
             return stream
                     .filter(Files::isRegularFile)

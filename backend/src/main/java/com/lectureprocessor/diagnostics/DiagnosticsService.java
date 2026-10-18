@@ -188,8 +188,12 @@ public class DiagnosticsService {
 
     private static boolean runs(String command, String argument) {
         try {
+            // DISCARD is essential: whisper-cli --help writes more than a pipe
+            // buffer, and an unread pipe makes a healthy tool look like a hang.
             Process process = new ProcessBuilder(command, argument)
-                    .redirectErrorStream(true).start();
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
             boolean finished = process.waitFor(8, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
