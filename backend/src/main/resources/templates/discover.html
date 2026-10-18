@@ -26,7 +26,13 @@
 <a href="/">← К лекциям</a> · <a href="/settings#discovery">Настройки провайдеров</a>
 
 <div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<div th:if="${error}" class="msg err">
+    <div th:text="${error}">Ошибка импорта</div>
+    <div class="muted" th:if="${importErrorUrl != null and #strings.startsWith(importErrorUrl, 'http')}" style="margin-top:.4rem">
+        <a th:href="${importErrorUrl}" target="_blank" rel="noopener noreferrer">Открыть видео на исходной платформе</a>
+        · <a href="/#upload">загрузить локальный файл</a>
+    </div>
+</div>
 <div th:if="${searchError}" class="msg err" th:text="${searchError}"></div>
 <div th:if="${similarError}" class="msg err" th:text="${similarError}"></div>
 

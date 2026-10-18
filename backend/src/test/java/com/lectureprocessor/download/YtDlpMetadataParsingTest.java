@@ -12,7 +12,8 @@ import tools.jackson.databind.ObjectMapper;
 class YtDlpMetadataParsingTest {
 
     private final YtDlpVideoDownloader downloader = new YtDlpVideoDownloader(null,
-            TestProperties.defaults("./target/test-data"), null, new ObjectMapper());
+            TestProperties.defaults("./target/test-data"), null, new ObjectMapper(),
+            new YtDlpOptions(TestProperties.defaults("./target/test-data")));
 
     @Test
     void parsesStructuredMetadata() {

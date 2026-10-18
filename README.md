@@ -48,7 +48,38 @@ yt-dlp --version
 
 Путь к исполняемому файлу задаётся через `YTDLP_PATH` (по умолчанию `yt-dlp`).
 Для merge видео+аудио yt-dlp использует FFmpeg; путь задаётся через
-`FFMPEG_PATH` (по умолчанию `ffmpeg`, т.е. ищется в PATH).
+`FFMPEG_PATH` (по умолчанию `ffmpeg`, т.е. ищется в PATH). `FFMPEG_PATH` может
+указывать и на сам бинарник, и на каталог `bin` — в обоих случаях путь
+передаётся yt-dlp через `--ffmpeg-location`.
+
+#### JavaScript runtime и YouTube
+
+Для части форматов YouTube yt-dlp нужен JavaScript runtime (Node.js или Deno).
+Приложение определяет его автоматически (`YTDLP_JS_RUNTIME=auto`): Node.js, затем
+Deno; если runtime нет — yt-dlp работает без него, а `/diagnostics` показывает
+предупреждение. Явно: `YTDLP_JS_RUNTIME=node` и опционально
+`YTDLP_JS_RUNTIME_PATH` (файл или каталог).
+
+`--remote-components` (загрузка исполняемых EJS-компонентов с GitHub) **выключен**
+по умолчанию; включение — только осознанно, через
+`YTDLP_REMOTE_COMPONENTS=ejs:github`.
+
+#### Cookies (по умолчанию выключены)
+
+Публичные видео импортируются без cookies. При необходимости администратор может
+включить авторизованный режим:
+
+```bash
+# cookies из локального браузера (Chromium-совместимые, включая Yandex Browser)
+YTDLP_COOKIES_MODE=browser \
+YTDLP_COOKIES_BROWSER=chrome \
+YTDLP_COOKIES_PROFILE='C:\Users\<user>\AppData\Local\Yandex\YandexBrowser\User Data\Default'
+
+# cookies-файл в формате Netscape (никогда не коммитить)
+YTDLP_COOKIES_MODE=file YTDLP_COOKIES_FILE=/path/to/cookies.txt
+```
+
+Cookies не обязательны, не входят в тестовые фикстуры и не обходят CAPTCHA/DRM.
 
 ## Быстрый старт
 
@@ -416,6 +447,13 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 | `DISCOVERY_MAX_RESULTS` | лимит результатов | `20` |
 | `DISCOVERY_MIN_SIMILARITY` | порог локальных рекомендаций | `0.25` |
 | `YTDLP_PATH` | путь к yt-dlp | `yt-dlp` |
+| `YTDLP_JS_RUNTIME` | JS runtime для yt-dlp: `auto`/`node`/`deno`/`disabled` | `auto` |
+| `YTDLP_JS_RUNTIME_PATH` | путь к runtime (файл или каталог) | авто (PATH) |
+| `YTDLP_REMOTE_COMPONENTS` | явное разрешение EJS-компонентов yt-dlp | выключено |
+| `YTDLP_COOKIES_MODE` | `none`/`browser`/`file` | `none` |
+| `YTDLP_COOKIES_BROWSER` | браузер для cookies (например `chrome`) | — |
+| `YTDLP_COOKIES_PROFILE` | профиль/путь user-data для cookies | — |
+| `YTDLP_COOKIES_FILE` | cookies.txt для режима `file` | — |
 | `DOWNLOAD_MAX_BYTES` | лимит размера скачивания | 8 GiB |
 | `DOWNLOAD_ALLOW_HTTP` | разрешить HTTP (не рекомендуется) | `false` |
 | `HEAVY_STAGE_PERMITS` | одновременные CPU/GPU-тяжёлые стадии | `1` |

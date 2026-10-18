@@ -93,6 +93,26 @@ app:
     allow-http: ${DOWNLOAD_ALLOW_HTTP:false}
     # Serialise CPU/GPU-heavy stages (whisper, LLM) to protect RAM/VRAM.
     heavy-stage-permits: ${HEAVY_STAGE_PERMITS:1}
+    # yt-dlp JavaScript runtime used for YouTube extraction.
+    # auto => first installed of node/deno; disabled => never pass one.
+    # Without a runtime yt-dlp warns loudly and some YouTube formats are missing.
+    js-runtime: ${YTDLP_JS_RUNTIME:auto}
+    # Optional explicit runtime binary or its containing directory.
+    js-runtime-path: ${YTDLP_JS_RUNTIME_PATH:}
+    # Explicit opt-in: allows yt-dlp to fetch executable EJS components
+    # (e.g. ejs:github). Blank = disabled; never enabled implicitly.
+    remote-components: ${YTDLP_REMOTE_COMPONENTS:}
+    # Cookies are OFF by default: the app must import public videos without them.
+    # none | browser | file
+    cookies-mode: ${YTDLP_COOKIES_MODE:none}
+    # browser mode: yt-dlp browser name, e.g. chrome / edge / firefox.
+    # Yandex Browser is Chromium-based and works via chrome:<profile path>, e.g.
+    #   YTDLP_COOKIES_BROWSER=chrome
+    #   YTDLP_COOKIES_PROFILE=C:\\Users\\<user>\\AppData\\Local\\Yandex\\YandexBrowser\\User Data\\Default
+    cookies-browser: ${YTDLP_COOKIES_BROWSER:}
+    cookies-browser-profile: ${YTDLP_COOKIES_PROFILE:}
+    # file mode: path to a Netscape-format cookies.txt (never committed).
+    cookies-file: ${YTDLP_COOKIES_FILE:}
 
   # Week 7 / Day 31 developer assistant.
   assistant:

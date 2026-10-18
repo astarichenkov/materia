@@ -52,8 +52,20 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MediaDownloadException.class)
     public ResponseEntity<Map<String, Object>> downloadError(MediaDownloadException e) {
-        log.error("Download error: {}", e.getMessage());
-        return response(HttpStatus.BAD_GATEWAY, e.getMessage());
+        log.warn("Download error ({}): {}", e.reason(), e.getMessage());
+        if (e.detail() != null && !e.detail().isBlank()) {
+            log.debug("yt-dlp detail: {}", e.detail());
+        }
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.BAD_GATEWAY.value());
+        body.put("error", HttpStatus.BAD_GATEWAY.getReasonPhrase());
+        body.put("message", e.getMessage() == null ? "" : e.getMessage());
+        body.put("retryable", e.retryable());
+        if (e.reason() != null) {
+            body.put("reason", e.reason());
+        }
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
     }
 
     @ExceptionHandler(JobQueueFullException.class)

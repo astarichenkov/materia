@@ -102,6 +102,16 @@ public record AppProperties(
      * @param defaultQuality    quality used when the request does not choose one
      * @param allowHttp         allow plain-HTTP source URLs (disabled by default)
      * @param heavyStagePermits max concurrent CPU/GPU-heavy stages (whisper + LLM)
+     * @param jsRuntime         yt-dlp JavaScript runtime: {@code auto}, {@code node},
+     *                          {@code deno} or {@code disabled}. {@code auto} uses the
+     *                          first runtime that is actually installed
+     * @param jsRuntimePath     optional explicit runtime binary or containing directory
+     * @param remoteComponents  explicit opt-in for executable components fetched by
+     *                          yt-dlp (e.g. {@code ejs:github}); blank disables it
+     * @param cookiesMode       {@code none} (default), {@code browser} or {@code file}
+     * @param cookiesBrowser    browser name or user-data path for browser mode
+     * @param cookiesBrowserProfile optional profile path/name appended after ':'
+     * @param cookiesFile       Netscape cookies file for file mode
      */
     public record Downloader(
             String ytDlpPath,
@@ -110,7 +120,14 @@ public record AppProperties(
             long maxFileSizeBytes,
             String defaultQuality,
             boolean allowHttp,
-            int heavyStagePermits) {
+            int heavyStagePermits,
+            String jsRuntime,
+            String jsRuntimePath,
+            String remoteComponents,
+            String cookiesMode,
+            String cookiesBrowser,
+            String cookiesBrowserProfile,
+            String cookiesFile) {
     }
 
     /**

@@ -50,39 +50,41 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
     private final AppProperties properties;
     private final UrlSafetyValidator validator;
     private final ObjectMapper objectMapper;
+    private final YtDlpOptions options;
 
     public YtDlpVideoDownloader(StreamingProcessExecutor executor, AppProperties properties,
-            UrlSafetyValidator validator, ObjectMapper objectMapper) {
+            UrlSafetyValidator validator, ObjectMapper objectMapper, YtDlpOptions options) {
         this.executor = executor;
         this.properties = properties;
         this.validator = validator;
         this.objectMapper = objectMapper;
+        this.options = options;
     }
 
     @Override
     public MediaMetadata probe(String url, CancellationToken cancellation) {
         validator.validate(url);
-        List<String> command = new ArrayList<>(List.of(
-                properties.downloader().ytDlpPath(),
-                "--ignore-config",
-                "--no-warnings",
-                "--no-playlist",
-                "--socket-timeout", "30",
+        List<String> command = new ArrayList<>(options.commonArguments());
+        command.addAll(List.of(
                 "--dump-single-json",
+                "--skip-download",
                 url));
         try {
             ProcessResult result = executor.execute(command,
                     properties.downloader().metadataTimeout(), null, cancellation, null, null,
                     METADATA_BUFFER_CHARS);
             if (!result.isSuccess()) {
-                throw new MediaDownloadException("yt-dlp не смог получить метаданные: "
-                        + result.outputForError());
+                YtDlpFailure failure = YtDlpFailure.classify(result.outputForError(),
+                        options.ffmpegAvailable());
+                log.warn("yt-dlp metadata probe failed ({}): {}", failure.kind(), failure.detail());
+                throw MediaDownloadException.fromFailure(failure);
             }
             return parseMetadata(result.stdout(), url);
         } catch (ProcessCancelledException e) {
             throw e;
         } catch (ProcessExecutionException e) {
-            throw new MediaDownloadException("Не удалось получить метаданные: " + e.getMessage(), e);
+            throw new MediaDownloadException("Не удалось получить метаданные: " + e.getMessage(),
+                    e, false, e.getMessage());
         }
     }
 
@@ -131,9 +133,16 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
                 throw e;
             } catch (MediaDownloadException e) {
                 lastError = e;
-                log.warn("Download attempt {}/{} for lecture {} failed: {}",
-                        attempt, MAX_DOWNLOAD_ATTEMPTS, request.lectureId(), e.getMessage());
+                log.warn("Download attempt {}/{} for lecture {} failed ({}): {}",
+                        attempt, MAX_DOWNLOAD_ATTEMPTS, request.lectureId(),
+                        e.reason(), e.getMessage());
+                if (e.detail() != null && !e.detail().isBlank()) {
+                    log.debug("yt-dlp detail: {}", e.detail());
+                }
                 cleanupPartials(request.targetDir());
+                if (!e.retryable()) {
+                    break;
+                }
                 if (attempt < MAX_DOWNLOAD_ATTEMPTS) {
                     sleep(RETRY_BACKOFF[attempt - 1], cancellation);
                 }
@@ -176,11 +185,13 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
                         }
                     });
         } catch (ProcessExecutionException e) {
-            throw new MediaDownloadException(e.getMessage(), e);
+            throw new MediaDownloadException(e.getMessage(), e, false, e.getMessage());
         }
 
         if (!result.isSuccess()) {
-            throw new MediaDownloadException("yt-dlp завершился с ошибкой: " + result.outputForError());
+            YtDlpFailure failure = YtDlpFailure.classify(result.outputForError(),
+                    options.ffmpegAvailable());
+            throw MediaDownloadException.fromFailure(failure);
         }
         Path file = locateOutput(dir, request.audioOnly())
                 .orElseThrow(() -> new MediaDownloadException("yt-dlp не создал файл в " + dir));
@@ -206,15 +217,11 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
 
     private List<String> buildDownloadCommand(DownloadRequest request, Path dir) {
         boolean audioOnly = request.audioOnly();
-        boolean ffmpegAvailable = isFfmpegAvailable();
+        boolean ffmpegAvailable = options.ffmpegAvailable();
         AppProperties.Downloader cfg = properties.downloader();
-        List<String> command = new ArrayList<>(List.of(
-                cfg.ytDlpPath(),
-                "--ignore-config",
-                "--no-warnings",
-                "--no-playlist",
+        List<String> command = new ArrayList<>(options.commonArguments());
+        command.addAll(List.of(
                 "--newline",
-                "--socket-timeout", "30",
                 "--retries", "3",
                 "--fragment-retries", "5",
                 "--max-filesize", Long.toString(cfg.maxFileSizeBytes()),
@@ -224,59 +231,18 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
                         + "|%(progress.speed)s|%(progress.eta)s",
                 "-f", FormatSelector.formatExpression(request.quality(), audioOnly, ffmpegAvailable),
                 "-P", dir.toAbsolutePath().toString(),
-                "-o", audioOnly ? "source.%(ext)s" : "source.%(ext)s"));
+                "-o", "source.%(ext)s"));
+        String ffmpegLocation = options.ffmpegLocation();
+        if (ffmpegLocation != null) {
+            command.add("--ffmpeg-location");
+            command.add(ffmpegLocation);
+        }
         if (!audioOnly && ffmpegAvailable) {
             command.add("--merge-output-format");
             command.add("mp4");
-            if (shouldPassFfmpegLocation()) {
-                command.add("--ffmpeg-location");
-                command.add(properties.tools().ffmpegPath());
-            }
         }
         command.add(request.url());
         return command;
-    }
-
-    private boolean isFfmpegAvailable() {
-        String path = properties.tools().ffmpegPath();
-        if (path == null || path.isBlank()) {
-            return false;
-        }
-        Path candidate = Path.of(path);
-        // Absolute/relative path configured explicitly.
-        if (candidate.isAbsolute() || path.contains("/") || path.contains("\\")) {
-            return Files.exists(candidate) || Files.isExecutable(candidate);
-        }
-        // Bare command name: the tool is available when it is on PATH.
-        if (Files.exists(candidate)) {
-            return true;
-        }
-        String pathEnv = System.getenv("PATH");
-        if (pathEnv == null) {
-            return false;
-        }
-        for (String dir : pathEnv.split(java.io.File.pathSeparator)) {
-            if (dir.isBlank()) {
-                continue;
-            }
-            try {
-                if (Files.exists(Path.of(dir, path)) || Files.exists(Path.of(dir, path + ".exe"))) {
-                    return true;
-                }
-            } catch (RuntimeException ignored) {
-                // malformed PATH entry
-            }
-        }
-        return false;
-    }
-
-    /** Only pass {@code --ffmpeg-location} for an explicit path yt-dlp cannot resolve itself. */
-    private boolean shouldPassFfmpegLocation() {
-        String path = properties.tools().ffmpegPath();
-        if (path == null || path.isBlank()) {
-            return false;
-        }
-        return Path.of(path).isAbsolute() || path.contains("/") || path.contains("\\");
     }
 
     Optional<Path> locateOutput(Path dir, boolean audioOnly) {

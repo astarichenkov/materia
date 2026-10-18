@@ -29,7 +29,7 @@ public final class TestProperties {
                         "deepseek", new AppProperties.Provider(true, "DeepSeek (Cloud)")),
                         "ollama", false),
                 new AppProperties.Downloader("yt-dlp", Duration.ofSeconds(30), Duration.ofMinutes(5),
-                        1024L * 1024L, "720p", false, 1),
+                        1024L * 1024L, "720p", false, 1, "disabled", "", "", "none", "", "", ""),
                 new AppProperties.Assistant(storageRoot, java.util.List.of("README.md", "docs"),
                         1024L * 1024L, 1200, 150, 200, 5, 0.0, Duration.ofSeconds(30), false, 6),
                 new AppProperties.Mcp("", 20000),
@@ -42,5 +42,22 @@ public final class TestProperties {
                 new AppProperties.CodeReview(true, 120000, 40, 24000, 15, 3, 150, 1200,
                         java.util.List.of("backend/src"), java.util.List.of("**/.env"), 1800, 8, 0.15,
                         false, Duration.ofSeconds(30), false, 60, false));
+    }
+
+    /** Copy of {@link #defaults(String)} with a different downloader block. */
+    public static AppProperties withDownloader(AppProperties base,
+            AppProperties.Downloader downloader) {
+        return new AppProperties(base.tools(), base.storage(), base.upload(), base.processing(),
+                base.ollama(), base.slides(), base.chat(), base.llm(), downloader,
+                base.assistant(), base.mcp(), base.deepseek(), base.security(), base.gitea(),
+                base.codeReview());
+    }
+
+    /** Copy of {@link #defaults(String)} with different tool paths. */
+    public static AppProperties withTools(AppProperties base, AppProperties.Tools tools) {
+        return new AppProperties(tools, base.storage(), base.upload(), base.processing(),
+                base.ollama(), base.slides(), base.chat(), base.llm(), base.downloader(),
+                base.assistant(), base.mcp(), base.deepseek(), base.security(), base.gitea(),
+                base.codeReview());
     }
 }

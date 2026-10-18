@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.lectureprocessor.process.StreamingProcessExecutor;
+import com.lectureprocessor.support.TestProperties;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -20,8 +21,9 @@ class YtDlpOutputLocatorTest {
     Path dir;
 
     private YtDlpVideoDownloader downloader() {
-        return new YtDlpVideoDownloader(new StreamingProcessExecutor(), null, null,
-                new ObjectMapper());
+        return new YtDlpVideoDownloader(new StreamingProcessExecutor(),
+                TestProperties.defaults("./target/test-data"), null, new ObjectMapper(),
+                new YtDlpOptions(TestProperties.defaults("./target/test-data")));
     }
 
     @Test

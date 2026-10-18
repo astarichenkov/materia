@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.config.AppProperties;
+import com.lectureprocessor.download.YtDlpOptions;
 import com.lectureprocessor.storage.FileStorageService;
 
 /**
@@ -35,12 +36,14 @@ public class DiagnosticsService {
     private final AppProperties properties;
     private final FileStorageService storage;
     private final JdbcTemplate jdbc;
+    private final YtDlpOptions ytDlpOptions;
 
     public DiagnosticsService(AppProperties properties, FileStorageService storage,
-            JdbcTemplate jdbc) {
+            JdbcTemplate jdbc, YtDlpOptions ytDlpOptions) {
         this.properties = properties;
         this.storage = storage;
         this.jdbc = jdbc;
+        this.ytDlpOptions = ytDlpOptions;
     }
 
     public DiagnosticsReport report() {
@@ -56,6 +59,7 @@ public class DiagnosticsService {
         checks.add(checkWhisper());
         checks.add(checkExecutable("yt-dlp", "yt-dlp", properties.downloader().ytDlpPath(),
                 "pip install yt-dlp (или задайте YTDLP_PATH)."));
+        checks.add(checkYtDlpExtras());
         checks.add(checkOllama());
         return new DiagnosticsReport(checks, checks.stream().noneMatch(c -> c.status() == Status.FAILED),
                 checks.stream().anyMatch(c -> c.status() != Status.OK), java.time.Instant.now());
@@ -174,6 +178,39 @@ public class DiagnosticsService {
                     "Запустите ollama serve или задайте OLLAMA_BASE_URL. Без Ollama работают "
                             + "только уже готовые артефакты и повторный экспорт.");
         }
+    }
+
+    /**
+     * Reports the yt-dlp extractor environment: JavaScript runtime and cookie
+     * mode. This is informational (WARNING at most) because public videos keep
+     * working without both.
+     */
+    private Check checkYtDlpExtras() {
+        boolean jsFound;
+        String jsDetail;
+        try {
+            var runtime = ytDlpOptions.jsRuntime();
+            jsFound = runtime.isPresent();
+            jsDetail = runtime.orElse("не найден (yt-dlp использует только встроенный Deno-default)");
+        } catch (RuntimeException e) {
+            jsFound = false;
+            jsDetail = e.getMessage();
+        }
+        String cookies;
+        try {
+            String mode = properties.downloader().cookiesMode();
+            boolean configured = mode != null && !mode.isBlank() && !"none".equalsIgnoreCase(mode.strip());
+            cookies = configured ? "режим " + mode : "выключены";
+        } catch (RuntimeException e) {
+            cookies = "ошибка конфигурации: " + e.getMessage();
+        }
+        String detail = "JS runtime: " + jsDetail + "; cookies: " + cookies;
+        String hint = jsFound ? null
+                : "Для YouTube задайте YTDLP_JS_RUNTIME=node (нужен Node.js) — без runtime часть "
+                        + "форматов недоступна. Cookies по умолчанию отключены (YTDLP_COOKIES_MODE=none): "
+                        + "публичные видео импортируются без них.";
+        return new Check("yt-dlp-extras", "yt-dlp runtime", jsFound ? Status.OK : Status.WARNING,
+                detail, hint);
     }
 
     private Check checkExecutable(String id, String label, String command, String hint) {

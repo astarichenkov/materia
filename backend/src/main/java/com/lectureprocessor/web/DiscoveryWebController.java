@@ -1,5 +1,7 @@
 package com.lectureprocessor.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +20,8 @@ import com.lectureprocessor.lecture.LectureService;
  */
 @Controller
 public class DiscoveryWebController {
+
+    private static final Logger log = LoggerFactory.getLogger(DiscoveryWebController.class);
 
     private final LocalSimilarityService similarities;
     private final VideoDiscoveryService discovery;
@@ -86,8 +90,23 @@ public class DiscoveryWebController {
                     : "Это видео уже есть в библиотеке");
             return "redirect:/lectures/" + result.lectureId();
         } catch (RuntimeException e) {
+            log.warn("Discovery import failed for {} {}: {}", provider, url, e.getMessage());
             redirect.addFlashAttribute("error", e.getMessage());
+            // Only render a link for absolute http(s) URLs: the submitted value
+            // is user controlled and must not become a javascript:/data: href.
+            if (isWebUrl(url)) {
+                redirect.addFlashAttribute("importErrorUrl", url);
+            }
+            redirect.addFlashAttribute("importErrorProvider", provider);
             return "redirect:/discover";
         }
+    }
+
+    private static boolean isWebUrl(String url) {
+        if (url == null) {
+            return false;
+        }
+        String value = url.strip().toLowerCase(java.util.Locale.ROOT);
+        return value.startsWith("https://") || value.startsWith("http://");
     }
 }
