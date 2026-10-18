@@ -40,7 +40,8 @@ public class SchemaMigrator implements ApplicationRunner {
             new Migration(5, "db/migration/V5__day32_code_review.sql"),
             new Migration(6, "db/migration/V6__day33_support_assistant.sql"),
             new Migration(7, "db/migration/V7__day34_file_agent.sql"),
-            new Migration(8, "db/migration/V8__multilingual_video_discovery.sql"));
+            new Migration(8, "db/migration/V8__multilingual_video_discovery.sql"),
+            new Migration(9, "db/migration/V9__day35_lecture_editor.sql"));
 
     private final JdbcTemplate jdbc;
 

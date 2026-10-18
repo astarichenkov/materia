@@ -38,6 +38,14 @@ public class SegmentRepository {
                 lectureId);
     }
 
+    /** Updates only the text of one segment; timestamps and order stay intact. */
+    public int updateText(String lectureId, int sequence, String text) {
+        return jdbc.update("""
+                UPDATE transcript_segment SET text = ?
+                WHERE lecture_id = ? AND sequence = ?
+                """, text, lectureId, sequence);
+    }
+
     public void deleteByLecture(String lectureId) {
         jdbc.update("DELETE FROM transcript_segment WHERE lecture_id = ?", lectureId);
     }

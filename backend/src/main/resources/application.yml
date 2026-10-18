@@ -242,6 +242,20 @@ app:
     token-budget: ${TRANSLATION_TOKEN_BUDGET:200000}
     timeout: ${TRANSLATION_TIMEOUT:3m}
 
+  # Day 35 lecture editor: revision limits, size guards and cloud-retry consent.
+  editor:
+    enabled: ${EDITOR_ENABLED:true}
+    max-revisions-per-document: ${EDITOR_MAX_REVISIONS:100}
+    max-segment-chars: ${EDITOR_MAX_SEGMENT_CHARS:8000}
+    max-notes-chars: ${EDITOR_MAX_NOTES_CHARS:400000}
+    max-batch-segments: ${EDITOR_MAX_BATCH_SEGMENTS:500}
+    max-description-chars: ${EDITOR_MAX_DESCRIPTION_CHARS:500}
+    # Cloud retry is additionally OFF by default in the UI setting and only
+    # becomes usable when this flag and the user toggle are both enabled.
+    allow-cloud-retry: ${EDITOR_ALLOW_CLOUD_RETRY:false}
+    max-cloud-retries: ${EDITOR_MAX_CLOUD_RETRIES:30}
+    preview-max-chars: ${EDITOR_PREVIEW_MAX_CHARS:200000}
+
   # Week 8 smart video discovery.
   discovery:
     enabled: ${DISCOVERY_ENABLED:true}

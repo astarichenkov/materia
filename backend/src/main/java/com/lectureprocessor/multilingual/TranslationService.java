@@ -367,7 +367,9 @@ public class TranslationService {
         List<GlossaryEntry> entries = glossary.entries(sourceLanguage, targetLanguage);
         for (int i = 0; i < working.size(); i++) {
             TranslationSegment segment = working.get(i);
-            if (!segment.done()) {
+            if (!segment.done() || segment.humanOwned()) {
+                // Human corrections and explicit reviews are never re-judged by
+                // the automatic validator: their state belongs to the user.
                 continue;
             }
             String warning = qualityWarning(segment.sourceText(), segment.translatedText(), entries,

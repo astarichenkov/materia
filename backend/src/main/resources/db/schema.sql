@@ -387,3 +387,61 @@ CREATE TABLE IF NOT EXISTS discovered_video (
     UNIQUE (provider, external_id)
 );
 CREATE INDEX IF NOT EXISTS idx_discovered_video_url ON discovered_video(canonical_url);
+
+-- Day 35: lecture editor revisions, corrections, staleness and exports
+-- (also created by migration V9 for existing databases).
+CREATE TABLE IF NOT EXISTS lecture_document_revision (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    lecture_id         TEXT NOT NULL,
+    document_type      TEXT NOT NULL,
+    revision_number    INTEGER NOT NULL,
+    content            TEXT NOT NULL,
+    content_hash       TEXT NOT NULL,
+    parent_revision_id INTEGER,
+    edit_source        TEXT NOT NULL,
+    description        TEXT,
+    created_at         TEXT NOT NULL,
+    UNIQUE (lecture_id, document_type, revision_number)
+);
+CREATE INDEX IF NOT EXISTS idx_document_revision_lecture
+    ON lecture_document_revision(lecture_id, document_type, revision_number);
+CREATE TABLE IF NOT EXISTS lecture_segment_correction (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    lecture_id     TEXT NOT NULL,
+    document_type  TEXT NOT NULL,
+    sequence       INTEGER NOT NULL,
+    translation_id INTEGER,
+    original_text  TEXT NOT NULL,
+    corrected_text TEXT NOT NULL,
+    review_status  TEXT NOT NULL,
+    note           TEXT,
+    provider       TEXT,
+    model          TEXT,
+    updated_at     TEXT NOT NULL,
+    UNIQUE (lecture_id, document_type, sequence)
+);
+CREATE INDEX IF NOT EXISTS idx_segment_correction_lecture
+    ON lecture_segment_correction(lecture_id, document_type);
+CREATE TABLE IF NOT EXISTS lecture_document_state (
+    lecture_id    TEXT NOT NULL,
+    document_type TEXT NOT NULL,
+    status        TEXT NOT NULL,
+    reason        TEXT,
+    updated_at    TEXT NOT NULL,
+    PRIMARY KEY (lecture_id, document_type)
+);
+CREATE TABLE IF NOT EXISTS lecture_export (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    lecture_id              TEXT NOT NULL,
+    variant                 TEXT NOT NULL,
+    artifact                TEXT NOT NULL,
+    content_hash            TEXT,
+    transcript_revision_id  INTEGER,
+    translation_revision_id INTEGER,
+    notes_revision_id       INTEGER,
+    size_bytes              INTEGER NOT NULL DEFAULT 0,
+    status                  TEXT NOT NULL,
+    error                   TEXT,
+    created_at              TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lecture_export_lecture ON lecture_export(lecture_id, id);

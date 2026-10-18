@@ -74,6 +74,10 @@ public class LectureRepository {
 
     public void deleteById(String id) {
         // Explicit cleanup (SQLite FK cascades are not guaranteed to be enabled).
+        jdbc.update("DELETE FROM lecture_export WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_document_state WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_segment_correction WHERE lecture_id = ?", id);
+        jdbc.update("DELETE FROM lecture_document_revision WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM stage_checkpoint WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM pipeline_job WHERE lecture_id = ?", id);
         jdbc.update("DELETE FROM download_state WHERE lecture_id = ?", id);
@@ -112,5 +116,17 @@ public class LectureRepository {
                 WHERE id = ?
                 """, rawTranscriptPath, cleanedText, notesMarkdown, docxPath,
                 Instant.now().toString(), id);
+    }
+
+    /** Updates only the notes document (editor saves must not touch other paths). */
+    public void updateNotesMarkdown(String id, String notesMarkdown) {
+        jdbc.update("UPDATE lecture SET notes_markdown = ?, updated_at = ? WHERE id = ?",
+                notesMarkdown, Instant.now().toString(), id);
+    }
+
+    /** Updates only the primary DOCX path after a revision-aware re-export. */
+    public void updateDocxPath(String id, String docxPath) {
+        jdbc.update("UPDATE lecture SET docx_path = ?, updated_at = ? WHERE id = ?",
+                docxPath, Instant.now().toString(), id);
     }
 }
