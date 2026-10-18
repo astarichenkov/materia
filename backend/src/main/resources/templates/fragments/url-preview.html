@@ -1,19 +1,48 @@
 <!DOCTYPE html>
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="preview">
-    <div th:if="${error}" class="err" th:text="'Ошибка: ' + ${error}"></div>
-    <div th:if="${metadata}">
-        <p><strong th:text="${metadata.title}">Заголовок</strong></p>
-        <p>
-            <span th:text="${metadata.provider}">provider</span>
-            <span th:if="${metadata.uploader}"> · <span th:text="${metadata.uploader}"></span></span>
-            <span th:if="${metadata.durationMs != null}">
-                · <span th:text="${#numbers.formatDecimal(metadata.durationMs / 60000.0, 1, 1)} + ' мин'"></span>
-            </span>
+
+<!--
+  Result of GET /lectures/preview rendered into the wizard via HTMX.
+  The raw yt-dlp output is never rendered here: only the classified message,
+  an optional external link and alternative actions.
+-->
+<div th:fragment="preview" data-preview-result>
+    <div th:if="${error}" class="alert alert--warning" role="alert">
+        <p><strong>Не удалось получить информацию о видео.</strong></p>
+        <p th:text="${error}">Причина</p>
+        <div class="actions">
+            <a class="btn btn-secondary btn-sm" th:if="${previewUrl}" th:href="${previewUrl}"
+               target="_blank" rel="noopener noreferrer">Открыть видео на платформе</a>
+            <button type="button" class="btn btn-secondary btn-sm" data-source-select="file">
+                Загрузить файл
+            </button>
+            <a class="btn btn-ghost btn-sm" href="/diagnostics">Диагностика</a>
+        </div>
+        <p class="field-help">
+            Ссылка останется в поле — можно изменить её и проверить снова, либо добавить материал
+            без предварительной проверки.
         </p>
-        <p th:if="${metadata.estimatedBytes > 0}"
-           th:text="'Оценка размера: ' + ${#numbers.formatDecimal(metadata.estimatedBytes / 1048576.0, 1, 1)} + ' МБ'"></p>
+    </div>
+
+    <div th:if="${metadata}" class="preview">
+        <p class="preview__title" th:text="${metadata.title}">Название видео</p>
+        <p class="muted">
+            <span th:text="${metadata.provider}">Платформа</span>
+            <span th:if="${metadata.uploader != null and !#strings.isEmpty(metadata.uploader)}"
+                  th:text="' · ' + ${metadata.uploader}"></span>
+            <span th:if="${metadata.durationMs != null}"
+                  th:text="' · ' + ${#numbers.formatDecimal(metadata.durationMs / 60000.0, 1, 1)} + ' мин'"></span>
+            <span th:if="${metadata.estimatedBytes > 0}"
+                  th:text="' · около ' + ${#numbers.formatDecimal(metadata.estimatedBytes / 1048576.0, 1, 1)} + ' МБ'"></span>
+        </p>
+        <p class="alert alert--info" th:if="${existingLectureId}">
+            Это видео уже есть в библиотеке — повторное добавление не нужно.
+            <a th:href="@{/lectures/{id}(id=${existingLectureId})}">Открыть существующую лекцию</a>
+        </p>
+        <p class="alert alert--success" th:unless="${existingLectureId}">
+            Ссылка поддерживается. Проверьте параметры ниже и добавьте материал.
+        </p>
     </div>
 </div>
 </body>

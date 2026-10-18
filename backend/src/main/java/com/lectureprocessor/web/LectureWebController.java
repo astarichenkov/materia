@@ -2,18 +2,22 @@ package com.lectureprocessor.web;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.lectureprocessor.benchmark.BenchmarkRunService;
 import com.lectureprocessor.benchmark.BenchmarkService;
@@ -22,7 +26,13 @@ import com.lectureprocessor.chat.LectureChatService;
 import com.lectureprocessor.discovery.LocalSimilarityService;
 import com.lectureprocessor.discovery.VideoDiscoveryService;
 import com.lectureprocessor.domain.Lecture;
+import com.lectureprocessor.download.MediaDownloadException;
 import com.lectureprocessor.download.MediaQuality;
+import com.lectureprocessor.download.UnsafeMediaUrlException;
+import com.lectureprocessor.importing.ImportCapabilities;
+import com.lectureprocessor.importing.ImportCapabilitiesService;
+import com.lectureprocessor.importing.ImportDeduplicationService;
+import com.lectureprocessor.job.JobQueueFullException;
 import com.lectureprocessor.job.LectureJobService;
 import com.lectureprocessor.lecture.InvalidUploadException;
 import com.lectureprocessor.lecture.LectureLibraryService;
@@ -64,6 +74,8 @@ public class LectureWebController {
     private final LectureLibraryService library;
     private final PipelineJobRepository jobs;
     private final LectureRepository lectures;
+    private final ImportDeduplicationService importDeduplication;
+    private final ImportCapabilitiesService importCapabilities;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -72,7 +84,9 @@ public class LectureWebController {
             LlmSettingsService llmSettings, LectureLanguageService languages,
             LocalSimilarityService similarities, VideoDiscoveryService discovery,
             SegmentRepository segments, LectureLibraryService library,
-            PipelineJobRepository jobs, LectureRepository lectures) {
+            PipelineJobRepository jobs, LectureRepository lectures,
+            ImportDeduplicationService importDeduplication,
+            ImportCapabilitiesService importCapabilities) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -89,6 +103,8 @@ public class LectureWebController {
         this.library = library;
         this.jobs = jobs;
         this.lectures = lectures;
+        this.importDeduplication = importDeduplication;
+        this.importCapabilities = importCapabilities;
     }
 
     /**
@@ -126,6 +142,22 @@ public class LectureWebController {
         return "index";
     }
 
+    /**
+     * The servlet container rejects oversized multipart requests before the
+     * handler body runs, so the size limit cannot be reported from inside
+     * {@link #upload}. Keeping the handler on this controller avoids a global
+     * advice that every test context would have to satisfy.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public String uploadTooLarge(MaxUploadSizeExceededException e, RedirectAttributes redirect) {
+        String limit = ImportCapabilities.formatBytes(
+                importCapabilities.capabilities().maxFileSizeBytes());
+        log.info("Upload rejected: request exceeds the configured limit ({})", limit);
+        redirect.addFlashAttribute("error", "Файл больше допустимого размера (" + limit
+                + "). Выберите файл меньше или сожмите видео перед загрузкой.");
+        return "redirect:/add";
+    }
+
     @PostMapping("/lectures")
     public String upload(@RequestParam("file") MultipartFile file,
             @RequestParam(name = "clean", defaultValue = "false") boolean clean,
@@ -134,17 +166,28 @@ public class LectureWebController {
             @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
             String translationMode,
             @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
+            @RequestParam(name = "requestId", required = false) String requestId,
             RedirectAttributes redirect) {
-        try {
-            Lecture lecture = lectureService.create(file, clean, slides, languageMode,
-                    translationMode, autoTranslate, "ru");
-            jobService.submit(lecture.id());
-            redirect.addFlashAttribute("message", "Лекция загружена, обработка запущена");
-            return "redirect:/lectures/" + lecture.id();
-        } catch (InvalidUploadException e) {
-            redirect.addFlashAttribute("error", e.getMessage());
-            return "redirect:/";
+        Optional<String> previous = importDeduplication.previousRequest(requestId);
+        if (previous.isPresent()) {
+            redirect.addFlashAttribute("message",
+                    "Этот материал уже добавлен: повторная отправка не создала новую запись.");
+            return "redirect:/lectures/" + previous.get();
         }
+        Lecture lecture;
+        try {
+            lecture = lectureService.create(file, clean, slides, languageMode,
+                    translationMode, autoTranslate, "ru");
+        } catch (InvalidUploadException e) {
+            log.info("Upload rejected: {}", e.getMessage());
+            return redirectToWizard(redirect, null, e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("Upload failed: {}", e.getMessage(), e);
+            return redirectToWizard(redirect, null,
+                    "Не удалось сохранить файл. Проверьте свободное место и повторите попытку.");
+        }
+        importDeduplication.remember(requestId, lecture.id());
+        return openCreatedLecture(lecture.id(), "Лекция загружена", redirect);
     }
 
     @PostMapping("/lectures/from-url")
@@ -157,25 +200,101 @@ public class LectureWebController {
             @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
             String translationMode,
             @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
+            @RequestParam(name = "requestId", required = false) String requestId,
             RedirectAttributes redirect) {
-        try {
-            Lecture lecture = remoteLectureService.createFromUrl(url, quality, audioOnly, clean,
-                    slides, languageMode, translationMode, autoTranslate, "ru");
-            jobService.submit(lecture.id());
-            redirect.addFlashAttribute("message", "Видео принято в обработку");
-            return "redirect:/lectures/" + lecture.id();
-        } catch (RuntimeException e) {
-            redirect.addFlashAttribute("error", e.getMessage());
-            return "redirect:/";
+        Optional<String> previous = importDeduplication.previousRequest(requestId);
+        if (previous.isPresent()) {
+            redirect.addFlashAttribute("message",
+                    "Этот материал уже добавлен: повторная отправка не создала новую запись.");
+            return "redirect:/lectures/" + previous.get();
         }
+        Optional<String> existing = importDeduplication.existingLectureForUrl(url);
+        if (existing.isPresent()) {
+            redirect.addFlashAttribute("message",
+                    "Это видео уже есть в библиотеке — открыта существующая лекция.");
+            return "redirect:/lectures/" + existing.get();
+        }
+        Lecture lecture;
+        try {
+            lecture = remoteLectureService.createFromUrl(url, quality, audioOnly, clean,
+                    slides, languageMode, translationMode, autoTranslate, "ru");
+        } catch (UnsafeMediaUrlException e) {
+            log.info("URL rejected: {}", e.getMessage());
+            return redirectToWizard(redirect, url, e.getMessage());
+        } catch (MediaDownloadException e) {
+            // The message is already a human readable classification; raw tool
+            // output stays in the log and is never rendered.
+            log.warn("Metadata probe failed ({}): {}", e.reason(), e.getMessage());
+            return redirectToWizard(redirect, url, e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("URL import failed: {}", e.getMessage(), e);
+            return redirectToWizard(redirect, url,
+                    "Не удалось добавить видео по ссылке. Проверьте диагностику и повторите попытку.");
+        }
+        importDeduplication.remember(requestId, lecture.id());
+        return openCreatedLecture(lecture.id(), "Видео принято в обработку", redirect);
+    }
+
+    /**
+     * A lecture row already exists; report honestly whether processing started
+     * instead of claiming success when the queue is full.
+     */
+    private String openCreatedLecture(String lectureId, String message, RedirectAttributes redirect) {
+        try {
+            boolean submitted = jobService.submit(lectureId);
+            redirect.addFlashAttribute("message", submitted
+                    ? message + ", обработка запущена."
+                    : message + ". Обработка уже выполняется или поставлена ранее.");
+        } catch (JobQueueFullException e) {
+            log.warn("Lecture {} created but the queue is full: {}", lectureId, e.getMessage());
+            redirect.addFlashAttribute("error", message
+                    + ", но очередь обработки переполнена. Запустите обработку с карточки материала позже.");
+        }
+        return "redirect:/lectures/" + lectureId;
+    }
+
+    /**
+     * Sends the user back to the wizard with the entered URL preserved and a
+     * readable reason. Only an absolute http(s) URL may be offered as an
+     * external link; it is rendered by Thymeleaf, never concatenated into href.
+     */
+    private String redirectToWizard(RedirectAttributes redirect, String url, String error) {
+        redirect.addFlashAttribute("error", error);
+        if (url != null && !url.isBlank() && url.length() <= 2048
+                && (url.startsWith("http://") || url.startsWith("https://"))) {
+            redirect.addFlashAttribute("importErrorUrl", url);
+        }
+        if (url == null || url.isBlank() || url.length() > 2048) {
+            return "redirect:/add";
+        }
+        return "redirect:" + UriComponentsBuilder.fromPath("/add")
+                .queryParam("url", url)
+                .build()
+                .encode()
+                .toUriString();
     }
 
     @GetMapping("/lectures/preview")
     public String preview(@RequestParam("url") String url, Model model) {
+        String candidate = url == null ? "" : url.strip();
         try {
-            model.addAttribute("metadata", remoteLectureService.preview(url));
-        } catch (RuntimeException e) {
+            model.addAttribute("metadata", remoteLectureService.preview(candidate));
+            importDeduplication.existingLectureForUrl(candidate)
+                    .ifPresent(lectureId -> model.addAttribute("existingLectureId", lectureId));
+        } catch (UnsafeMediaUrlException e) {
             model.addAttribute("error", e.getMessage());
+        } catch (MediaDownloadException e) {
+            model.addAttribute("error", e.getMessage());
+            model.addAttribute("retryable", e.retryable());
+            model.addAttribute("reason", e.reason());
+        } catch (RuntimeException e) {
+            log.warn("URL preview failed: {}", e.getMessage());
+            model.addAttribute("error",
+                    "Не удалось проверить ссылку. Материал можно добавить без предварительной проверки.");
+        }
+        if (candidate.length() <= 2048
+                && (candidate.startsWith("http://") || candidate.startsWith("https://"))) {
+            model.addAttribute("previewUrl", candidate);
         }
         model.addAttribute("qualities", MediaQuality.values());
         return "fragments/url-preview :: preview";
