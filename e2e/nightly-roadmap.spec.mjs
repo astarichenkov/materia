@@ -61,3 +61,22 @@ test.describe('nightly roadmap: covers and selective re-run', () => {
     }
   });
 });
+
+test('editor tabs are keyboard accessible and track unsaved changes', async ({ page }) => {
+  await page.goto(`/lectures/${lectureId}/editor`);
+  const transcriptTab = page.getByRole('tab', { name: 'Оригинал' });
+  await expect(transcriptTab).toHaveAttribute('aria-selected', 'true');
+  await transcriptTab.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Перевод' }))
+    .toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tabpanel', { name: 'Перевод' })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Конспект' }).click();
+  const notes = page.locator('#notes-markdown');
+  await notes.fill((await notes.inputValue()) + '\n\nпроверка несохранённых изменений');
+  await expect(page.locator('#dirty-indicator')).toContainText('несохранённые');
+  // Reverting the text clears the dirty state again; nothing is saved.
+  await notes.fill(await notes.inputValue().then((v) => v.replace('\n\nпроверка несохранённых изменений', '')));
+  await expect(page.locator('#dirty-indicator')).toContainText('Все изменения сохранены');
+});

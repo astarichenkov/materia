@@ -26,6 +26,16 @@
 
 <div id="flash" class="msg" style="display:none"></div>
 
+<div class="editor-statusbar" role="status" aria-live="polite">
+    <span id="dirty-indicator" class="editor-dirty">Все изменения сохранены</span>
+    <span class="muted">Версии:
+        <span th:text="'оригинал ' + ${revisionNumbers['TRANSCRIPT']}"></span>,
+        <span th:text="'перевод ' + ${revisionNumbers['TRANSLATION']}"></span>,
+        <span th:text="'конспект ' + ${revisionNumbers['NOTES']}"></span>
+    </span>
+    <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}(id=${view.lecture.id})}">К карточке материала</a>
+</div>
+
 <div class="card">
     <div class="quality">
         <div>Сегментов: <b th:text="${view.quality.totalSegments}"></b></div>
@@ -72,16 +82,26 @@
     </div>
 </div>
 
-<div class="tabs">
-    <div class="tab active" data-tab="transcript">Оригинал</div>
-    <div class="tab" data-tab="translation">Перевод</div>
-    <div class="tab" data-tab="notes">Конспект</div>
-    <div class="tab" data-tab="slides">Слайды</div>
-    <div class="tab" data-tab="history">История изменений</div>
+<div class="tabs" role="tablist" aria-label="Разделы редактора">
+    <button type="button" class="tab active" role="tab" id="tab-transcript"
+            aria-selected="true" aria-controls="panel-transcript" tabindex="0"
+            data-tab="transcript">Оригинал</button>
+    <button type="button" class="tab" role="tab" id="tab-translation"
+            aria-selected="false" aria-controls="panel-translation" tabindex="-1"
+            data-tab="translation">Перевод</button>
+    <button type="button" class="tab" role="tab" id="tab-notes"
+            aria-selected="false" aria-controls="panel-notes" tabindex="-1"
+            data-tab="notes">Конспект</button>
+    <button type="button" class="tab" role="tab" id="tab-slides"
+            aria-selected="false" aria-controls="panel-slides" tabindex="-1"
+            data-tab="slides">Слайды</button>
+    <button type="button" class="tab" role="tab" id="tab-history"
+            aria-selected="false" aria-controls="panel-history" tabindex="-1"
+            data-tab="history">История изменений</button>
 </div>
 
 <!-- ------------------------------------------------------------ transcript -->
-<div class="panel active" id="panel-transcript">
+<div class="panel active" id="panel-transcript" role="tabpanel" aria-labelledby="tab-transcript">
     <div class="bar">
         <label>Описание правки <input id="transcript-description" size="42"
                                      placeholder="например: исправлены термины"></label>
@@ -104,7 +124,7 @@
 </div>
 
 <!-- ----------------------------------------------------------- translation -->
-<div class="panel" id="panel-translation">
+<div class="panel" id="panel-translation" role="tabpanel" aria-labelledby="tab-translation">
     <div class="bar">
         <label>Фильтр
             <select id="translation-filter">
@@ -150,7 +170,7 @@
 </div>
 
 <!-- ----------------------------------------------------------------- notes -->
-<div class="panel" id="panel-notes">
+<div class="panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes">
     <div class="bar">
         <label>Описание правки <input id="notes-description" size="42"
                                      placeholder="например: уточнён заголовок"></label>
@@ -174,7 +194,7 @@
 </div>
 
 <!-- ---------------------------------------------------------------- slides -->
-<div class="panel" id="panel-slides">
+<div class="panel" id="panel-slides" role="tabpanel" aria-labelledby="tab-slides">
     <p class="muted">
         Слайды уже извлечены и привязаны к таймкодам. Текстовая правка не требует повторного
         извлечения; экспорт использует эти же изображения и не теряет их.
@@ -193,7 +213,7 @@
 </div>
 
 <!-- --------------------------------------------------------------- history -->
-<div class="panel" id="panel-history">
+<div class="panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history">
     <div class="bar">
         <label>Документ
             <select id="history-type">
@@ -231,6 +251,7 @@
         box.textContent = message;
         box.className = 'msg' + (error ? ' err' : ' ok');
         box.style.display = 'block';
+        updateDirty();
         setTimeout(() => { box.style.display = 'none'; }, 7000);
     }
 
@@ -254,13 +275,55 @@
     }
 
     // ---------------------------------------------------------------- tabs
-    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs [role="tab"]'));
+    function selectTab(tab, focus) {
+        tabs.forEach(t => {
+            const selected = t === tab;
+            t.classList.toggle('active', selected);
+            t.setAttribute('aria-selected', selected ? 'true' : 'false');
+            t.tabIndex = selected ? 0 : -1;
+        });
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        const panel = document.getElementById('panel-' + tab.dataset.tab);
+        if (panel) panel.classList.add('active');
+        if (focus) tab.focus();
         if (tab.dataset.tab === 'history') { loadHistory(); }
+    }
+    tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab, false)));
+    tabs.forEach((tab, index) => tab.addEventListener('keydown', event => {
+        let next = null;
+        if (event.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length];
+        else if (event.key === 'ArrowLeft') next = tabs[(index - 1 + tabs.length) % tabs.length];
+        else if (event.key === 'Home') next = tabs[0];
+        else if (event.key === 'End') next = tabs[tabs.length - 1];
+        if (next) { event.preventDefault(); selectTab(next, true); }
     }));
+
+    // ------------------------------------------------------- unsaved changes
+    function isDirty() {
+        for (const area of document.querySelectorAll('.transcript-text')) {
+            if (area.value !== (initialText.transcript[area.dataset.sequence] || '')) return true;
+        }
+        for (const area of document.querySelectorAll('.translation-text')) {
+            if (area.value !== (initialText.translation[area.dataset.sequence] || '')) return true;
+        }
+        const notes = document.getElementById('notes-markdown');
+        return !!notes && notes.value !== (initialText.notes || '');
+    }
+    function updateDirty() {
+        const indicator = document.getElementById('dirty-indicator');
+        if (!indicator) return;
+        const dirty = isDirty();
+        indicator.textContent = dirty ? 'Есть несохранённые изменения' : 'Все изменения сохранены';
+        indicator.className = 'editor-dirty' + (dirty ? ' is-dirty' : '');
+    }
+    document.addEventListener('input', updateDirty);
+    window.addEventListener('beforeunload', event => {
+        if (!isDirty()) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+    updateDirty();
 
     // ------------------------------------------------------------ transcript
     document.querySelectorAll('.transcript-text').forEach(area => {
