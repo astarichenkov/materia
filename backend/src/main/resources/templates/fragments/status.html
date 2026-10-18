@@ -19,7 +19,12 @@
 
         <div th:if="${job.download != null}">
             <p>
-                Скачивание: <span th:text="${job.download.status}">—</span>
+                Скачивание:
+                <span th:switch="${job.download.status}">
+                    <span th:case="'FINISHED'">Завершено</span>
+                    <span th:case="'DOWNLOADING'">Скачивание</span>
+                    <span th:case="*" th:text="${job.download.status}">—</span>
+                </span>
                 <span th:if="${job.download.percent != null}"
                       th:text="' · ' + ${#numbers.formatDecimal(job.download.percent, 1, 1)} + '%'"></span>
                 <span th:if="${job.download.bytesDownloaded != null}"

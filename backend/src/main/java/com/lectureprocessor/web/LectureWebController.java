@@ -32,6 +32,7 @@ import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.web.ui.StatusLabels;
 
 /**
  * Minimal Thymeleaf + HTMX UI: upload, monitor status, download results, chat
@@ -95,6 +96,7 @@ public class LectureWebController {
         model.addAttribute("hasTranslation", hasTranslation);
         model.addAttribute("sort", sort);
         model.addAttribute("statuses", com.lectureprocessor.domain.JobStatus.values());
+        model.addAttribute("statusLabels", StatusLabels.all());
         return "index";
     }
 

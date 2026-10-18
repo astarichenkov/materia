@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.lecture.LectureLibraryService;
+import com.lectureprocessor.web.ui.StatusLabels;
 
 /**
  * Read-only library view. It reuses {@link LectureLibraryService} and keeps the
@@ -45,6 +46,7 @@ public class LibraryWebController {
         model.addAttribute("items", items);
         model.addAttribute("languages", languages);
         model.addAttribute("statuses", JobStatus.values());
+        model.addAttribute("statusLabels", StatusLabels.all());
         model.addAttribute("q", query == null ? "" : query);
         model.addAttribute("language", language == null ? "" : language);
         model.addAttribute("status", status == null ? "" : status);

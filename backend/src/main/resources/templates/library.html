@@ -42,7 +42,7 @@
             <label for="library-status">Статус</label>
             <select id="library-status" name="status">
                 <option value="">Все</option>
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${statusLabels[s.name()]}"
                         th:selected="${status == s.name()}"></option>
             </select>
         </div>

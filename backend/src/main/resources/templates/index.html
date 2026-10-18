@@ -102,7 +102,7 @@
         <label>Статус
             <select name="status">
                 <option value="">Любой</option>
-                <option th:each="s : ${statuses}" th:value="${s}" th:text="${s}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${statusLabels[s.name()]}"
                         th:selected="${status == s.name()}"></option>
             </select>
         </label>
