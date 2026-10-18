@@ -174,7 +174,10 @@ public class PipelineCoordinator {
                     updateProgress(lectureId, stage, index, "Пропущено (уже выполнено)");
                     continue;
                 }
-                checkpointRepository.invalidateFrom(lectureId, stage.id());
+                // No blanket invalidation of downstream checkpoints: every stage
+                // fingerprint covers its own inputs (transcript key, translation
+                // state, notes file, media key). A format-only change therefore
+                // re-runs TEXT_PROCESSING and EXPORT while RAG/slides survive.
                 checkpointRepository.start(lectureId, stage.id(), fingerprint, attemptNumber(lectureId));
                 updateStatus(context, statusFor(stage.id()));
                 jobRepository.updateProgress(lectureId, owner, stage.id());

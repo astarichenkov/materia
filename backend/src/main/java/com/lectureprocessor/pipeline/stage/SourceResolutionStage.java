@@ -49,12 +49,19 @@ public class SourceResolutionStage implements StageExecutor {
     @Override
     public String inputFingerprint(JobContext context) {
         MediaSource source = context.source();
-        if (source == null) {
-            return "unresolved";
+        if (source != null) {
+            return Fingerprints.of(source.kind().name(),
+                    String.valueOf(source.originalUrl()), String.valueOf(source.originalFilename()),
+                    String.valueOf(source.quality()), String.valueOf(source.audioOnly()));
         }
-        return Fingerprints.of(source.kind().name(),
-                String.valueOf(source.originalUrl()), String.valueOf(source.originalFilename()),
-                String.valueOf(source.quality()), String.valueOf(source.audioOnly()));
+        // A locally uploaded lecture may not have a media_source row on its first
+        // run (the row is created by this stage). The fingerprint must be the same
+        // before and after that row exists, otherwise the first completed run is
+        // invalidated and the whole downstream pipeline — including Whisper —
+        // re-runs on every subsequent attempt.
+        String filename = context.lecture() == null ? null : context.lecture().originalFilename();
+        return Fingerprints.of(MediaSourceKind.LOCAL_FILE.name(), "null", String.valueOf(filename),
+                "null", "false");
     }
 
     @Override

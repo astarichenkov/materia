@@ -212,7 +212,7 @@
                     <option value="">По формату (рекомендуется)</option>
                     <option th:each="template : ${promptTemplates}" th:value="${template.name()}"
                             th:text="${template.label()}"
-                            th:selected="${template.name() == profile.resolvedPrompt()}"></option>
+                            th:selected="${profile.promptTemplate() != null and template.name() == profile.promptTemplate()}"></option>
                 </select>
             </div>
         </div>

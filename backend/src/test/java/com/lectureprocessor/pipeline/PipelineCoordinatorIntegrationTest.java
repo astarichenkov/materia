@@ -213,6 +213,30 @@ class PipelineCoordinatorIntegrationTest {
         verify(ffmpeg, times(1)).extractAudio(any(), any());
     }
 
+    /**
+     * A locally uploaded lecture has no media_source row until SOURCE_RESOLUTION
+     * creates it. The second run must still reuse every checkpoint; before the
+     * fingerprint fix the whole pipeline (including Whisper) re-ran.
+     */
+    @Test
+    void localLectureWithoutMediaSourceRowReusesEverythingOnRerun() throws Exception {
+        String id = "it-no-source-row";
+        Path source = storage.resolve(id, "source.mp4");
+        Files.createDirectories(source.getParent());
+        Files.write(source, new byte[2048]);
+        Instant now = Instant.now();
+        lectureRepository.save(new Lecture(id, "lecture.mp4", "source.mp4", 2048, "video/mp4",
+                JobStatus.UPLOADED, null, null, false, false, null, null, null, null, now, now));
+        assertThat(mediaSourceRepository.findByLecture(id)).isEmpty();
+
+        coordinator.run(id);
+        coordinator.run(id);
+
+        verify(transcription, times(1)).transcribe(any(), anyString());
+        verify(ffmpeg, times(1)).extractAudio(any(), any());
+        assertThat(mediaSourceRepository.findByLecture(id)).isPresent();
+    }
+
     /** Sanity check that the lease repository rejects a duplicate active claim. */
     @Test
     void leasePreventsConcurrentClaims() throws Exception {
