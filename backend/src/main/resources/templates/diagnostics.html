@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Диагностика установки</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+        .OK { color: #0a7d28; font-weight: 600; }
+        .WARNING { color: #a15c00; font-weight: 600; }
+        .FAILED { color: #b00020; font-weight: 600; }
+        .muted { color: #666; font-size: .9rem; }
+        .banner { padding: .7rem; border-radius: 6px; margin: 1rem 0; }
+        .banner.ok { background: #e8f7ea; }
+        .banner.bad { background: #fee; }
+    </style>
+</head>
+<body>
+<h1>Диагностика установки</h1>
+<p><a href="/">← К лекциям</a> · <a href="/settings">Настройки</a></p>
+
+<div th:class="'banner ' + (${report.ready} ? 'ok' : 'bad')">
+    <b th:if="${report.ready}">Все обязательные зависимости доступны.</b>
+    <b th:unless="${report.ready}">Есть недоступные зависимости — часть функций не будет работать.</b>
+    <span class="muted" th:text="'Проверено: ' + ${report.checkedAt}"></span>
+</div>
+
+<table>
+    <thead><tr><th>Проверка</th><th>Статус</th><th>Детали</th><th>Что сделать</th></tr></thead>
+    <tbody>
+    <tr th:each="check : ${report.checks}">
+        <td th:text="${check.label}"></td>
+        <td th:class="${check.status.name()}" th:text="${check.status}"></td>
+        <td th:text="${check.detail}"></td>
+        <td>
+            <span th:if="${check.hint != null}" th:text="${check.hint}"></span>
+            <span th:unless="${check.hint != null}" class="muted">—</span>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<h2>Куда сохраняются данные</h2>
+<p class="muted">
+    Все артефакты лежат в каталоге, заданном переменной <code>LECTURE_STORAGE_ROOT</code>
+    (по умолчанию <code>./data</code>): база SQLite, исходное видео, аудио, расшифровка,
+    перевод, конспект, слайды и версии документов. Резервная копия — это копия всего каталога.
+</p>
+</body>
+</html>

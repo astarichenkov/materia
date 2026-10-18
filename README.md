@@ -450,12 +450,51 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 | `CODE_REVIEW_PUBLISH` | публиковать комментарий в PR (false = dry-run) | `true` |
 | `CODE_REVIEW_CODE_PATHS` | что индексировать в code RAG | `backend/src,…` |
 
+## Lecture Editor и повторный экспорт (Day 35)
+
+Редактор позволяет довести обработанную лекцию до качественного документа
+без повторного скачивания, FFmpeg и Whisper.
+
+- `GET /lectures/{id}/editor`: вкладки «Оригинал», «Перевод», «Конспект»,
+  «Слайды», «История изменений».
+- Каждая правка — новая неизменяемая ревизия с источником
+  (`WHISPER`/`TRANSLATION_LLM`/`TEXT_PROCESSING_LLM`/`HUMAN`/`AI_ASSISTED`),
+  SHA-256 и родительской ревизией. История: сравнение (diff) и восстановление
+  версии как новой ревизии.
+- Optimistic locking: клиент присылает `expectedRevision`; при конфликте —
+  `409 REVISION_CONFLICT`, данные не перезаписываются.
+- Ручные исправления перевода (`MANUALLY_CORRECTED`) и проверенные сегменты
+  (`REVIEWED`) имеют приоритет и не перезаписываются автоматическим переводом.
+  `STALE` означает «оригинал изменён»: устаревший перевод не выдаётся за
+  актуальный и не попадает в экспорт как текущий.
+- Правка оригинала не запускает Whisper: инвалидируются только
+  `TEXT_PROCESSING`/`EXPORT`; затронутые сегменты перевода помечаются `STALE`.
+- Повторный перевод сегмента использует задачу `LECTURE_TRANSLATION`, соседние
+  сегменты и глоссарий; результат — предложение, сохраняется только явным
+  принятием. Облачный повтор WARNING-сегментов по умолчанию **выключен**
+  (двойное согласие: `EDITOR_ALLOW_CLOUD_RETRY` + переключатель в UI).
+- Экспорт `ORIGINAL`/`RUSSIAN`/`BILINGUAL`/`NOTES` собирается из последних
+  ревизий и уже извлечённых слайдов, пишется атомарно и регистрируется в
+  `lecture_export` (id ревизий + хеш → статус «устарел»).
+- Безопасный Markdown-предпросмотр: серверный рендер, сырой HTML не проходит,
+  ссылки/изображения только `http(s)`, CSRF `X-Editor-Csrf`.
+- Библиотека `GET /` ищет по названию/теме с фильтрами языка, статуса, наличия
+  перевода и сортировкой.
+- `GET /diagnostics` проверяет Java, хранилище/диск, SQLite, FFmpeg, Whisper,
+  yt-dlp и Ollama и показывает, чего не хватает.
+
+Таблицы: `lecture_document_revision`, `lecture_segment_correction`,
+`lecture_document_state`, `lecture_export` (миграция V9).
+
+Подробно: `docs/editor-guide.md`, установка — `docs/installation-windows.md`,
+отчёт — `docs/week7-day35-report.md`, демо — `demos/day35/demo-scenario.md`.
+
 ## Тесты и проверки
 
 ```bash
 export JAVA_HOME=/c/tools/jdk-25.0.2-full
 ./mvnw -pl backend test        # unit + интеграционные тесты пайплайна
-./mvnw verify                  # полная сборка обоих модулей (405 тестов, 2026-10-18)
+./mvnw verify                  # полная сборка обоих модулей (см. ниже актуальное число)
 ```
 
 DeepSeek-тесты используют локальный HTTP test double

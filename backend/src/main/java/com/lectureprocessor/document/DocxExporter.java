@@ -123,6 +123,28 @@ public class DocxExporter {
         }
     }
 
+    /**
+     * Exports a Markdown document (typically edited notes) to DOCX. Slides are
+     * always appended in deterministic order when they cannot be aligned with a
+     * timestamped section, so images never silently disappear after an edit.
+     */
+    public void exportMarkdown(Path output, String title, String markdown,
+            List<SlideImage> slides) {
+        try (XWPFDocument document = new XWPFDocument()) {
+            addHeading(document, title, 0);
+            writeMarkdown(document, markdown == null ? "" : markdown);
+            if (slides != null && !slides.isEmpty()) {
+                addHeading(document, "Приложение: слайды", 1);
+                for (SlideImage slide : slides) {
+                    insertImage(document, slide);
+                }
+            }
+            write(document, output);
+        } catch (IOException e) {
+            throw new DocumentExportException("Не удалось создать DOCX: " + output, e);
+        }
+    }
+
     private static void write(XWPFDocument document, Path output) {
         try {
             Path parent = output.toAbsolutePath().getParent();
