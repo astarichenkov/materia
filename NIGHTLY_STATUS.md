@@ -46,6 +46,16 @@ ignored by project policy).
    are downloadable per variant and survive re-generation.
 6. **PROMPT-1A (DONE)** — audit documented in
    `docs/nightly/prompt-pipeline-audit.md` (stage/dependency matrix).
+7. **MEDIA-1 (DONE)** — local audio (MP3/M4A/WAV/FLAC): accepted by upload and
+   the wizard, slides forced off, `NO_SOURCE` cover placeholder, pipeline
+   verified with a real WAV fixture (transcript + DOCX, zero slides).
+8. **UX-6 (PARTIAL)** — editor tabs are accessible (`role=tab`, arrow/Home/End
+   navigation), sticky status bar shows versions and a live dirty indicator,
+   `beforeunload` warns only on unsaved changes. Revision history, 409 conflict,
+   restore and export already existed and are verified by E2E.
+9. **UX-10 (PARTIAL)** — pipeline errors are sanitized (no absolute server
+   paths, bounded length); corrupted-media E2E renders a friendly FAILED card
+   with a retry action. Backfill idempotency verified live.
 
 ## Verification
 

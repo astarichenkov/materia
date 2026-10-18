@@ -190,15 +190,16 @@ public class PipelineCoordinator {
                 } catch (ProcessCancelledException e) {
                     throw e;
                 } catch (RuntimeException e) {
-                    checkpointRepository.fail(lectureId, stage.id(), e.getMessage());
+                    String safeError = ErrorMessages.sanitize(e.getMessage());
+                    checkpointRepository.fail(lectureId, stage.id(), safeError);
                     if (stage.optional()) {
                         log.warn("Optional stage {} failed for lecture {}: {}", stage.id(), lectureId,
                                 e.getMessage());
-                        context.addWarning(stage.id() + ": " + e.getMessage());
+                        context.addWarning(stage.id() + ": " + safeError);
                         context.setPartialSuccess(true);
                         continue;
                     }
-                    fail(context, lectureId, e.getMessage());
+                    fail(context, lectureId, safeError);
                     return;
                 }
 
@@ -210,13 +211,14 @@ public class PipelineCoordinator {
                 if (result.state() == StageState.CANCELLED) {
                     throw new ProcessCancelledException(result.error());
                 }
-                checkpointRepository.fail(lectureId, stage.id(), result.error());
+                String safeError = ErrorMessages.sanitize(result.error());
+                checkpointRepository.fail(lectureId, stage.id(), safeError);
                 if (stage.optional()) {
-                    context.addWarning(stage.id() + ": " + result.error());
+                    context.addWarning(stage.id() + ": " + safeError);
                     context.setPartialSuccess(true);
                     continue;
                 }
-                fail(context, lectureId, result.error());
+                fail(context, lectureId, safeError);
                 return;
             }
 
@@ -289,7 +291,7 @@ public class PipelineCoordinator {
     }
 
     private void fail(JobContext context, String lectureId, String message) {
-        String safeMessage = message == null ? "Неизвестная ошибка обработки" : message;
+        String safeMessage = ErrorMessages.sanitize(message);
         updateStatus(context, JobStatus.FAILED);
         lectureRepository.save(loader.lecture(lectureId).withError(safeMessage));
         jobRepository.finish(lectureId, JobState.FAILED, safeMessage);
