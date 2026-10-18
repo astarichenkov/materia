@@ -14,106 +14,182 @@
 <main id="main" class="content" tabindex="-1">
 <nav th:replace="~{fragments/layout :: breadcrumbs('Добавить материал', '', '')}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
-<noscript><div class="alert alert--warning" role="alert">Формы добавления работают без JavaScript; проверка ссылки и live-статус требуют JavaScript.</div></noscript>
+
+<div th:if="${error}" class="alert alert--danger" role="alert" data-import-error>
+    <p><strong>Материал не добавлен.</strong></p>
+    <p th:text="${error}">Причина</p>
+    <div class="actions">
+        <a class="btn btn-secondary btn-sm"
+           th:if="${importErrorUrl != null and (#strings.startsWith(importErrorUrl, 'http://') or #strings.startsWith(importErrorUrl, 'https://'))}"
+           th:href="${importErrorUrl}" target="_blank" rel="noopener noreferrer">Открыть видео на платформе</a>
+        <button type="button" class="btn btn-secondary btn-sm" data-source-select="file">Загрузить файл</button>
+        <a class="btn btn-ghost btn-sm" href="/diagnostics">Диагностика</a>
+    </div>
+</div>
+
+<noscript>
+    <div class="alert alert--warning" role="alert">
+        Проверка ссылки и сводка перед отправкой требуют JavaScript. Формы добавления работают без него:
+        выберите файл или вставьте ссылку и нажмите «Добавить и начать обработку».
+    </div>
+</noscript>
 
 <div class="page-header">
     <div>
         <h1>Добавить материал</h1>
-        <p class="muted">Загрузите файл или вставьте ссылку. Полноценный мастер импорта появится на следующем UX-этапе; здесь используются существующие проверенные формы.</p>
+        <p class="muted">
+            Один сценарий для видеофайла, ссылки и найденного видео. После добавления откроется
+            карточка материала с прогрессом обработки.
+        </p>
     </div>
-    <a class="btn btn-secondary" href="/discover">Найти видео</a>
+    <a class="btn btn-ghost" href="/library">Библиотека</a>
 </div>
 
-<div class="grid two">
-    <section class="card" id="upload" aria-labelledby="local-file-title">
+<ol class="wizard-steps" aria-label="Этапы добавления материала">
+    <li class="wizard-steps__item is-current">1. Источник</li>
+    <li class="wizard-steps__item">2. Параметры</li>
+    <li class="wizard-steps__item">3. Подтверждение</li>
+</ol>
+
+<div class="wizard" data-import-wizard
+     th:attr="data-source=${!#strings.isEmpty(url)} ? 'url' : 'file'">
+
+    <div class="source-switch" role="radiogroup" aria-label="Источник материала">
+        <label class="source-switch__option">
+            <input type="radio" name="importSource" value="file" data-source-option
+                   th:checked="${#strings.isEmpty(url)}">
+            <span>Загрузить файл</span>
+        </label>
+        <label class="source-switch__option">
+            <input type="radio" name="importSource" value="url" data-source-option
+                   th:checked="${!#strings.isEmpty(url)}">
+            <span>Вставить ссылку</span>
+        </label>
+        <label class="source-switch__option">
+            <input type="radio" name="importSource" value="discovery" data-source-option>
+            <span>Найти видео</span>
+        </label>
+    </div>
+
+    <!-- 1. Локальный файл -->
+    <section class="wizard__panel card" data-source-panel="file" aria-labelledby="local-file-title">
         <h2 id="local-file-title">Локальный файл</h2>
-        <form method="post" action="/lectures" enctype="multipart/form-data">
-            <div class="field">
-                <label for="lecture-file">Видеофайл</label>
-                <input id="lecture-file" type="file" name="file" accept="video/*" required>
+        <form method="post" action="/lectures" enctype="multipart/form-data"
+              data-import-form data-source-form="file">
+            <input type="hidden" name="requestId" th:value="${requestId}">
+
+            <div class="dropzone" data-dropzone>
+                <p class="dropzone__hint">Перетащите видео сюда или выберите файл на компьютере</p>
+                <label class="btn btn-secondary dropzone__button" for="lecture-file">Выбрать файл</label>
+                <input class="dropzone__input" id="lecture-file" type="file" name="file"
+                       th:attr="accept=${acceptAttr},data-max-bytes=${capabilities.maxFileSizeBytes}"
+                       required data-file-input>
+                <p class="field-help"
+                   th:text="${'Форматы: ' + capabilities.formattedExtensions() + '. Максимальный размер — '
+                             + capabilities.formattedMaxFileSize() + '.'}"></p>
+                <p class="field-help">
+                    Аудиофайлы (MP3, M4A, WAV) пока не поддерживаются — их можно добавить только
+                    видеоформатом.
+                </p>
             </div>
-            <div class="grid">
-                <label>Язык источника
-                    <select name="languageMode">
-                        <option value="AUTO" selected>Auto</option>
-                        <option value="ENGLISH">English</option>
-                        <option value="RUSSIAN">Russian</option>
-                    </select>
-                </label>
-                <label>Перевод
-                    <select name="translationMode">
-                        <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
-                        <option value="BILINGUAL">Двуязычный</option>
-                        <option value="ORIGINAL_ONLY">Только оригинал</option>
-                    </select>
-                </label>
+
+            <p class="file-selected" data-file-selected hidden></p>
+            <p class="field-error" data-file-error role="alert" hidden></p>
+
+            <div th:replace="~{fragments/import-options :: options('file')}"></div>
+
+            <div class="import-summary" data-import-summary hidden aria-live="polite">
+                <h3>Перед добавлением</h3>
+                <dl class="import-summary__list" data-summary-list></dl>
             </div>
-            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
-            <label><input type="checkbox" name="clean"> очистка транскрипта</label>
-            <label><input type="checkbox" name="slides"> извлечь слайды</label>
-            <div class="actions">
-                <button type="submit">Загрузить и обработать</button>
+
+            <div class="actions actions--start">
+                <button class="btn btn-primary" type="submit" data-submit-button>
+                    Добавить и начать обработку
+                </button>
+                <span class="muted" data-submit-hint>Обработка запустится сразу после загрузки файла.</span>
             </div>
         </form>
     </section>
 
-    <section class="card" aria-labelledby="url-source-title">
+    <!-- 2. Видео по ссылке -->
+    <section class="wizard__panel card" data-source-panel="url" aria-labelledby="url-source-title">
         <h2 id="url-source-title">Видео по ссылке</h2>
-        <p>Поддерживаются YouTube, VK Видео, VK, Rutube.</p>
-        <form hx-get="/lectures/preview" hx-target="#preview" hx-swap="innerHTML"
-              action="/lectures/preview" method="get">
-            <div class="field">
-                <label for="preview-url">Ссылка для проверки</label>
-                <input id="preview-url" type="url" name="url" th:value="${url}"
-                       placeholder="https://..." autocomplete="off">
-            </div>
-            <button type="submit" class="btn btn-secondary">Проверить</button>
-        </form>
-        <div id="preview" aria-live="polite"></div>
-        <form method="post" action="/lectures/from-url">
+        <form method="post" action="/lectures/from-url"
+              data-import-form data-source-form="url">
+            <input type="hidden" name="requestId" th:value="${requestId}">
+
             <div class="field">
                 <label for="download-url">Ссылка на видео</label>
                 <input id="download-url" type="url" name="url" th:value="${url}"
-                       placeholder="https://..." required autocomplete="off">
-                <p class="field-help" th:if="${!#strings.isEmpty(url)}">Ссылка перенесена с главной страницы. Проверьте параметры и запустите обработку.</p>
+                       placeholder="https://..." autocomplete="off" required inputmode="url">
+                <p class="field-help" th:text="${'Поддерживаются: ' + platformsLabel + '.'}"></p>
+                <p class="field-error" data-url-error role="alert" hidden></p>
             </div>
-            <div class="grid">
-                <label>Качество
-                    <select name="quality">
-                        <option value="auto">Auto</option>
-                        <option value="480p">480p</option>
-                        <option value="720p" selected>720p</option>
-                        <option value="1080p">1080p</option>
-                    </select>
-                </label>
-                <label>Язык источника
-                    <select name="languageMode">
-                        <option value="AUTO" selected>Auto</option>
-                        <option value="ENGLISH">English</option>
-                        <option value="RUSSIAN">Russian</option>
-                    </select>
-                </label>
-                <label>Перевод
-                    <select name="translationMode">
-                        <option value="TRANSLATE_TO_RUSSIAN" selected>Русский</option>
-                        <option value="BILINGUAL">Двуязычный</option>
-                        <option value="ORIGINAL_ONLY">Только оригинал</option>
-                    </select>
-                </label>
+
+            <div class="actions actions--start">
+                <button type="button" class="btn btn-secondary"
+                        hx-get="/lectures/preview" hx-include="#download-url"
+                        hx-target="#url-preview" hx-swap="innerHTML"
+                        hx-indicator="#preview-indicator">Проверить ссылку</button>
+                <span id="preview-indicator" class="htmx-indicator" aria-live="polite">Проверяю…</span>
             </div>
-            <label><input type="checkbox" name="audioOnly"> только аудио</label>
-            <label><input type="checkbox" name="autoTranslate" checked> авто-перевод EN</label>
-            <label><input type="checkbox" name="clean"> очистка транскрипта</label>
-            <label><input type="checkbox" name="slides"> извлечь слайды</label>
-            <div class="actions">
-                <button type="submit">Скачать и обработать</button>
+            <div id="url-preview" class="preview-slot" aria-live="polite" data-url-preview></div>
+
+            <div th:replace="~{fragments/import-options :: options('url')}"></div>
+
+            <div class="import-summary" data-import-summary hidden aria-live="polite">
+                <h3>Перед добавлением</h3>
+                <dl class="import-summary__list" data-summary-list></dl>
+            </div>
+
+            <div class="actions actions--start">
+                <button class="btn btn-primary" type="submit" data-submit-button>
+                    Добавить и начать обработку
+                </button>
+                <span class="muted" data-submit-hint>
+                    Видео скачается, затем запустится обработка. Прогресс будет виден на карточке.
+                </span>
             </div>
         </form>
     </section>
+
+    <!-- 3. Поиск видео -->
+    <section class="wizard__panel card" data-source-panel="discovery"
+             aria-labelledby="discovery-source-title">
+        <h2 id="discovery-source-title">Найти видео</h2>
+        <p>
+            Поиск по поддерживаемым платформам: <span th:text="${platformsLabel}">платформы</span>.
+            Результаты можно сразу добавить в библиотеку или вернуть в этот мастер.
+        </p>
+        <div class="actions actions--start">
+            <a class="btn btn-secondary" href="/discover">Перейти к поиску видео</a>
+        </div>
+        <p class="field-help">
+            В результатах поиска выберите «Открыть в мастере» — ссылка вернётся на эту страницу
+            с заполненным адресом и параметрами обработки. Скачивание выполняется тем же
+            backend-сервисом, второй механизм импорта не создаётся.
+        </p>
+    </section>
 </div>
+
+<section class="card what-next" aria-labelledby="what-next-title">
+    <h2 id="what-next-title">Что произойдёт после добавления</h2>
+    <ul class="what-next__list">
+        <li>материал появится в библиотеке, задача — в разделе «Задачи обработки»;</li>
+        <li>распознается речь (Whisper), затем будет составлен конспект;</li>
+        <li>если выбран перевод — появится перевод и двуязычные варианты документов;</li>
+        <li>результаты можно прочитать, отредактировать и скачать в Markdown и DOCX.</li>
+    </ul>
+    <p class="muted">
+        Модели, провайдеры и ключи настраиваются в разделе «Система» и не требуются для первого
+        запуска.
+    </p>
+</section>
 
 </main>
 </div>
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script src="/js/import-wizard.js" defer></script>
 </body>
 </html>

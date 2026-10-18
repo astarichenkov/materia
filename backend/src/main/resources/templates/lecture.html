@@ -14,6 +14,7 @@
 <main id="main" class="content" tabindex="-1">
 <nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', ${lecture.originalFilename ?: lecture.id})}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 <noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
 <h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>

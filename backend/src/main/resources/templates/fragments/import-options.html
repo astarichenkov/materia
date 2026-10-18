@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Shared processing options for the import wizard. Both the local upload and the
+  remote URL form render the same fragment, so a parameter can never drift
+  between the two sources. Only options the backend actually supports are shown;
+  the LLM model is read-only because per-job selection does not exist.
+-->
+<th:block th:fragment="options(mode)">
+    <fieldset class="fieldset">
+        <legend>Что получить</legend>
+        <div class="grid">
+            <label class="field">Язык оригинала
+                <select name="languageMode">
+                    <option value="AUTO" th:selected="${defaultLanguageMode == 'AUTO'}">Авто (определить по речи)</option>
+                    <option value="ENGLISH" th:selected="${defaultLanguageMode == 'ENGLISH'}">Английский</option>
+                    <option value="RUSSIAN" th:selected="${defaultLanguageMode == 'RUSSIAN'}">Русский</option>
+                </select>
+            </label>
+            <label class="field">Результат
+                <select name="translationMode">
+                    <option value="TRANSLATE_TO_RUSSIAN"
+                            th:selected="${defaultTranslationMode == 'TRANSLATE_TO_RUSSIAN'}">Перевести на русский</option>
+                    <option value="BILINGUAL"
+                            th:selected="${defaultTranslationMode == 'BILINGUAL'}">Двуязычный текст</option>
+                    <option value="ORIGINAL_ONLY"
+                            th:selected="${defaultTranslationMode == 'ORIGINAL_ONLY'}">Только оригинал</option>
+                </select>
+            </label>
+        </div>
+        <label class="check">
+            <input type="checkbox" name="slides" data-summary-label="слайды">
+            Извлечь слайды из видео
+        </label>
+    </fieldset>
+
+    <details class="advanced">
+        <summary>Дополнительные параметры</summary>
+        <div class="grid">
+            <label class="field" th:if="${mode == 'url'}">Качество загрузки
+                <select name="quality">
+                    <option value="auto" th:selected="${capabilities.defaultQuality == 'auto'}">Лучшее доступное</option>
+                    <option value="480p" th:selected="${capabilities.defaultQuality == '480p'}">480p</option>
+                    <option value="720p" th:selected="${capabilities.defaultQuality == '720p'}">720p</option>
+                    <option value="1080p" th:selected="${capabilities.defaultQuality == '1080p'}">1080p</option>
+                </select>
+            </label>
+            <label class="check" th:if="${mode == 'url'}">
+                <input type="checkbox" name="audioOnly" data-summary-label="только аудио">
+                Только аудио (без видео)
+            </label>
+            <label class="check">
+                <input type="checkbox" name="clean" data-summary-label="очистка транскрипта">
+                Очистить транскрипт от лишних повторов
+            </label>
+            <label class="check">
+                <input type="checkbox" name="autoTranslate" th:checked="${autoTranslateDefault}"
+                       data-summary-label="авто-перевод английских лекций">
+                Авто-перевод английских лекций
+            </label>
+        </div>
+        <p class="field-help">
+            Модель обработки: <strong th:text="${modelLabel}">Ollama / qwen3</strong>.
+            Выбор модели для отдельного материала пока не поддерживается — модель меняется для всех
+            новых задач в <a href="/settings">настройках</a>.
+        </p>
+    </details>
+</th:block>
+</body>
+</html>

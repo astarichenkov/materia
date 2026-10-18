@@ -156,6 +156,9 @@
                     <label><input type="checkbox" name="slides"> слайды</label>
                     <button type="submit">Добавить в библиотеку</button>
                 </form>
+                <a class="btn btn-ghost btn-sm"
+                   th:if="${v.canonicalUrl != null and (#strings.startsWith(v.canonicalUrl, 'http://') or #strings.startsWith(v.canonicalUrl, 'https://'))}"
+                   th:href="@{/add(url=${v.canonicalUrl})}">Открыть в мастере</a>
             </td>
         </tr>
         </tbody>
