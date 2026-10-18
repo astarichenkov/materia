@@ -19,6 +19,18 @@ class YtDlpProgressParserTest {
         assertThat(progress.etaSeconds()).isEqualTo(5L);
     }
 
+
+    @Test
+    void parsesBareProgressLinePrintedByYtDlp() {
+        DownloadProgress progress = YtDlpProgressParser.parse(
+                "progress|downloading|35650560|686846859|NA|3750314.07|173").orElseThrow();
+
+        assertThat(progress.downloadedBytes()).isEqualTo(35650560L);
+        assertThat(progress.totalBytes()).isEqualTo(686846859L);
+        assertThat(progress.percent()).isNotNull();
+        assertThat(progress.etaSeconds()).isEqualTo(173L);
+    }
+
     @Test
     void fallsBackToEstimatedTotal() {
         DownloadProgress progress = YtDlpProgressParser.parse(

@@ -15,10 +15,13 @@ public final class YtDlpProgressParser {
     }
 
     public static Optional<DownloadProgress> parse(String line) {
-        if (line == null || !line.startsWith(PREFIX)) {
+        if (line == null) {
             return Optional.empty();
         }
-        String body = line.substring(PREFIX.length());
+        // yt-dlp names the template "download" but prints only the body:
+        // "progress|...". Older/other builds may keep the name prefix, so accept
+        // both forms.
+        String body = line.startsWith(PREFIX) ? line.substring(PREFIX.length()) : line;
         if (!body.startsWith("progress|")) {
             return Optional.empty();
         }

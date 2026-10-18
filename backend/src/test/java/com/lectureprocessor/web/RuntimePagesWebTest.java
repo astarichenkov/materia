@@ -36,6 +36,7 @@ import com.lectureprocessor.multilingual.LectureLanguage;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.pipeline.JobStatusView;
 import com.lectureprocessor.repository.SegmentRepository;
 
 /**
@@ -170,6 +171,20 @@ class RuntimePagesWebTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Статус:")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("UPLOADED")));
+    }
+
+    @Test
+    void statusFragmentRendersDownloadBytesWithoutTotal() throws Exception {
+        when(lectureService.getRequired("l1")).thenReturn(lecture());
+        when(jobStatusService.view("l1")).thenReturn(new JobStatusView(
+                "l1", "DOWNLOADING", "RUNNING", "DOWNLOADING", "Скачивание", 2, 10, 20,
+                "", new JobStatusView.DownloadView("DOWNLOADING", 87_171_045L, null, null,
+                        95_000.0, null, null), List.of(), List.of()));
+
+        mockMvc.perform(get("/lectures/l1/status"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("скачано")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("МБ")));
     }
 
     @Test

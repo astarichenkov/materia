@@ -153,20 +153,24 @@ public class YtDlpVideoDownloader implements VideoDownloader, VideoMetadataServi
             progressConsumer.accept(DownloadProgress.starting());
         }
         AtomicReference<DownloadProgress> lastProgress = new AtomicReference<>();
+        // yt-dlp writes its progress bar/template to stderr (not stdout), so
+        // both streams must be inspected or the UI never receives download
+        // percentages for VK/YouTube/HLS downloads.
+        java.util.function.Consumer<String> progressLine = line ->
+                YtDlpProgressParser.parse(line).ifPresent(progress -> {
+                    lastProgress.set(progress);
+                    if (progressConsumer != null) {
+                        progressConsumer.accept(progress);
+                    }
+                });
         List<String> command = buildDownloadCommand(request, dir);
         ProcessResult result;
         try {
             result = executor.execute(command, properties.downloader().downloadTimeout(), dir,
                     cancellation,
+                    progressLine,
                     line -> {
-                        YtDlpProgressParser.parse(line).ifPresent(progress -> {
-                            lastProgress.set(progress);
-                            if (progressConsumer != null) {
-                                progressConsumer.accept(progress);
-                            }
-                        });
-                    },
-                    line -> {
+                        progressLine.accept(line);
                         if (line != null && !line.isBlank()) {
                             log.debug("[yt-dlp] {}", line);
                         }

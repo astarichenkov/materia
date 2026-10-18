@@ -22,6 +22,10 @@
                 Скачивание: <span th:text="${job.download.status}">—</span>
                 <span th:if="${job.download.percent != null}"
                       th:text="' · ' + ${#numbers.formatDecimal(job.download.percent, 1, 1)} + '%'"></span>
+                <span th:if="${job.download.bytesDownloaded != null}"
+                      th:text="' · скачано ' + ${#numbers.formatDecimal(job.download.bytesDownloaded / 1048576.0, 1, 1)} + ' МБ'"></span>
+                <span th:if="${job.download.bytesTotal != null}"
+                      th:text="' из ' + ${#numbers.formatDecimal(job.download.bytesTotal / 1048576.0, 1, 1)} + ' МБ'"></span>
                 <span th:if="${job.download.speedBps != null}"
                       th:text="' · ' + ${#numbers.formatDecimal(job.download.speedBps / 1048576.0, 1, 2)} + ' МБ/с'"></span>
                 <span th:if="${job.download.etaSeconds != null}"
