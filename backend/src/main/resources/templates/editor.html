@@ -2,55 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор лекции</title>
     <script type="application/json" id="editor-view" th:utext="${viewJson}"></script>
-    <style>
-        :root { --ok:#0a7d28; --bad:#b00020; --warn:#a15c00; --muted:#666; --line:#d8d8d8; }
-        body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 1250px; }
-        h1 { margin-bottom: .2rem; }
-        a { color: #14508c; }
-        .bar { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin:.8rem 0; }
-        .msg { padding:.6rem .8rem; border-radius:5px; background:#eef; margin:.5rem 0; }
-        .msg.err { background:#fee; color:var(--bad); }
-        .msg.ok { background:#e8f7ea; color:var(--ok); }
-        .card { border:1px solid var(--line); border-radius:7px; padding:.8rem 1rem; margin:.8rem 0; }
-        .tabs { display:flex; gap:.3rem; border-bottom:2px solid var(--line); margin-top:1rem; flex-wrap:wrap; }
-        .tab { padding:.5rem .9rem; cursor:pointer; border:1px solid transparent; border-bottom:none; }
-        .tab.active { border-color:var(--line); border-radius:6px 6px 0 0; background:#fff; font-weight:600; }
-        .panel { display:none; padding-top:1rem; }
-        .panel.active { display:block; }
-        .muted { color:var(--muted); font-size:.9rem; }
-        .ok { color:var(--ok); font-weight:600; }
-        .bad { color:var(--bad); font-weight:600; }
-        .warn { color:var(--warn); font-weight:600; }
-        table { border-collapse:collapse; width:100%; }
-        th,td { border:1px solid var(--line); padding:.4rem .5rem; vertical-align:top; text-align:left; }
-        textarea { width:100%; box-sizing:border-box; font:inherit; min-height:3.2rem; }
-        .seg { margin:.6rem 0; padding:.6rem; border:1px solid var(--line); border-radius:6px; }
-        .seg-head { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
-        .badge { padding:.1rem .45rem; border-radius:10px; font-size:.8rem; background:#eee; }
-        .badge.WARNING { background:#fff1d6; color:var(--warn); }
-        .badge.MANUALLY_CORRECTED { background:#e0f0ff; color:#14508c; }
-        .badge.REVIEWED { background:#e8f7ea; color:var(--ok); }
-        .badge.STALE { background:#fee; color:var(--bad); }
-        .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:.7rem; }
-        .slide img { width:100%; border:1px solid var(--line); border-radius:4px; }
-        .diff { font-family:ui-monospace,monospace; font-size:.85rem; white-space:pre-wrap; background:#fafafa; padding:.6rem; }
-        .diff .add { color:var(--ok); }
-        .diff .del { color:var(--bad); }
-        .suggestion { border:1px dashed #14508c; border-radius:6px; padding:.5rem; margin-top:.4rem; background:#f6faff; }
-        .filters { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin:.5rem 0; }
-        .state-STALE { color:var(--bad); font-weight:600; }
-        .state-CURRENT { color:var(--ok); font-weight:600; }
-        .quality { display:flex; gap:1rem; flex-wrap:wrap; }
-        .quality b { font-size:1.1rem; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('library', 'Редактор')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', 'Редактор')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
+
 <h1 th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор</h1>
 <div class="bar">
     <a th:href="@{/lectures/{id}(id=${view.lecture.id})}">← Карточка лекции</a>
-    <a th:href="@{/support/lecture/{id}(id=${view.lecture.id})}">Помощь</a>
     <span class="muted" th:text="'Язык: ' + (${view.detectedLanguage} ?: 'не определён')
             + ' → ' + ${view.targetLanguage} + ' (' + ${view.translationMode} + ')'"></span>
 </div>
@@ -610,5 +579,9 @@
     loadHistory();
     previewNotes();
 </script>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

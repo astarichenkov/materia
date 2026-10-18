@@ -2,19 +2,18 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Вход в настройки</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 30rem; }
-        input, button { padding: .5rem; width: 100%; box-sizing: border-box; }
-        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
-        .err { background: #fee; color: #b00020; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>Административный вход</h1>
-<a href="/">← К лекциям</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<main id="main" class="content page-narrow" tabindex="-1">
+<div th:replace="~{fragments/layout :: flash}"></div>
 
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<h1>Административный вход</h1>
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <p>Управление API-ключами провайдеров защищено административным токеном
 (<code>app.security.admin-token</code>).</p>
@@ -29,5 +28,7 @@
     Токен не настроен: доступ разрешён только с localhost. Задайте
     <code>LP_ADMIN_TOKEN</code> для защищённого удалённого доступа.
 </p>
+
+</main>
 </body>
 </html>

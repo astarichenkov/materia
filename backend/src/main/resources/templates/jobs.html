@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Задачи обработки — Lecture Processor</title>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
+</head>
+<body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('jobs', 'Задачи обработки')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('jobs')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Задачи обработки', '', '')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Список задач работает без JavaScript; обновление статуса на карточке лекции требует JavaScript.</div></noscript>
+
+<div class="page-header">
+    <div>
+        <h1>Задачи обработки</h1>
+        <p class="muted">Последние 50 задач из очереди обработки. Данные читаются из существующих таблиц, новые действия не создаются.</p>
+    </div>
+    <a class="btn btn-primary" href="/add">Добавить материал</a>
+</div>
+
+<div class="empty-state" th:if="${#lists.isEmpty(jobs)}">
+    <h2>Задач пока нет</h2>
+    <p>Добавьте лекцию, чтобы увидеть здесь ход обработки.</p>
+    <a class="btn btn-primary" href="/add">Добавить материал</a>
+</div>
+
+<div class="table-scroll" th:unless="${#lists.isEmpty(jobs)}">
+    <table>
+        <caption class="visually-hidden">Последние задачи обработки</caption>
+        <thead>
+        <tr>
+            <th scope="col">Материал</th>
+            <th scope="col">Состояние</th>
+            <th scope="col">Этап</th>
+            <th scope="col">Прогресс</th>
+            <th scope="col">Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${jobs}">
+            <td>
+                <a th:href="@{/lectures/{id}(id=${row.lecture.id})}"
+                   th:text="${row.lecture.originalFilename ?: row.lecture.id}">Лекция</a>
+                <div class="muted" th:if="${row.job.updatedAt != null}"
+                     th:text="${#strings.substring(row.job.updatedAt.toString(), 0, 16)}"></div>
+            </td>
+            <td><span th:replace="~{fragments/status-badge :: badge(${row.lecture.status.name()})}"></span></td>
+            <td>
+                <span th:if="${row.job.currentStage != null}"
+                      th:text="${row.job.currentStage.title()}">Этап</span>
+                <span th:unless="${row.job.currentStage != null}" class="muted">—</span>
+            </td>
+            <td>
+                <div th:if="${row.view != null}">
+                    <progress th:value="${row.view.progressPercent}" max="100"></progress>
+                    <span class="muted" th:text="${row.view.progressPercent} + '%'"></span>
+                </div>
+                <span th:unless="${row.view != null}" class="muted">—</span>
+            </td>
+            <td>
+                <div class="actions">
+                    <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}(id=${row.lecture.id})}">Открыть</a>
+                    <form th:if="${!row.job.state.terminal}"
+                          method="post" th:action="@{/lectures/{id}/cancel(id=${row.lecture.id})}">
+                        <button type="submit" class="btn btn-secondary btn-sm">Отменить</button>
+                    </form>
+                    <form th:if="${row.lecture.status.retryable}"
+                          method="post" th:action="@{/lectures/{id}/resume(id=${row.lecture.id})}">
+                        <button type="submit" class="btn btn-secondary btn-sm">Продолжить</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

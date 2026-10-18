@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Добавить материал — Lecture Processor</title>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
+</head>
+<body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('add', 'Добавить материал')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('add')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Добавить материал', '', '')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+
+<div class="page-header">
+    <div>
+        <h1>Добавить материал</h1>
+        <p class="muted">Выберите существующий способ добавления. Единый мастер импорта появится на следующем UX-этапе.</p>
+    </div>
+</div>
+
+<div class="grid two">
+    <section class="card">
+        <h2>Видеофайл или ссылка</h2>
+        <p>Загрузите локальный видеофайл или вставьте ссылку на YouTube, VK Видео, VK или Rutube. Формы уже работают на главной странице.</p>
+        <div class="card-actions">
+            <a class="btn btn-primary" href="/#upload">Перейти к форме добавления</a>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Найти видео по теме</h2>
+        <p>Поиск по внешним платформам и импорт найденного видео с текущими настройками языка, перевода и слайдов.</p>
+        <div class="card-actions">
+            <a class="btn btn-secondary" href="/discover">Открыть поиск видео</a>
+        </div>
+    </section>
+</div>
+
+<section class="card">
+    <h2>Что будет дальше</h2>
+    <ul>
+        <li>единый мастер «файл / ссылка / найденное видео»;</li>
+        <li>базовые и расширенные опции в одном месте;</li>
+        <li>восстановление после ошибок платформы с переходом на локальный файл.</li>
+    </ul>
+    <p class="muted">Поддержка локальных MP3/M4A/WAV пока не добавлена.</p>
+</section>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

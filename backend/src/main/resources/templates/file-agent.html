@@ -2,58 +2,27 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>File Agent — Lecture Processor</title>
     <meta th:if="${selected != null and !selected.status.terminal()
             and selected.status.name() != 'AWAITING_APPROVAL'}"
           http-equiv="refresh" content="4"/>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 1280px; }
-        .layout { display: flex; gap: 1.5rem; align-items: flex-start; }
-        .col-left { flex: 0 0 380px; }
-        .col-right { flex: 1; min-width: 0; }
-        .box { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-        .muted { color: #666; font-size: .85rem; }
-        .badge { border-radius: 4px; padding: .1rem .4rem; font-size: .75rem; background: #eef; }
-        .status-COMPLETED { background: #e6f4ea; }
-        .status-FAILED, .status-CONFLICT { background: #fee; color: #b00020; }
-        .status-AWAITING_APPROVAL { background: #fff4e5; }
-        .status-CANCELLED, .status-REJECTED { background: #eee; color: #666; }
-        .status-PLANNING, .status-SEARCHING, .status-ANALYZING,
-        .status-PROPOSING, .status-APPLYING, .status-VERIFYING { background: #e8f0fe; }
-        pre { background: #f7f7f9; border: 1px solid #eee; border-radius: 6px; padding: .7rem;
-              overflow: auto; max-height: 460px; white-space: pre-wrap; word-wrap: break-word;
-              font-size: .82rem; }
-        .diff { max-height: 560px; }
-        .tasks { list-style: none; padding: 0; }
-        .tasks li { margin-bottom: .6rem; }
-        table { border-collapse: collapse; width: 100%; font-size: .82rem; }
-        td, th { border-bottom: 1px solid #eee; padding: .3rem .4rem; text-align: left;
-                 vertical-align: top; }
-        .metrics span { margin-right: 1rem; }
-        textarea { width: 100%; box-sizing: border-box; min-height: 90px; }
-        .actions form { display: inline-block; margin-right: .4rem; }
-        .ok { color: #0a6b2d; } .fail { color: #b00020; }
-        .err { background: #fee; color: #b00020; }
-        .approve { background: #0a6b2d; color: #fff; border: 0; padding: .5rem .9rem;
-                   border-radius: 6px; cursor: pointer; }
-        .reject { background: #b00020; color: #fff; border: 0; padding: .5rem .9rem;
-                  border-radius: 6px; cursor: pointer; }
-        ul.files { margin: .3rem 0; padding-left: 1.1rem; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>Autonomous File Agent</h1>
-<p class="muted">
-    <a href="/">← К лекциям</a> ·
-    <a href="/assistant">Ассистент разработчика</a> ·
-    <a href="/support">Поддержка</a> ·
-    <a href="/settings">Настройки</a> ·
-    <span th:text="${status.profile}"></span>
-</p>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('file-agent', 'File Agent')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('file-agent')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Инструменты разработчика', '', 'File Agent')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="box ok" th:text="${message}"></div>
-<div th:if="${error}" class="box err" th:text="${error}"></div>
+<h1>Autonomous File Agent</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <div class="box metrics">
     <b>Метрики:</b>
@@ -242,5 +211,9 @@
         </div>
     </div>
 </div>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

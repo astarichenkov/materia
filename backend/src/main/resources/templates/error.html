@@ -2,16 +2,15 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="${status} + ' — Lecture Processor'">Ошибка</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.2rem; margin-top: 1rem; }
-        .status { font-size: 2rem; font-weight: 700; color: #b00020; }
-        .muted { color: #666; }
-        code { background: #f4f4f4; padding: .1rem .3rem; border-radius: 3px; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
+<a class="skip-link" href="#main">К содержимому</a>
+<main id="main" class="content page-narrow" tabindex="-1">
+<div th:replace="~{fragments/layout :: flash}"></div>
+
 <h1>Lecture Processor</h1>
 <div class="card">
     <div class="status" th:text="${status} + ' ' + ${error}">500</div>
@@ -27,5 +26,7 @@
         · <a href="/diagnostics">Диагностика установки</a>
     </p>
 </div>
+
+</main>
 </body>
 </html>

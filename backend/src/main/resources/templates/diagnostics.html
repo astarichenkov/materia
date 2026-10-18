@@ -2,23 +2,22 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Диагностика установки</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
-        .OK { color: #0a7d28; font-weight: 600; }
-        .WARNING { color: #a15c00; font-weight: 600; }
-        .FAILED { color: #b00020; font-weight: 600; }
-        .muted { color: #666; font-size: .9rem; }
-        .banner { padding: .7rem; border-radius: 6px; margin: 1rem 0; }
-        .banner.ok { background: #e8f7ea; }
-        .banner.bad { background: #fee; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('diagnostics', 'Диагностика')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('diagnostics')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Система', '', 'Диагностика')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
+
 <h1>Диагностика установки</h1>
-<p><a href="/">← К лекциям</a> · <a href="/settings">Настройки</a></p>
+
 
 <div th:class="'banner ' + (${report.ready} ? 'ok' : 'bad')">
     <b th:if="${report.ready}">Все обязательные зависимости доступны.</b>
@@ -31,7 +30,7 @@
     <tbody>
     <tr th:each="check : ${report.checks}">
         <td th:text="${check.label}"></td>
-        <td th:class="${check.status.name()}" th:text="${check.status}"></td>
+        <td><span th:replace="~{fragments/status-badge :: badge(${check.status.name()})}"></span></td>
         <td th:text="${check.detail}"></td>
         <td>
             <span th:if="${check.hint != null}" th:text="${check.hint}"></span>
@@ -47,5 +46,9 @@
     (по умолчанию <code>./data</code>): база SQLite, исходное видео, аудио, расшифровка,
     перевод, конспект, слайды и версии документов. Резервная копия — это копия всего каталога.
 </p>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

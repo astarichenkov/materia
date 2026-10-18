@@ -2,37 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI Code Review</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; }
-        h1 { margin-bottom: .2rem; }
-        h2 { margin-top: 1.8rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
-        fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
-        .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem 1rem; }
-        label { display: block; font-size: .8rem; color: #444; }
-        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
-        button { padding: .5rem 1rem; cursor: pointer; }
-        .msg { padding: .6rem; background: #eef; margin: 1rem 0; border-radius: 4px; }
-        .err { background: #fee; color: #b00020; }
-        .ok { color: #0a7a29; font-weight: 600; }
-        .bad { color: #b00020; font-weight: 600; }
-        .muted { color: #666; font-size: .85rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
-        th, td { border: 1px solid #ccc; padding: .35rem .5rem; text-align: left; font-size: .88rem; }
-        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
-        .status-FAILED { color: #b00020; font-weight: 600; }
-        .status-QUEUED, .status-RUNNING { color: #8a6d00; }
-        .status-SUPERSEDED { color: #666; }
-        code { background: #f4f4f4; padding: 0 .2rem; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>AI Code Review (Gitea)</h1>
-<a href="/">← К лекциям</a> · <a href="/assistant">Ассистент</a> · <a href="/benchmarks">Бенчмарки</a> ·
-<a href="/settings">Настройки</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('code-review', 'Code Review')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('code-review')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Инструменты разработчика', '', 'Code Review')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<h1>AI Code Review (Gitea)</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <fieldset>
     <legend>Статус интеграции</legend>
@@ -114,7 +101,7 @@
         <td th:text="${j.repository}"></td>
         <td th:text="${j.prNumber}"></td>
         <td><code th:text="${#strings.substring(j.headSha,0,8)}"></code></td>
-        <td th:attr="class='status-' + ${j.status}" th:text="${j.status}"></td>
+        <td><span th:replace="~{fragments/status-badge :: badge(${j.status})}"></span></td>
         <td th:text="${j.triggeredBy}"></td>
         <td th:text="${j.model}"></td>
         <td th:text="${j.findingsCount}"></td>
@@ -125,5 +112,9 @@
     <tr th:if="${jobs.isEmpty()}"><td colspan="11">Пока нет review runs</td></tr>
     </tbody>
 </table>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

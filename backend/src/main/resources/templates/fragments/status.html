@@ -5,7 +5,7 @@
      th:attr="hx-get=${lecture.status.terminal ? null : '/lectures/' + lecture.id + '/status'},
               hx-trigger=${lecture.status.terminal ? null : 'every 3s'},
               hx-swap='outerHTML'">
-    <p>Статус: <span th:classappend="'status-' + ${lecture.status}" th:text="${lecture.status}"></span></p>
+    <p>Статус: <span th:replace="~{fragments/status-badge :: badge(${lecture.status.name()})}"></span></p>
 
     <div th:if="${job != null}">
         <p>
@@ -38,7 +38,7 @@
             <tbody>
             <tr th:each="stage : ${job.stages}">
                 <td th:text="${stage.title}"></td>
-                <td th:text="${stage.state}"></td>
+                <td><span th:replace="~{fragments/status-badge :: badge(${stage.state})}"></span></td>
                 <td th:text="${stage.error}"></td>
             </tr>
             </tbody>

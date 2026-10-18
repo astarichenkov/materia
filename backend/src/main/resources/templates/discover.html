@@ -2,31 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Поиск видео — Lecture Processor</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1100px; }
-        .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .8rem; }
-        .grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
-        label { display: block; font-size: .85rem; color: #444; }
-        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
-        .muted { color: #666; font-size: .88rem; }
-        .ok { color: #0a7d28; font-weight: 600; }
-        .bad { color: #b00020; font-weight: 600; }
-        .msg { background: #eef; padding: .6rem; margin-bottom: 1rem; }
-        .err { background: #fee; color: #b00020; padding: .6rem; margin-bottom: 1rem; }
-        .card { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
-        .score { font-weight: 700; }
-        form.inline { display: inline; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>Smart Video Discovery</h1>
-<a href="/">← К лекциям</a> · <a href="/settings#discovery">Настройки провайдеров</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('discover', 'Поиск видео')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('discover')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Поиск видео', '', '')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err">
+<h1>Smart Video Discovery</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert">
     <div th:text="${error}">Ошибка импорта</div>
     <div class="muted" th:if="${importErrorUrl != null and #strings.startsWith(importErrorUrl, 'http')}" style="margin-top:.4rem">
         <a th:href="${importErrorUrl}" target="_blank" rel="noopener noreferrer">Открыть видео на исходной платформе</a>
@@ -179,5 +172,9 @@
         </li>
     </ul>
 </div>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

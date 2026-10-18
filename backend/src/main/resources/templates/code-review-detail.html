@@ -2,38 +2,29 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="'Review #' + ${job.id}"></title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1000px; }
-        h1 { margin-bottom: .2rem; }
-        h2 { margin-top: 1.8rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
-        fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 6px; }
-        .ok { color: #0a7a29; font-weight: 600; }
-        .bad { color: #b00020; font-weight: 600; }
-        .muted { color: #666; font-size: .85rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
-        th, td { border: 1px solid #ccc; padding: .4rem .5rem; text-align: left; font-size: .88rem;
-                 vertical-align: top; }
-        .sev-CRITICAL { color: #7a0000; font-weight: 700; }
-        .sev-HIGH { color: #b00020; font-weight: 600; }
-        .sev-MEDIUM { color: #8a6d00; font-weight: 600; }
-        .sev-LOW { color: #444; }
-        code { background: #f4f4f4; padding: 0 .2rem; }
-        .msg { padding: .6rem; background: #eef; margin: 1rem 0; }
-        .err { background: #fee; color: #b00020; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1 th:text="'Review #' + ${job.id}"></h1>
-<a href="/code-review">← К списку review runs</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('code-review', 'Code Review')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('code-review')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Инструменты разработчика', '/code-review', ${'Review #' + job.id})}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
+<h1 th:text="'Review #' + ${job.id}"></h1>
+
+
 
 <fieldset>
     <p>
         <b th:text="${job.repository + ' #' + job.prNumber}"></b>
         · SHA <code th:text="${#strings.substring(job.headSha,0,12)}"></code>
-        · Status <b th:text="${job.status}"></b>
+        · Статус: <span th:replace="~{fragments/status-badge :: badge(${job.status})}"></span>
         · Risk <b th:text="${job.overallRisk}"></b>
     </p>
     <p>
@@ -89,5 +80,9 @@
     <tr th:if="${findings.isEmpty()}"><td colspan="6">Нет подтверждённых findings</td></tr>
     </tbody>
 </table>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

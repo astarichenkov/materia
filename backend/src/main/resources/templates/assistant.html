@@ -2,27 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ассистент разработчика</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
-        .box { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-        .answer { border-left: 4px solid #4a6cf7; background: #f6f8ff; padding: 1rem; white-space: pre-wrap; }
-        .err { border-left-color: #b00020; background: #fee; color: #b00020; }
-        pre { background: #f4f4f4; padding: .6rem; overflow-x: auto; }
-        code { background: #eee; padding: 0 .3rem; }
-        .citations { font-size: .85rem; color: #555; margin-top: .8rem; }
-        .tools { display: flex; flex-wrap: wrap; gap: .4rem; }
-        .tools span { background: #eef; border-radius: 4px; padding: .2rem .5rem; font-size: .85rem; }
-        textarea { width: 100%; box-sizing: border-box; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>Ассистент разработчика</h1>
-<p><a href="/">← К лекциям</a> · <a href="/mcp">MCP endpoint</a></p>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('assistant', 'Developer Assistant')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('assistant')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Инструменты разработчика', '', 'Developer Assistant')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="box" style="background:#efe" th:text="${message}"></div>
-<div th:if="${error}" class="box" style="background:#fee;color:#b00020" th:text="${error}"></div>
+<h1>Ассистент разработчика</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <div class="box">
     <h3>Документация в RAG</h3>
@@ -59,5 +56,9 @@
 </div>
 
 <div id="answer"></div>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

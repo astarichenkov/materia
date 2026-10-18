@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Библиотека — Lecture Processor</title>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
+</head>
+<body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('library', 'Библиотека')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '', '')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Фильтры библиотеки работают без JavaScript; для остальных интерактивных действий нужен JavaScript.</div></noscript>
+
+<div class="page-header">
+    <div>
+        <h1>Библиотека</h1>
+        <p class="muted">Обработанные лекции, переводы и документы. Полная переработка библиотеки — следующий UX-этап.</p>
+    </div>
+    <a class="btn btn-primary" href="/add">Добавить материал</a>
+</div>
+
+<form method="get" action="/library" class="card">
+    <div class="filters">
+        <div class="field">
+            <label for="library-q">Поиск по названию или теме</label>
+            <input id="library-q" type="search" name="q" th:value="${q}" placeholder="Например: машинное обучение">
+        </div>
+        <div class="field">
+            <label for="library-language">Язык</label>
+            <select id="library-language" name="language">
+                <option value="">Все</option>
+                <option th:each="code : ${languages}" th:value="${code}" th:text="${code}"
+                        th:selected="${language == code}"></option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="library-status">Статус</label>
+            <select id="library-status" name="status">
+                <option value="">Все</option>
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s}"
+                        th:selected="${status == s.name()}"></option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="library-translation">Перевод</label>
+            <select id="library-translation" name="hasTranslation">
+                <option value="">Все</option>
+                <option value="true" th:selected="${hasTranslation == true}">Есть перевод</option>
+                <option value="false" th:selected="${hasTranslation == false}">Без перевода</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="library-sort">Сортировка</label>
+            <select id="library-sort" name="sort">
+                <option value="date-desc" th:selected="${sort == 'date-desc'}">Сначала новые</option>
+                <option value="date-asc" th:selected="${sort == 'date-asc'}">Сначала старые</option>
+                <option value="title" th:selected="${sort == 'title'}">По названию</option>
+            </select>
+        </div>
+    </div>
+    <div class="actions">
+        <button type="submit">Применить</button>
+        <a class="btn btn-secondary" href="/library">Сбросить</a>
+    </div>
+</form>
+
+<p class="muted">Найдено: <span th:text="${#lists.size(items)}">0</span></p>
+
+<div class="empty-state" th:if="${#lists.isEmpty(items)}">
+    <h2>Ничего не найдено</h2>
+    <p th:if="${q != null and !#strings.isEmpty(q)}">По запросу «<span th:text="${q}"></span>» нет материалов.</p>
+    <p th:unless="${q != null and !#strings.isEmpty(q)}">В библиотеке пока нет обработанных лекций.</p>
+    <a class="btn btn-primary" href="/add">Добавить материал</a>
+</div>
+
+<ul class="tasks" th:unless="${#lists.isEmpty(items)}">
+    <li th:each="item : ${items}">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2><a th:href="@{/lectures/{id}(id=${item.lectureId})}" th:text="${item.title()}">Лекция</a></h2>
+                    <p class="muted">
+                        <span th:text="${item.filename}">file.mp4</span>
+                        <span th:if="${item.detectedLanguage != null}" th:text="' · ' + ${item.detectedLanguage}"></span>
+                        <span th:if="${item.createdAt != null}"
+                              th:text="' · ' + ${#strings.substring(item.createdAt.toString(), 0, 10)}"></span>
+                    </p>
+                </div>
+                <span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span>
+            </div>
+            <p class="muted">
+                <span th:if="${item.hasTranslation}"
+                      th:text="'Перевод: ' + ${item.segmentsTranslated} + '/' + ${item.segmentsTotal}">Перевод есть</span>
+                <span th:unless="${item.hasTranslation}">Перевод не выполнялся</span>
+            </p>
+            <div class="card-actions">
+                <a class="btn btn-secondary" th:href="@{/lectures/{id}(id=${item.lectureId})}">Открыть</a>
+                <a class="btn btn-ghost" th:href="@{/lectures/{id}/editor(id=${item.lectureId})}">Редактор</a>
+                <a class="btn btn-ghost" th:href="@{/discover(lectureId=${item.lectureId})}">Похожие</a>
+            </div>
+        </div>
+    </li>
+</ul>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

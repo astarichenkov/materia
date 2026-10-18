@@ -2,31 +2,28 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Lecture Processor</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1000px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; }
-        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
-        .status-FAILED { color: #b00020; font-weight: 600; }
-        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
-        .err { background: #fee; color: #b00020; }
-        .source-box { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
-        .source-box h3 { margin-top: 0; }
-        fieldset { border: 1px solid #ddd; margin-bottom: 1rem; }
-        .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .6rem; margin: .6rem 0; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('overview', 'Обзор')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('overview')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('', '', '')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
+
 <h1>Lecture Processor</h1>
-<div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <div class="source-box" id="upload">
     <h3>Локальный файл</h3>
     <form method="post" action="/lectures" enctype="multipart/form-data">
-        <input type="file" name="file" accept="video/*" required>
+        <label for="lecture-file">Видеофайл</label>
+        <input id="lecture-file" type="file" name="file" accept="video/*" required>
         <label><input type="checkbox" name="clean"> очистка транскрипта</label>
         <label><input type="checkbox" name="slides"> извлечь слайды</label>
         <div class="grid">
@@ -54,13 +51,15 @@
     <h3>Видео по ссылке</h3>
     <p>Поддерживаются YouTube, VK Видео, VK, Rutube.</p>
     <form hx-get="/lectures/preview" hx-target="#preview" hx-swap="innerHTML"
-          onsubmit="return false;" style="margin-bottom:.6rem">
-        <input type="url" name="url" placeholder="https://..." size="60" required>
+          action="/lectures/preview" method="get" style="margin-bottom:.6rem">
+        <label for="preview-url" class="visually-hidden">Ссылка на видео для проверки</label>
+        <input id="preview-url" type="url" name="url" placeholder="https://..." size="60" required>
         <button type="submit">Проверить</button>
     </form>
     <div id="preview"></div>
     <form method="post" action="/lectures/from-url">
-        <input type="url" name="url" placeholder="https://..." size="60" required>
+        <label for="download-url">Ссылка на видео</label>
+        <input id="download-url" type="url" name="url" placeholder="https://..." size="60" required>
         <select name="quality">
             <option value="auto">Auto</option>
             <option value="480p">480p</option>
@@ -136,7 +135,7 @@
             <div class="muted" th:if="${item.title != item.filename}" th:text="${item.filename}"></div>
         </td>
         <td th:text="${item.detectedLanguage ?: '—'}"></td>
-        <td th:classappend="'status-' + ${item.status}" th:text="${item.status}"></td>
+        <td><span th:replace="~{fragments/status-badge :: badge(${item.status.name()})}"></span></td>
         <td>
             <span th:if="${item.hasTranslation}" class="ok"
                   th:text="${item.segmentsTranslated} + '/' + ${item.segmentsTotal}"></span>
@@ -151,8 +150,10 @@
     <tr th:if="${#lists.isEmpty(items)}"><td colspan="6">Пока нет лекций</td></tr>
     </tbody>
 </table>
-<p><a href="/discover">Smart Video Discovery</a> · <a href="/benchmarks">Бенчмарки</a> ·
-    <a href="/assistant">Ассистент разработчика</a> · <a href="/diagnostics">Диагностика установки</a>
-    · <a href="/settings">Настройки</a></p>
+
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

@@ -2,31 +2,23 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="'Лекция: ' + ${lecture.originalFilename ?: lecture.id}">Лекция</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1100px; }
-        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
-        .status-FAILED { color: #b00020; font-weight: 600; }
-        .error { background: #fee; color: #b00020; padding: .6rem; }
-        .msg { background: #eef; padding: .6rem; }
-        .actions a, .actions form { display: inline-block; margin-right: .6rem; }
-        ul { line-height: 1.7; }
-        .card { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
-        .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .8rem; }
-        .muted { color: #666; font-size: .9rem; }
-        .ok { color: #0a7d28; font-weight: 600; }
-        .bad { color: #b00020; font-weight: 600; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: .35rem .5rem; text-align: left; }
-        pre { white-space: pre-wrap; background: #fafafa; padding: 1rem; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>
-<a href="/">← К списку</a> · <a th:href="@{/discover(lectureId=${lecture.id})}">Похожие и новые видео</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('library', 'Карточка лекции')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', ${lecture.originalFilename ?: lecture.id})}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
+<h1 th:text="${lecture.originalFilename ?: lecture.id}"></h1>
+
+
 <div th:replace="~{fragments/status :: status}"></div>
 
 <div class="actions">
@@ -41,7 +33,6 @@
     </form>
     <a th:href="@{/lectures/{id}/editor(id=${lecture.id})}"><b>Редактор и проверка качества</b></a>
     <a th:href="@{/lectures/{id}/chat(id=${lecture.id})}">Чат по лекции</a>
-    <a th:href="@{/support/lecture/{id}(id=${lecture.id})}">Помощь по этой лекции</a>
     <form method="post" th:action="@{/lectures/{id}/delete(id=${lecture.id})}">
         <button type="submit">Удалить</button>
     </form>
@@ -179,5 +170,9 @@
 
 <h2>Конспект</h2>
 <pre th:if="${lecture.notesMarkdown}" th:text="${lecture.notesMarkdown}"></pre>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

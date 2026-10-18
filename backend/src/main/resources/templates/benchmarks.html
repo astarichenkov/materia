@@ -2,35 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LLM Benchmark</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 1200px; }
-        table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
-        th, td { border: 1px solid #ccc; padding: .35rem .5rem; text-align: left; font-size: .9rem; }
-        .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem 1rem; }
-        fieldset { border: 1px solid #ccc; padding: 1rem; }
-        label { display: block; font-size: .8rem; color: #444; }
-        input, select { width: 100%; box-sizing: border-box; padding: .25rem; }
-        .actions { grid-column: 1 / -1; }
-        button { padding: .5rem 1rem; cursor: pointer; }
-        .msg { padding: .6rem; background: #eef; margin-bottom: 1rem; }
-        .err { background: #fee; color: #b00020; }
-        .status-QUEUED { color: #8a6d00; }
-        .status-RUNNING { color: #0057b8; font-weight: 600; }
-        .status-COMPLETED { color: #0a7d28; font-weight: 600; }
-        .status-FAILED { color: #b00020; font-weight: 600; }
-        .recommended { background: #fffbe6; }
-        h2 { margin-top: 2rem; }
-        code { background: #f4f4f4; padding: 0 .2rem; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>LLM Benchmark / Optimization Console</h1>
-<a href="/">← К лекциям</a> · <a href="/settings">Настройки LLM</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('benchmarks', 'Бенчмарки')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('benchmarks')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Система', '', 'Бенчмарки')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<h1>LLM Benchmark / Optimization Console</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <fieldset>
     <legend>Запуск бенчмарка (LLM-стадия)</legend>
@@ -224,5 +213,9 @@
     document.getElementById('provider').addEventListener('change', syncBenchmarkModels);
     syncBenchmarkModels();
 </script>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

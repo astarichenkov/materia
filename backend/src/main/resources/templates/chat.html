@@ -2,19 +2,22 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="'Чат: ' + ${lecture.originalFilename}">Чат</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; }
-        textarea { width: 100%; height: 5rem; }
-        .answer { border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; white-space: pre-wrap; }
-        .sources { font-size: .9rem; color: #555; }
-        .error { color: #b00020; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('library', 'Чат по лекции')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', 'Чат по лекции')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
+
 <h1 th:text="'Чат по лекции: ' + ${lecture.originalFilename}"></h1>
-<a th:href="@{/lectures/{id}(id=${lecture.id})}">← К лекции</a>
+
 
 <form th:attr="hx-post='/lectures/' + ${lecture.id} + '/chat'"
       hx-target="#answer" hx-swap="innerHTML">
@@ -26,5 +29,9 @@
 <div id="answer">
     <p>Задайте вопрос. Ответ будет основан на найденных фрагментах лекции.</p>
 </div>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

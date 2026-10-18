@@ -2,35 +2,24 @@
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI Providers — настройки</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1000px; }
-        h1 { margin-bottom: .2rem; }
-        h2 { margin-top: 2rem; border-bottom: 2px solid #ddd; padding-bottom: .3rem; }
-        .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem 1rem; }
-        .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        label { display: block; font-size: .8rem; color: #444; }
-        input, select { width: 100%; box-sizing: border-box; padding: .35rem; }
-        fieldset { border: 1px solid #ccc; padding: 1rem; margin: 0 0 1rem; border-radius: 6px; }
-        legend { font-weight: 600; }
-        button { padding: .5rem 1rem; cursor: pointer; }
-        .msg { padding: .6rem; background: #eef; margin: 1rem 0; border-radius: 4px; }
-        .err { background: #fee; color: #b00020; }
-        .ok { color: #0a7a29; font-weight: 600; }
-        .bad { color: #b00020; font-weight: 600; }
-        .muted { color: #666; font-size: .85rem; }
-        .card-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .6rem; }
-        .notice { background: #fff8e1; border: 1px solid #f0d48a; padding: .7rem 1rem; border-radius: 6px; }
-        .inline { display: inline; }
-        .model-list { font-size: .85rem; color: #333; }
-    </style>
+    <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
-<h1>AI Providers</h1>
-<a href="/">← К лекциям</a> · <a href="/benchmarks">Бенчмарки</a> · <a href="/assistant">Ассистент</a> · <a href="/discover">Поиск видео</a>
+<a class="skip-link" href="#main">К содержимому</a>
+<header th:replace="~{fragments/layout :: appbar('settings', 'Настройки')}"></header>
+<div class="app-shell">
+<aside th:replace="~{fragments/layout :: sidebar('settings')}"></aside>
+<main id="main" class="content" tabindex="-1">
+<nav th:replace="~{fragments/layout :: breadcrumbs('Система', '', 'Настройки')}"></nav>
+<div th:replace="~{fragments/layout :: flash}"></div>
+<noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<div th:if="${message}" class="msg" th:text="${message}"></div>
-<div th:if="${error}" class="msg err" th:text="${error}"></div>
+<h1>AI Providers</h1>
+
+
+<div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
 <div class="notice">
     <b>Облачный режим отправляет текст и контекст на сервер провайдера.</b>
@@ -44,13 +33,17 @@
 <h2>Провайдеры</h2>
 
 <fieldset th:each="p : ${providers}" th:if="${p.chatModels != null and !p.chatModels.isEmpty()}">
-    <legend th:text="${p.displayName} + (p.cloud ? ' — cloud' : ' — local')"></legend>
+    <legend>
+        <span th:text="${p.id == 'ollama' ? 'Ollama' : p.displayName}">Провайдер</span>
+        <span class="badge" th:classappend="${p.cloud} ? ' badge--warning' : ' badge--success'"
+              th:text="${p.cloud ? 'облако' : 'локальная'}">локальная</span>
+    </legend>
 
     <p>
         Статус:
         <span th:if="${p.available}" class="ok">доступен</span>
         <span th:unless="${p.available}" class="bad">недоступен / не настроен</span>
-        <span class="muted" th:if="${p.cloud}"> · cloud endpoint</span>
+        <span class="muted" th:if="${p.cloud}"> · облачный провайдер</span>
     </p>
 
     <p class="model-list">
@@ -170,7 +163,7 @@
         <p><button type="submit" th:text="'Сохранить: ' + ${tv.type.label}"></button></p>
     </form>
     <p class="muted" th:if="${tv.type.id == 'code-review'}">
-        Day 32 подготовка: здесь задаётся модель для AI Code Review. Сам reviewer ещё не реализован.
+        Здесь задаётся модель для AI Code Review. Review запускается по webhook Gitea или polling новых PR.
     </p>
 </fieldset>
 
@@ -337,5 +330,9 @@
         <button type="submit" th:disabled="${!vkStatus.configured}">Удалить токен</button>
     </form>
 </fieldset>
+
+</main>
+</div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>
