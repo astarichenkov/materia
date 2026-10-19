@@ -31,9 +31,11 @@ import com.lectureprocessor.llm.LlmTaskSettingsService;
 import com.lectureprocessor.llm.LlmTaskType;
 import com.lectureprocessor.llm.ResolvedLlmTask;
 import com.lectureprocessor.media.MediaSource;
+import com.lectureprocessor.processing.ProcessingProfileService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.MediaSourceRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.repository.PipelineRunRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 import com.lectureprocessor.storage.FileStorageService;
 import com.lectureprocessor.support.FakeLlmProvider;
@@ -72,6 +74,10 @@ class PipelineCoordinatorIntegrationTest {
     private FileStorageService storage;
     @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private PipelineRunRepository runRepository;
+    @Autowired
+    private ProcessingProfileService profileService;
 
     @MockitoBean
     private FfmpegService ffmpeg;
@@ -100,6 +106,9 @@ class PipelineCoordinatorIntegrationTest {
         jdbc.update("DELETE FROM transcript_segment");
         jdbc.update("DELETE FROM lecture_chunk");
         jdbc.update("DELETE FROM slide");
+        jdbc.update("DELETE FROM pipeline_run");
+        jdbc.update("DELETE FROM lecture_processing_profile");
+        jdbc.update("DELETE FROM lecture_output_variant");
         jdbc.update("DELETE FROM lecture");
 
         llm.setId("ollama");
@@ -185,19 +194,20 @@ class PipelineCoordinatorIntegrationTest {
         coordinator.run(id);
         assertThat(lectureRepository.findById(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
 
-        // Force a new text-processing fingerprint by changing the effective model config.
-        jdbc.update("DELETE FROM app_setting");
-        jdbc.update("""
-                INSERT INTO app_setting (setting_key, setting_value, updated_at)
-                VALUES ('llm.default-config',
-                        '{"provider":"ollama","model":"test-model-2","temperature":0.1,"maxTokens":1536,'
-                        || '"contextWindow":4096,"thinking":false,"promptTemplate":"structured-notes-v2"}',
-                        ?)
-                """, Instant.now().toString());
+        // Force a new text-processing fingerprint by selecting a different
+        // document format (the profile is part of that fingerprint).
+        profileService.save(id, "ACADEMIC_LECTURE", "BRIEF_NOTES", "DETAILED", null);
 
         coordinator.run(id);
 
         assertThat(lectureRepository.findById(id).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
+        // The run ledger must describe what actually executed: a prompt-only
+        // change plans TEXT_PROCESSING + EXPORT, never the whole pipeline.
+        PipelineRun run = runRepository.findLatest(id).orElseThrow();
+        assertThat(run.state()).isEqualTo(JobState.COMPLETED);
+        assertThat(run.plannedStages()).containsExactlyInAnyOrder(
+                PipelineStage.TEXT_PROCESSING, PipelineStage.EXPORT);
+        assertThat(run.percent()).isEqualTo(100);
         // Transcription (and audio/ffmpeg) still ran only once.
         verify(transcription, times(1)).transcribe(any(), anyString());
         verify(ffmpeg, times(1)).extractAudio(any(), any());
@@ -211,6 +221,8 @@ class PipelineCoordinatorIntegrationTest {
 
         verify(transcription, times(1)).transcribe(any(), anyString());
         verify(ffmpeg, times(1)).extractAudio(any(), any());
+        // A fully reused run has an empty plan; the UI blocks it before starting.
+        assertThat(runRepository.findLatest(id).orElseThrow().plannedStages()).isEmpty();
     }
 
     /**

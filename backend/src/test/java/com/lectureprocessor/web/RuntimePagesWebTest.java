@@ -53,6 +53,9 @@ import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
 import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.text.PromptTemplateService;
+import com.lectureprocessor.pipeline.PipelineDataLoader;
+import com.lectureprocessor.editor.EditorAccessService;
 import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
 import com.lectureprocessor.thumbnail.ThumbnailService;
 
@@ -118,6 +121,15 @@ class RuntimePagesWebTest {
     private OutputVariantService outputVariants;
     @MockitoBean
     private PromptTemplates promptTemplates;
+
+    @MockitoBean
+    private PromptTemplateService promptTemplateService;
+
+    @MockitoBean
+    private PipelineDataLoader pipelineDataLoader;
+
+    @MockitoBean
+    private EditorAccessService editorAccessService;
     @MockitoBean
     private ThumbnailService thumbnails;
     @MockitoBean
@@ -318,7 +330,7 @@ class RuntimePagesWebTest {
                 "l1", "DOWNLOADING", "DOWNLOADING", "RUNNING", "RUNNING", "DOWNLOADING",
                 "Скачивание", 2, 10, 20, "", new JobStatusView.DownloadView("DOWNLOADING",
                         87_171_045L, null, null, 95_000.0, null, null), List.of(), List.of(),
-                false));
+                false, null));
 
         mockMvc.perform(get("/lectures/l1/status"))
                 .andExpect(status().isOk())

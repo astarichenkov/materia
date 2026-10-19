@@ -21,6 +21,7 @@ import com.lectureprocessor.domain.JobStatus;
 import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.repository.PipelineRunRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 import com.lectureprocessor.repository.TimingRepository;
 import com.lectureprocessor.storage.FileStorageService;
@@ -39,6 +40,21 @@ class PipelineCoordinatorCancellationTest {
     private final TimingRepository timings = mock(TimingRepository.class);
     private final FileStorageService storage = mock(FileStorageService.class);
     private final JobProgressRegistry progress = new JobProgressRegistry();
+    private final PipelinePlanner planner = mock(PipelinePlanner.class);
+    private final PipelineRunRepository runs = mock(PipelineRunRepository.class);
+
+    private PipelineCoordinator coordinator(List<StageExecutor> stages) {
+        when(planner.plannedStages(any())).thenAnswer(invocation -> stages.stream()
+                .map(StageExecutor::id).toList());
+        when(planner.evaluate(any(), any())).thenAnswer(invocation -> {
+            StageExecutor stage = invocation.getArgument(1);
+            return new PipelinePlanner.Evaluation(stage.id(), "fp-" + stage.id().name(),
+                    false, true, PipelinePlanner.Reason.NO_CHECKPOINT);
+        });
+        when(runs.create(anyString(), any())).thenReturn("run-1");
+        return new PipelineCoordinator(stages, jobRepository, checkpointRepository,
+                lectureRepository, loader, progress, timings, storage, planner, runs);
+    }
 
     private static Lecture lecture(String id, JobStatus status) {
         Instant now = Instant.now();
@@ -73,8 +89,7 @@ class PipelineCoordinatorCancellationTest {
         AtomicReference<PipelineCoordinator> ref = new AtomicReference<>();
         StageExecutor onlyStage = stage(PipelineStage.EXPORT,
                 () -> ref.get().cancel("l1"));
-        ref.set(new PipelineCoordinator(List.of(onlyStage), jobRepository, checkpointRepository,
-                lectureRepository, loader, progress, timings, storage));
+        ref.set(coordinator(List.of(onlyStage)));
 
         ref.get().run("l1");
 
@@ -99,8 +114,7 @@ class PipelineCoordinatorCancellationTest {
         StageExecutor first = stage(PipelineStage.TRANSCRIPTION, () -> ref.get().cancel("l2"));
         StageExecutor second = stage(PipelineStage.TEXT_PROCESSING, () -> {
         });
-        ref.set(new PipelineCoordinator(List.of(first, second), jobRepository, checkpointRepository,
-                lectureRepository, loader, progress, timings, storage));
+        ref.set(coordinator(List.of(first, second)));
 
         ref.get().run("l2");
 
@@ -120,8 +134,7 @@ class PipelineCoordinatorCancellationTest {
 
         StageExecutor neverRuns = stage(PipelineStage.TRANSCRIPTION, () -> {
         });
-        PipelineCoordinator coordinator = new PipelineCoordinator(List.of(neverRuns), jobRepository,
-                checkpointRepository, lectureRepository, loader, progress, timings, storage);
+        PipelineCoordinator coordinator = coordinator(List.of(neverRuns));
 
         assertThat(coordinator.cancel("l5")).isTrue();
         coordinator.run("l5");
@@ -135,8 +148,7 @@ class PipelineCoordinatorCancellationTest {
     void cancelledJobCannotBeCancelledTwice() {
         when(jobRepository.find("l3")).thenReturn(Optional.of(
                 job("l3", JobState.CANCELLED, PipelineStage.TRANSCRIPTION, null)));
-        PipelineCoordinator coordinator = new PipelineCoordinator(List.of(), jobRepository,
-                checkpointRepository, lectureRepository, loader, progress, timings, storage);
+        PipelineCoordinator coordinator = coordinator(List.<StageExecutor>of());
 
         assertThat(coordinator.cancel("l3")).isFalse();
         verify(jobRepository, never()).cancelStale(anyString(), any(), anyString());
@@ -150,8 +162,7 @@ class PipelineCoordinatorCancellationTest {
         when(jobRepository.cancelStale(eq("l4"), any(), anyString())).thenReturn(1);
         when(lectureRepository.findById("l4")).thenReturn(Optional.of(running));
 
-        PipelineCoordinator coordinator = new PipelineCoordinator(List.of(), jobRepository,
-                checkpointRepository, lectureRepository, loader, progress, timings, storage);
+        PipelineCoordinator coordinator = coordinator(List.<StageExecutor>of());
 
         assertThat(coordinator.cancel("l4")).isTrue();
         verify(checkpointRepository).cancelRunning("l4");

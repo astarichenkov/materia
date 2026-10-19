@@ -37,6 +37,7 @@ import com.lectureprocessor.repository.DocChunkRepository;
 import com.lectureprocessor.repository.DownloadStateRepository;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.repository.PipelineRunRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 import com.lectureprocessor.repository.TimingRepository;
 import com.lectureprocessor.support.tool.GetJobDiagnosticsTool;
@@ -122,7 +123,7 @@ class SupportAssistantServiceTest {
         DownloadStateRepository downloads = new DownloadStateRepository(jdbc);
         TimingRepository timings = new TimingRepository(jdbc);
         JobStatusService jobStatusService = new JobStatusService(lectures, jobs, checkpoints, downloads,
-                new JobProgressRegistry());
+                new JobProgressRegistry(), new PipelineRunRepository(jdbc));
 
         List<McpTool> tools = List.of(
                 new GetTicketTool(ticketRepo, access, guard, objectMapper),

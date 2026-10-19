@@ -74,7 +74,8 @@ class SchemaMigratorTest {
                 "video_discovery_cache", "discovered_video",
                 "lecture_document_revision", "lecture_segment_correction",
                 "lecture_document_state", "lecture_export",
-                "lecture_thumbnail", "lecture_processing_profile", "lecture_output_variant")) {
+                "lecture_thumbnail", "lecture_processing_profile", "lecture_output_variant",
+                "pipeline_run", "prompt_template")) {
             Long count = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", Long.class, table);
             assertThat(count).as("table %s", table).isEqualTo(1L);
@@ -108,7 +109,7 @@ class SchemaMigratorTest {
 
         // Running the migrator again is idempotent.
         new SchemaMigrator(jdbc).run(null);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(9L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(10L);
         assertThat(Files.exists(db)).isTrue();
     }
 }

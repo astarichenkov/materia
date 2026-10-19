@@ -18,7 +18,7 @@ class TextProcessingServiceTest {
     private final PromptTemplates prompts = new PromptTemplates();
     private final TextChunker chunker = new TextChunker();
     private final TextProcessingService service = new TextProcessingService(llm, chunker, prompts,
-            TestProperties.defaults("./target/test-data"));
+            new NotesAssembler(), TestProperties.defaults("./target/test-data"));
 
     private final List<TranscriptSegment> segments = List.of(
             new TranscriptSegment(0, 0, 1000, "Определение: вектор — это направленный отрезок."),
@@ -43,9 +43,11 @@ class TextProcessingServiceTest {
     }
 
     @Test
-    void passesFormattingInstructionsToTheModel() {
+    void passesFormattingInstructionsInTheSystemPromptAndKeepsTranscriptAsData() {
         java.util.List<String> userMessages = new java.util.ArrayList<>();
+        java.util.List<String> systemMessages = new java.util.ArrayList<>();
         llm.setChatFunction((system, user) -> {
+            systemMessages.add(system);
             userMessages.add(user);
             return "## Раздел\n\nТекст.";
         });
@@ -54,9 +56,52 @@ class TextProcessingServiceTest {
                 PromptTemplates.NOTES_HOWTO, "Тип исходного материала: Практический видеоурок.");
 
         assertThat(userMessages).isNotEmpty();
-        assertThat(userMessages.getFirst())
+        assertThat(systemMessages.getFirst())
                 .contains("Тип исходного материала: Практический видеоурок.")
-                .contains("Фрагмент 1 из");
+                .contains("ПАРАМЕТРЫ ЗАДАНИЯ");
+        assertThat(userMessages.getFirst())
+                .contains("<transcript>")
+                .contains("</transcript>")
+                .doesNotContain("Тип исходного материала");
+    }
+
+    @Test
+    void removesRepeatedQaBlocksAcrossChunks() {
+        java.util.concurrent.atomic.AtomicInteger call = new java.util.concurrent.atomic.AtomicInteger();
+        llm.setChatFunction((system, user) -> {
+            if (system != null && system.contains("краткое резюме")) {
+                return "Краткое резюме лекции.";
+            }
+            int index = call.getAndIncrement();
+            return """
+                    ## Вопросы и ответы
+
+                    **Вопрос:** Какой вариант выбран в сравнении с Baseline?
+
+                    **Ответ:** Выбран вариант A, он лучше Baseline.
+
+                    **Вопрос:** Уникальный вопрос %d?
+
+                    **Ответ:** Уникальный ответ %d.
+                    """.formatted(index, index);
+        });
+        List<TranscriptSegment> longSegments = List.of(
+                new TranscriptSegment(0, 0, 1000, "Первый фрагмент про Baseline и вариант A. "
+                        + "Подробное описание сравнения варианта A с Baseline и причины выбора."),
+                new TranscriptSegment(1, 1000, 2000, "Второй фрагмент про Baseline и вариант A. "
+                        + "Подробное описание сравнения варианта A с Baseline и причины выбора."),
+                new TranscriptSegment(2, 2000, 3000, "Третий фрагмент продолжает обсуждение. "
+                        + "Подробное описание сравнения варианта A с Baseline и причины выбора."));
+
+        TextProcessingService.GeneratedNotes generated = service.generateStructuredNotes(llm,
+                longSegments, LlmOptions.of("fake-model"), PromptTemplates.NOTES_INTERVIEW,
+                null, "Формат результата: ВОПРОСЫ И ОТВЕТЫ.", ChunkProgressListener.NONE);
+
+        long baselineQuestionCount = generated.notes().markdown().lines()
+                .filter(line -> line.contains("Baseline?")).count();
+        assertThat(baselineQuestionCount).as(generated.notes().markdown()).isEqualTo(1);
+        assertThat(generated.quality().duplicateBlocksRemoved()
+                + generated.quality().duplicateQuestionsRemoved()).isGreaterThanOrEqualTo(1);
     }
 
     @Test

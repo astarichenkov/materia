@@ -43,8 +43,12 @@ test.describe('nightly roadmap: covers and selective re-run', () => {
     await expect(plan).toContainText('Транскрипция уже готова');
     await expect(plan).toContainText('Whisper не запускается');
 
-    await page.locator('#profile-format').selectOption('BRIEF_NOTES');
-    await expect(plan).toContainText('notes-brief-v1');
+    const format = page.locator('#profile-format');
+    const currentFormat = await format.inputValue();
+    const targetFormat = currentFormat === 'BRIEF_NOTES' ? 'DETAILED_NOTES' : 'BRIEF_NOTES';
+    await format.selectOption(targetFormat);
+    await expect(plan).toContainText(
+      targetFormat === 'BRIEF_NOTES' ? 'Краткий конспект' : 'Подробный конспект');
     await expect(plan).toContainText('Изменился формат');
     // The preview must not navigate away or start a job.
     await expect(page).toHaveURL(new RegExp(`/lectures/${lectureId}$`));

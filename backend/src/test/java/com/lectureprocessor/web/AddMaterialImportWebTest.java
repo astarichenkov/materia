@@ -59,6 +59,9 @@ import com.lectureprocessor.processing.ProcessingProfileService;
 import com.lectureprocessor.processing.RerunPlanService;
 import com.lectureprocessor.repository.SegmentRepository;
 import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.text.PromptTemplateService;
+import com.lectureprocessor.pipeline.PipelineDataLoader;
+import com.lectureprocessor.editor.EditorAccessService;
 import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
 import com.lectureprocessor.thumbnail.ThumbnailService;
 
@@ -121,6 +124,15 @@ class AddMaterialImportWebTest {
     private OutputVariantService outputVariants;
     @MockitoBean
     private PromptTemplates promptTemplates;
+
+    @MockitoBean
+    private PromptTemplateService promptTemplateService;
+
+    @MockitoBean
+    private PipelineDataLoader pipelineDataLoader;
+
+    @MockitoBean
+    private EditorAccessService editorAccessService;
 
     @BeforeEach
     void setUp() {

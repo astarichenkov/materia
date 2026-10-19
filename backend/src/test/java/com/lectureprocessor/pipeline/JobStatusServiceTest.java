@@ -16,6 +16,7 @@ import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.repository.DownloadStateRepository;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.repository.PipelineRunRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 
 /**
@@ -30,13 +31,16 @@ class JobStatusServiceTest {
     private final StageCheckpointRepository checkpointRepository = mock(StageCheckpointRepository.class);
     private final DownloadStateRepository downloadStateRepository = mock(DownloadStateRepository.class);
     private final JobProgressRegistry progressRegistry = new JobProgressRegistry();
+    private final PipelineRunRepository runRepository = mock(PipelineRunRepository.class);
 
     private JobStatusService service;
 
     @BeforeEach
     void setUp() {
         service = new JobStatusService(lectureRepository, jobRepository, checkpointRepository,
-                downloadStateRepository, progressRegistry);
+                downloadStateRepository, progressRegistry, runRepository);
+        when(runRepository.findLatest(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(Optional.empty());
         when(downloadStateRepository.find(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Optional.empty());
     }
@@ -139,5 +143,60 @@ class JobStatusServiceTest {
         assertThat(view.progressPercent()).isEqualTo(50);
         assertThat(view.stages().get(4).state()).isEqualTo("RUNNING");
         assertThat(view.stages().get(9).state()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void newRunDoesNotInheritPreviousCompletedPipelinePercent() {
+        when(lectureRepository.findById("l6"))
+                .thenReturn(Optional.of(lecture("l6", JobStatus.PROCESSING_TEXT)));
+        when(jobRepository.find("l6")).thenReturn(Optional.of(job("l6", JobState.RUNNING,
+                PipelineStage.TEXT_PROCESSING)));
+        Instant runStart = Instant.now().minusSeconds(5);
+        when(checkpointRepository.findByLecture("l6")).thenReturn(List.of(
+                checkpoint("l6", PipelineStage.SOURCE_RESOLUTION, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.DOWNLOADING, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.MEDIA_VALIDATION, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.AUDIO_EXTRACTION, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.TRANSCRIPTION, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.RAG_INDEXING, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.EXPORT, StageState.COMPLETED),
+                checkpoint("l6", PipelineStage.TEXT_PROCESSING, StageState.RUNNING)));
+        when(runRepository.findLatest("l6")).thenReturn(Optional.of(new PipelineRun(
+                "run-42", "l6", JobState.RUNNING,
+                List.of(PipelineStage.TEXT_PROCESSING, PipelineStage.EXPORT),
+                PipelineStage.TEXT_PROCESSING, "Обработка текста: 7 из 18 фрагментов", null,
+                7, 18, runStart, runStart, null)));
+
+        JobStatusView view = service.view("l6");
+
+        assertThat(view.run()).isNotNull();
+        assertThat(view.run().id()).isEqualTo("run-42");
+        assertThat(view.run().percent()).isLessThan(100);
+        assertThat(view.run().stageProgress()).contains("7").contains("18");
+        assertThat(view.run().stages()).extracting(JobStatusView.RunStageView::state)
+                .contains("RUNNING", "PENDING");
+        // The lecture-wide percent may still count historical checkpoints; the
+        // run block is what the user must see as "new generation".
+        assertThat(view.progressPercent()).isGreaterThanOrEqualTo(view.run().percent());
+    }
+
+    @Test
+    void completedRunShowsSuccessMessageInsteadOfStoppedMessage() {
+        when(lectureRepository.findById("l7"))
+                .thenReturn(Optional.of(lecture("l7", JobStatus.COMPLETED)));
+        when(jobRepository.find("l7")).thenReturn(Optional.of(job("l7", JobState.COMPLETED, null)));
+        Instant now = Instant.now();
+        when(runRepository.findLatest("l7")).thenReturn(Optional.of(new PipelineRun(
+                "run-43", "l7", JobState.COMPLETED,
+                List.of(PipelineStage.TEXT_PROCESSING, PipelineStage.EXPORT),
+                null, "Готово: новый результат создан", null, 2, 2,
+                now.minusSeconds(30), now.minusSeconds(29), now)));
+
+        JobStatusView view = service.view("l7");
+
+        assertThat(view.message()).doesNotContain("остановлена");
+        assertThat(view.message()).contains("Готово");
+        assertThat(view.run().stateLabel()).isEqualTo("Готово");
+        assertThat(view.run().percent()).isEqualTo(100);
     }
 }
