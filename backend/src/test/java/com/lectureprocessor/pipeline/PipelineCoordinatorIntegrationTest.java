@@ -78,6 +78,8 @@ class PipelineCoordinatorIntegrationTest {
     private PipelineRunRepository runRepository;
     @Autowired
     private ProcessingProfileService profileService;
+    @Autowired
+    private PromptTemplates promptTemplates;
 
     @MockitoBean
     private FfmpegService ffmpeg;
@@ -287,6 +289,32 @@ class PipelineCoordinatorIntegrationTest {
         PipelineRun run = runRepository.findLatest(id).orElseThrow();
         assertThat(run.plannedStages())
                 .containsExactlyInAnyOrder(PipelineStage.TEXT_PROCESSING, PipelineStage.EXPORT);
+    }
+
+    /**
+     * Editing a user template under the same name must invalidate only text
+     * processing: the fingerprint includes the template body, not just its id.
+     */
+    @Test
+    void editingCustomTemplateBodyRerunsTextButNotTranscription() throws Exception {
+        String id = createLocalLecture("it-template-body");
+        promptTemplates.registerCustom("custom-test-notes", "## Раздел\nПервая версия.");
+        profileService.save(id, "AUTO", "BRIEF_NOTES", "STANDARD", "custom-test-notes", null);
+        coordinator.run(id);
+        int callsAfterFirstRun = llm.chatCalls().size();
+        assertThat(lectureRepository.findById(id).orElseThrow().status())
+                .isEqualTo(JobStatus.COMPLETED);
+
+        promptTemplates.registerCustom("custom-test-notes", "## Раздел\nВторая версия.");
+        coordinator.run(id);
+
+        verify(transcription, times(1)).transcribe(any(), anyString());
+        verify(ffmpeg, times(1)).extractAudio(any(), any());
+        assertThat(llm.chatCalls().size()).isGreaterThan(callsAfterFirstRun);
+        Long variants = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM lecture_output_variant WHERE lecture_id = ?",
+                Long.class, id);
+        assertThat(variants).isGreaterThanOrEqualTo(2);
     }
 
     /** Sanity check that the lease repository rejects a duplicate active claim. */

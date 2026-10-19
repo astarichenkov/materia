@@ -71,6 +71,7 @@ public class TextProcessingStage implements StageExecutor {
     private final ScenarioCatalog scenarios;
     private final ScenarioOutputValidator validator;
     private final TranscriptDocumentBuilder transcriptDocuments;
+    private final PromptTemplates prompts;
 
     public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
@@ -79,7 +80,7 @@ public class TextProcessingStage implements StageExecutor {
             ProcessingProfileService profiles, OutputVariantService variants,
             JobProgressRegistry progressRegistry, PipelineRunRepository runs,
             ScenarioCatalog scenarios, ScenarioOutputValidator validator,
-            TranscriptDocumentBuilder transcriptDocuments) {
+            TranscriptDocumentBuilder transcriptDocuments, PromptTemplates prompts) {
         this.textProcessing = textProcessing;
         this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
@@ -97,6 +98,7 @@ public class TextProcessingStage implements StageExecutor {
         this.scenarios = scenarios;
         this.validator = validator;
         this.transcriptDocuments = transcriptDocuments;
+        this.prompts = prompts;
     }
 
     @Override
@@ -124,8 +126,26 @@ public class TextProcessingStage implements StageExecutor {
                 String.valueOf(config.model()), String.valueOf(config.temperature()),
                 String.valueOf(config.maxTokens()), String.valueOf(config.contextWindow()),
                 String.valueOf(config.thinking()), String.valueOf(config.promptTemplate()),
+                promptBodyKey(profile),
                 String.valueOf(context.lecture() != null && context.lecture().cleanTranscript()),
                 profile.fingerprintPart());
+    }
+
+    /**
+     * The template *body* participates in the fingerprint, not only its name.
+     * Editing a user copy under the same name must invalidate text processing
+     * (but never the transcript), exactly like switching to another template.
+     */
+    private String promptBodyKey(ProcessingProfile profile) {
+        String name = profile.resolvedPrompt();
+        if (name == null || name.isBlank()) {
+            return "none";
+        }
+        try {
+            return name + "#" + Integer.toHexString(prompts.get(name).hashCode());
+        } catch (RuntimeException e) {
+            return name + "#missing";
+        }
     }
 
     @Override
