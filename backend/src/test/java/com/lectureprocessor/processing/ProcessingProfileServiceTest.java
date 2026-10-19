@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
+import com.lectureprocessor.scenario.ScenarioCatalog;
+import com.lectureprocessor.scenario.ScenarioResolver;
 import com.lectureprocessor.text.PromptTemplates;
 
 class ProcessingProfileServiceTest {
@@ -21,8 +23,9 @@ class ProcessingProfileServiceTest {
     private final ProcessingProfileRepository repository = mock(ProcessingProfileRepository.class);
     private final LlmSettingsService settings = mock(LlmSettingsService.class);
     private final PromptTemplates prompts = new PromptTemplates();
-    private final ProcessingProfileService service =
-            new ProcessingProfileService(repository, settings, prompts);
+    private final ScenarioCatalog scenarios = new ScenarioCatalog();
+    private final ProcessingProfileService service = new ProcessingProfileService(repository,
+            settings, prompts, scenarios, new ScenarioResolver(scenarios));
 
     @Test
     void legacyDefaultKeepsConfiguredPrompt() {

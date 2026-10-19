@@ -33,6 +33,22 @@ test('add wizard opens with three sources and no Support entry points', async ({
   expect(errors).toEqual([]);
 });
 
+test('scenario picker is rendered before processing options', async ({ page }) => {
+  await page.goto('/add');
+  await expect(page.getByText('Что сделать с материалом?').first()).toBeVisible();
+  await expect(page.locator('[data-source-form="file"] input[name="scenario"]')).toHaveCount(13);
+  await expect(page.locator('[data-source-panel="file"] .scenario-card')
+    .filter({ hasText: 'Рецепт' })).toBeVisible();
+  await expect(page.locator('[data-source-panel="file"] .scenario-card')
+    .filter({ hasText: 'Без изменений' })).toBeVisible();
+  await expect(page.locator('[data-source-panel="file"] input[name="scenario"][value="recipe"]'))
+    .toBeVisible();
+  await page.locator('[data-source-panel="file"] .scenario-card')
+    .filter({ hasText: 'Рецепт' }).click();
+  await expect(page.locator('[data-source-panel="file"] input[name="scenario"][value="recipe"]'))
+    .toBeChecked();
+});
+
 test('source switch and keyboard navigation work', async ({ page }) => {
   await page.goto('/add');
   const urlRadio = page.locator('input[name="importSource"][value="url"]');
@@ -75,7 +91,9 @@ test('selected file and options are summarised before submit', async ({ page }) 
   await expect(summary).toBeVisible();
   await expect(summary).toContainText('файл с компьютера');
   await expect(summary).toContainText('только оригинал');
-  await expect(summary).toContainText('Что получится');
+  await expect(summary).toContainText('Сценарий');
+  await expect(summary).toContainText('Обработка');
+  await expect(summary).toContainText('Результат');
 });
 
 test('local upload creates one lecture and it appears in the library', async ({ page }) => {

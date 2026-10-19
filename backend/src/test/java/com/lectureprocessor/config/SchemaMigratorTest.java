@@ -106,10 +106,21 @@ class SchemaMigratorTest {
         // Nightly roadmap: thumbnails, processing profiles, output variants.
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM schema_migration WHERE version = 10", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM schema_migration WHERE version = 11", Long.class)).isEqualTo(1L);
+        // Materia scenarios: nullable scenario columns preserve legacy rows.
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM schema_migration WHERE version = 12", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForList("PRAGMA table_info(lecture_processing_profile)").stream()
+                .map(row -> row.get("name")))
+                .contains("scenario");
+        assertThat(jdbc.queryForList("PRAGMA table_info(lecture_output_variant)").stream()
+                .map(row -> row.get("name")))
+                .contains("scenario");
 
         // Running the migrator again is idempotent.
         new SchemaMigrator(jdbc).run(null);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(10L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM schema_migration", Long.class)).isEqualTo(11L);
         assertThat(Files.exists(db)).isTrue();
     }
 }

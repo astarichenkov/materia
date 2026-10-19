@@ -76,7 +76,7 @@ test('editor tabs are keyboard accessible and track unsaved changes', async ({ p
     .toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tabpanel', { name: 'Перевод' })).toBeVisible();
 
-  await page.getByRole('tab', { name: 'Конспект' }).click();
+  await page.locator('#tab-notes').click();
   const notes = page.locator('#notes-markdown');
   await notes.fill((await notes.inputValue()) + '\n\nпроверка несохранённых изменений');
   await expect(page.locator('#dirty-indicator')).toContainText('несохранённые');

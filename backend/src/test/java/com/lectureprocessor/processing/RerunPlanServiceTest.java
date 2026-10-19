@@ -31,6 +31,7 @@ import com.lectureprocessor.pipeline.PipelinePlanner;
 import com.lectureprocessor.pipeline.PipelineStage;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.scenario.ScenarioCompatibility;
 import com.lectureprocessor.text.PromptTemplates;
 
 /**
@@ -50,7 +51,10 @@ class RerunPlanServiceTest {
     private final LectureLanguageRepository languages = mock(LectureLanguageRepository.class);
     private final DocumentRevisionRepository revisions = mock(DocumentRevisionRepository.class);
     private final PipelinePlanner planner = mock(PipelinePlanner.class);
-    private final TemplateCompatibility compatibility = new TemplateCompatibility(new PromptTemplates());
+    private final PromptTemplates promptTemplates = new PromptTemplates();
+    private final TemplateCompatibility compatibility = new TemplateCompatibility(promptTemplates);
+    private final ScenarioCompatibility scenarioCompatibility =
+            new ScenarioCompatibility(promptTemplates, compatibility);
 
     private RerunPlanService service;
     private JobContext context;
@@ -59,7 +63,8 @@ class RerunPlanServiceTest {
     @BeforeEach
     void setUp() {
         service = new RerunPlanService(profiles, variants, jobs, lectures, translations, languages,
-                MultilingualProperties.defaults(), revisions, planner, compatibility);
+                MultilingualProperties.defaults(), revisions, planner, compatibility,
+                scenarioCompatibility);
 
         Instant now = Instant.now();
         Lecture lecture = new Lecture(LECTURE_ID, "lecture.mp4", "source.mp4", 100, "video/mp4",

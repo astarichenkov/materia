@@ -36,7 +36,7 @@ class TextProcessingServiceTest {
         llm.setChatFunction((system, user) -> "## Раздел\n\nТекст конспекта.");
         StructuredNotes notes = service.generateStructuredNotes(segments, LlmOptions.of("fake-model"));
 
-        assertThat(notes.markdown()).contains("# Конспект лекции");
+        assertThat(notes.markdown()).contains("# Конспект");
         assertThat(notes.markdown()).contains("## Резюме");
         assertThat(notes.sections()).isNotEmpty();
         assertThat(notes.sections().getFirst().startMs()).isZero();
@@ -113,7 +113,7 @@ class TextProcessingServiceTest {
                         PromptTemplates.CLEAN_TRANSCRIPT_V2);
 
         assertThat(document.cleanedText()).contains("Очищенный текст.");
-        assertThat(document.notes().markdown()).startsWith("# Расшифровка лекции");
+        assertThat(document.notes().markdown()).startsWith("# Расшифровка");
         assertThat(document.notes().sections()).isNotEmpty();
         assertThat(document.notes().sections().getFirst().startMs()).isZero();
         assertThat(document.notes().summary()).isEmpty();

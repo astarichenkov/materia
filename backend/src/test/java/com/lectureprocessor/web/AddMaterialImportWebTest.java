@@ -52,6 +52,8 @@ import com.lectureprocessor.lecture.RemoteLectureService;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.processing.OutputVariantService;
@@ -117,6 +119,8 @@ class AddMaterialImportWebTest {
     @MockitoBean
     private ThumbnailJobQueue thumbnailQueue;
     @MockitoBean
+    private ScenarioCatalog scenarioCatalog;
+    @MockitoBean
     private ProcessingProfileService processingProfiles;
     @MockitoBean
     private RerunPlanService rerunPlans;
@@ -136,6 +140,7 @@ class AddMaterialImportWebTest {
 
     @BeforeEach
     void setUp() {
+        when(scenarioCatalog.all()).thenReturn(List.of(ProcessingScenario.values()));
         when(importCapabilities.capabilities()).thenReturn(new ImportCapabilities(
                 List.of(".mp4", ".mkv", ".mov"), 4_294_967_296L,
                 List.of("YouTube", "VK Видео", "VK", "Rutube"), true, true, "720p", false));
@@ -158,7 +163,11 @@ class AddMaterialImportWebTest {
                 .andExpect(content().string(containsString("Выбор модели для отдельного материала")))
                 .andExpect(content().string(containsString("action=\"/lectures/from-url\"")))
                 .andExpect(content().string(containsString("hx-get=\"/lectures/preview\"")))
-                .andExpect(content().string(containsString("/js/import-wizard.js")));
+                .andExpect(content().string(containsString("/js/import-wizard.js")))
+                .andExpect(content().string(containsString("Что сделать с материалом?")))
+                .andExpect(content().string(containsString("Рецепт")))
+                .andExpect(content().string(containsString("Без изменений")))
+                .andExpect(content().string(containsString("name=\"scenario\"")));
     }
 
     @Test
@@ -185,6 +194,25 @@ class AddMaterialImportWebTest {
                 .andExpect(flash().attribute("message", containsString("обработка запущена")));
 
         verify(importDeduplication).remember("req-1", "l1");
+        verify(processingProfiles, never()).save(anyString(), any(), any(), any(), any(),
+                anyString());
+    }
+
+    @Test
+    void selectedScenarioIsPersistedBeforeProcessingStarts() throws Exception {
+        Lecture lecture = lecture("l1");
+        when(lectureService.create(any(), anyBoolean(), anyBoolean(), anyString(), anyString(),
+                anyBoolean(), anyString())).thenReturn(lecture);
+        when(jobService.submit("l1")).thenReturn(true);
+
+        mockMvc.perform(multipart("/lectures")
+                        .file(file())
+                        .param("requestId", "req-recipe")
+                        .param("scenario", "recipe"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lectures/l1"));
+
+        verify(processingProfiles).save("l1", null, null, null, null, "recipe");
     }
 
     @Test

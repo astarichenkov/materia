@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real HTTP smoke check for the Lecture Processor UI.
+"""Real HTTP smoke check for the Materia UI.
 
 Verifies pages, build identity, lecture card rendering and (optionally) a local
 upload. It does not delete data and does not touch cloud providers unless the
@@ -22,7 +22,7 @@ from http.cookiejar import CookieJar
 from pathlib import Path
 
 PAGES = [
-    ("/", ["Lecture Processor", "Добавить материал", "Найти видео"]),
+    ("/", ["materia", "Контент, который работает на вас", "Добавить материал", "Найти видео"]),
     ("/library", ["Библиотека"]),
     ("/add", ["Локальный файл", "Видео по ссылке"]),
     ("/jobs", ["Задачи обработки"]),
@@ -30,7 +30,7 @@ PAGES = [
     ("/diagnostics", ["Java runtime", "SQLite"]),
     ("/settings", ["Ollama", "DeepSeek"]),
     ("/assistant", ["Ассистент"]),
-    ("/support", ["Support"]),
+    ("/support", ["Поддержка"]),
     ("/file-agent", ["File Agent"]),
     ("/code-review", ["Code Review"]),
     ("/benchmarks", ["Benchmark"]),
@@ -38,19 +38,27 @@ PAGES = [
 
 
 class Client:
-    def __init__(self, base):
+    def __init__(self, base, admin_token=None):
         self.base = base.rstrip("/")
+        self.admin_token = admin_token
         self.jar = CookieJar()
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar))
 
+    def headers(self, extra=None):
+        headers = dict(extra or {})
+        if self.admin_token:
+            headers["X-Admin-Token"] = self.admin_token
+        return headers
+
     def get(self, path, timeout=60):
-        request = urllib.request.Request(self.base + path, method="GET")
+        request = urllib.request.Request(self.base + path, method="GET",
+                                         headers=self.headers())
         return self._open(request, timeout)
 
     def post(self, path, data, headers=None, timeout=300):
         request = urllib.request.Request(self.base + path, data=data, method="POST",
-                                         headers=headers or {})
+                                         headers=self.headers(headers))
         return self._open(request, timeout)
 
     def _open(self, request, timeout):
@@ -72,8 +80,9 @@ def main():
     parser.add_argument("--upload", help="optional short MP4 to upload")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--json-out", help="write machine-readable report here")
+    parser.add_argument("--admin-token", help="optional X-Admin-Token for protected pages")
     args = parser.parse_args()
-    client = Client(args.base_url)
+    client = Client(args.base_url, args.admin_token)
     report = []
 
     status, _, body, _ = client.get("/api/app/version", timeout=10)

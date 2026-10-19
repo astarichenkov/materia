@@ -249,6 +249,46 @@ class PipelineCoordinatorIntegrationTest {
         assertThat(mediaSourceRepository.findByLecture(id)).isPresent();
     }
 
+    /**
+     * Scenario contract: verbatim material is exported from the stored segments
+     * without a single LLM call, and switching to a generative scenario later
+     * reuses the transcript and never runs Whisper again.
+     */
+    @Test
+    void verbatimScenarioSkipsLlmAndScenarioSwitchReusesTranscription() throws Exception {
+        String id = createLocalLecture("it-verbatim");
+        profileService.save(id, "AUTO", "VERBATIM_TRANSCRIPT", "DETAILED", null, "verbatim");
+
+        coordinator.run(id);
+
+        assertThat(lectureRepository.findById(id).orElseThrow().status())
+                .isEqualTo(JobStatus.COMPLETED);
+        assertThat(llm.chatCalls()).as("verbatim must not call the LLM").isEmpty();
+        String verbatim = Files.readString(storage.resolve(id, "notes.md"),
+                StandardCharsets.UTF_8);
+        assertThat(verbatim).contains("Введение в тему лекции.")
+                .contains("Основные определения.")
+                .contains("[00:00:00]")
+                .doesNotContain("## Раздел");
+
+        // The user now wants a recipe — a generative scenario on the same source.
+        profileService.save(id, "AUTO", "RECIPE", "DETAILED", null, "recipe");
+        coordinator.run(id);
+
+        assertThat(lectureRepository.findById(id).orElseThrow().status())
+                .isEqualTo(JobStatus.COMPLETED);
+        verify(transcription, times(1)).transcribe(any(), anyString());
+        verify(ffmpeg, times(1)).extractAudio(any(), any());
+        assertThat(llm.chatCalls()).isNotEmpty();
+        Long variants = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM lecture_output_variant WHERE lecture_id = ?",
+                Long.class, id);
+        assertThat(variants).isGreaterThanOrEqualTo(2);
+        PipelineRun run = runRepository.findLatest(id).orElseThrow();
+        assertThat(run.plannedStages())
+                .containsExactlyInAnyOrder(PipelineStage.TEXT_PROCESSING, PipelineStage.EXPORT);
+    }
+
     /** Sanity check that the lease repository rejects a duplicate active claim. */
     @Test
     void leasePreventsConcurrentClaims() throws Exception {

@@ -80,7 +80,7 @@ class SupportWebControllerTest {
         mockMvc.perform(get("/support"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("support"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Поддержка Lecture Processor")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Поддержка materia")));
     }
 
     @Test

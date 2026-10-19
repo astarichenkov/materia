@@ -9,10 +9,11 @@ test('home renders and navigation is not broken', async ({ page }) => {
   page.on('pageerror', (error) => errors.push(String(error)));
   const response = await page.goto('/');
   expect(response.status()).toBe(200);
-  await expect(page.getByRole('heading', { name: 'Lecture Processor', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'materia', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Добавить материал' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Найти видео' }).first()).toBeVisible();
   await expect(page.getByLabel('Ссылка на видео — откроем форму с уже заполненным адресом')).toBeVisible();
+  await expect(page.locator('.appbar__brand')).toContainText('materia');
 
   await page.goto('/add');
   await expect(page.getByRole('heading', { name: 'Добавить материал', level: 1 })).toBeVisible();
@@ -28,7 +29,7 @@ test('home renders and navigation is not broken', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Smart Video Discovery', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Найти' })).toBeVisible();
 
-  await page.getByRole('link', { name: /Lecture Processor/ }).first().click();
+  await page.getByRole('link', { name: /materia/ }).first().click();
   await expect(page).toHaveURL(/\/$/);
   expect(errors).toEqual([]);
 });
@@ -110,6 +111,9 @@ test('htmx is served locally and works offline', async ({ page }) => {
 });
 
 test('settings forms keep their CSRF hidden fields', async ({ page }) => {
+  // Protected pages require the admin token when the instance is configured with one.
+  const token = process.env.LP_ADMIN_TOKEN;
+  if (token) await page.setExtraHTTPHeaders({ 'X-Admin-Token': token });
   const response = await page.goto('/settings');
   expect(response.status()).toBe(200);
   const csrf = page.locator('form input[name="_csrf"]');

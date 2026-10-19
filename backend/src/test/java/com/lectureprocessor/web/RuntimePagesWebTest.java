@@ -41,6 +41,8 @@ import com.lectureprocessor.multilingual.LectureLanguage;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.multilingual.MultilingualProperties;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
 import com.lectureprocessor.pipeline.JobStatusView;
 import com.lectureprocessor.processing.DetailLevel;
 import com.lectureprocessor.processing.MaterialType;
@@ -134,9 +136,12 @@ class RuntimePagesWebTest {
     private ThumbnailService thumbnails;
     @MockitoBean
     private ThumbnailJobQueue thumbnailQueue;
+    @MockitoBean
+    private ScenarioCatalog scenarioCatalog;
 
     @BeforeEach
     void commonStubs() {
+        when(scenarioCatalog.all()).thenReturn(List.of(ProcessingScenario.values()));
         when(promptTemplates.list()).thenReturn(List.of());
         when(processingProfiles.materialTypes()).thenReturn(List.of(MaterialType.AUTO));
         when(processingProfiles.outputFormats()).thenReturn(List.of(OutputFormat.DETAILED_NOTES));
@@ -309,7 +314,7 @@ class RuntimePagesWebTest {
                 .andExpect(view().name("lecture"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Язык и перевод")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Перевод ещё не выполнялся")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Похожих лекций пока нет")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Похожих материалов пока нет")));
     }
 
     @Test
