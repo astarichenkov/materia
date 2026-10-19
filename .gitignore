@@ -40,28 +40,46 @@ output/
 snapshots/*
 !snapshots/.gitignore
 
-# Project export archives
-lecture-processor.zip
-lecture-processor-*.zip
+# Project export archives (never published)
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+lecture-processor*.rar
 
 # Logs
 *.log
 logs/
 
-# Secrets
+# Secrets — real values live only in the environment or local .env
 .env
+.env.*
+!.env.example
 *.local
 secrets.properties
 # Per-installation credential master key (must never be committed)
 .secrets/
 master.key
 *.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # Internal working docs / agent instructions (kept locally, never published)
 AGENTS.md
-docs/
+AGENTS.override.md
+# Working journal that may reference local infrastructure
+**/RESUME.md
 
-# SQLite databases
+# SQLite databases and journals
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm

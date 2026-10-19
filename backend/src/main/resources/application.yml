@@ -230,15 +230,15 @@ app:
 
   # Gitea integration for automated AI code review (Day 32).
   gitea:
-    base-url: ${GITEA_BASE_URL:http://203.0.113.20:8108}
+    base-url: ${GITEA_BASE_URL:https://gitea.example.com}
     # Secrets: env only, never committed. Header Authorization: token <...>.
     token: ${GITEA_TOKEN:}
     webhook-secret: ${GITEA_WEBHOOK_SECRET:}
     # Explicit allow-list of owner/repo that may be reviewed.
-    allowed-repositories: ${GITEA_ALLOWED_REPOS:example-org/materia}
+    allowed-repositories: ${GITEA_ALLOWED_REPOS:}
     timeout: ${GITEA_TIMEOUT:30s}
     # Homelab runs plain HTTP inside the trusted LAN; never expose publicly.
-    allow-http: ${GITEA_ALLOW_HTTP:true}
+    allow-http: ${GITEA_ALLOW_HTTP:false}
 
   code-review:
     enabled: ${CODE_REVIEW_ENABLED:true}

@@ -54,7 +54,7 @@ class VideoPlatformTest {
     void forbiddenAddressesIncludePrivateAndLoopback() throws Exception {
         assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("127.0.0.1"))).isTrue();
         assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("10.0.0.5"))).isTrue();
-        assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("192.168.1.10"))).isTrue();
+        assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("172.16.0.10"))).isTrue();
         assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("169.254.1.1"))).isTrue();
         assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("100.64.0.1"))).isTrue();
         assertThat(UrlSafetyValidator.isForbidden(java.net.InetAddress.getByName("8.8.8.8"))).isFalse();

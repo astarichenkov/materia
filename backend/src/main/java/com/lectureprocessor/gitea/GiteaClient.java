@@ -338,7 +338,7 @@ public class GiteaClient {
 
     private static String normalizeBase(AppProperties.Gitea gitea) {
         String base = gitea.baseUrl() == null || gitea.baseUrl().isBlank()
-                ? "http://203.0.113.20:8108" : gitea.baseUrl().strip();
+                ? "https://gitea.example.com" : gitea.baseUrl().strip();
         URI uri = URI.create(base);
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
         if (!"https".equals(scheme) && !"http".equals(scheme)) {

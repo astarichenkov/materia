@@ -424,8 +424,8 @@ Gitea diff + commit-consistent code RAG + documentation RAG → DeepSeek/Ollama 
 
 ```bash
 export JAVA_HOME=/c/tools/jdk-25.0.2-full
-export GITEA_BASE_URL=http://203.0.113.20:8108
-export GITEA_ALLOWED_REPOS=example-org/materia
+export GITEA_BASE_URL=https://gitea.example.com
+export GITEA_ALLOWED_REPOS=your-org/materia
 export GITEA_WEBHOOK_SECRET="$(head -c 24 /dev/urandom | base64 | tr -d '\n=+/' | head -c 32)"
 export CODE_REVIEW_POLL_SECONDS=20        # polling fallback
 ./mvnw -pl backend spring-boot:run
@@ -518,10 +518,10 @@ export OLLAMA_CHAT_MODEL=qwen3:1.7b OLLAMA_DISABLE_THINKING=true
 | `LP_MASTER_KEY` | мастер-ключ шифрования credentials (base64, 32 байта) | fallback-файл |
 | `LP_ADMIN_TOKEN` | административный токен для `/settings` и `/code-review` | пусто (localhost) |
 | `LLM_FALLBACK_ENABLED` | DeepSeek → Ollama fallback | `false` |
-| `GITEA_BASE_URL` | Gitea base URL | `http://203.0.113.20:8108` |
+| `GITEA_BASE_URL` | Gitea base URL | `https://gitea.example.com` |
 | `GITEA_TOKEN` | API-токен Gitea (только env, не коммитить) | — |
 | `GITEA_WEBHOOK_SECRET` | HMAC-секрет webhook (только env) | — |
-| `GITEA_ALLOWED_REPOS` | allow-list репозиториев `owner/repo` | `example-org/materia` |
+| `GITEA_ALLOWED_REPOS` | allow-list репозиториев `owner/repo` | пусто (все запрещены) |
 | `CODE_REVIEW_ENABLED` | включить AI code review | `true` |
 | `CODE_REVIEW_POLLING` | polling-fallback при недоступном webhook | `true` |
 | `CODE_REVIEW_POLL_SECONDS` | интервал polling | `60` |
@@ -644,3 +644,55 @@ DeepSeek не выполнялся автоматически (требует о
 Демонстрационные сценарии и результаты по дням — в `demos/`.
 Week 8: `demos/multilingual-video-discovery/demo-scenario.md`,
 отчёт с реальными E2E — `docs/multilingual-video-discovery-report.md`.
+
+## Известные ограничения
+
+- Тяжёлые стадии (Whisper, локальная LLM) рассчитаны на CPU/небольшую GPU;
+  на слабом железе длинные материалы обрабатываются заметно дольше.
+- Качество конспекта зависит от модели. Рекомендованная конфигурация для
+  4 GB VRAM: `qwen3:1.7b`, `think=false`, `num_ctx=4096`.
+- Diarization (разделение говорящих) не реализована.
+- Валидатор качества результата эвристический: он показывает предупреждения,
+  но не блокирует документ.
+- Живые smoke-тесты YouTube/VK/Rutube требуют сети и не входят в CI.
+  Поведение платформ и bot-check могут меняться без изменений в проекте.
+- Автоматический перевод оптимизирован для пар сегментов; батчи ограничены
+  (`TRANSLATION_MAX_SEGMENTS`), чтобы локальная модель не дублировала ответы.
+- Live-проверка облачного DeepSeek в CI не выполняется: тесты используют
+  локальный HTTP test double.
+
+## Архитектура
+
+Кратко: `MediaSource → yt-dlp → MediaArtifact → resumable pipeline →
+FFmpeg/Whisper/(Translation)/LLM/Slides → Markdown + DOCX → варианты результата`.
+Стадии идемпотентны и опираются на checkpoint'ы, поэтому смена сценария
+пересчитывает только текстовый результат и экспорт.
+
+Подробности: `docs/materia/architecture.md`, `docs/materia/migration.md`,
+`docs/materia/prompt-system.md`, `docs/week7-ingestion-architecture.md`.
+
+## Безопасность
+
+- Секреты читаются только из переменных окружения или локального `.env`
+  (который исключён из Git). В репозитории нет реальных ключей.
+- Пользовательские API-ключи облачных провайдеров вводятся через UI и
+  хранятся зашифрованными (AES-256-GCM) в локальной БД; ключ шифрования
+  (`LP_MASTER_KEY` или `.secrets/master.key`) не публикуется.
+- Токены и пароли не логируются; сообщения об ошибках проходят санитизацию,
+  а вывод инструментов — редактирование секретов (`SecretRedactor`).
+- Административные разделы (`/settings`, `/diagnostics`, `/code-review`)
+  защищены: loopback по умолчанию либо `LP_ADMIN_TOKEN`; state-changing
+  запросы требуют CSRF-токен.
+- Gitea-интеграция использует allow-list репозиториев и хостов, HMAC-подпись
+  webhook и запрет HTTP вне доверенной локальной сети.
+- Загрузка по URL защищена от SSRF (проверка схемы, DNS и приватных адресов),
+  а File Agent ограничен рабочим каталогом проекта и approval-процессом.
+- Перед публикацией репозиторий проверяется `gitleaks` по дереву и истории.
+
+Если вы нашли уязвимость, не создавайте публичный issue — см. `SECURITY.md`.
+
+## Лицензия
+
+Файл `LICENSE` в репозитории отсутствует: лицензия пока не выбрана владельцем
+проекта. До её добавления код не следует распространять как open source —
+см. `SECURITY.md` и `CONTRIBUTING.md`.

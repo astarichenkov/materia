@@ -39,9 +39,9 @@ import urllib.request
 # Hosts allowed to receive the token. Only the trusted Gitea instance and
 # loopback addresses are permitted by default. Override intentionally with
 # GITEA_TRUSTED_HOSTS (comma-separated) if the instance moves.
-DEFAULT_TRUSTED_HOSTS = {"203.0.113.20", "localhost", "127.0.0.1", "::1"}
+DEFAULT_TRUSTED_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
-DEFAULT_BASE_URL = "http://203.0.113.20:8108"
+DEFAULT_BASE_URL = "https://gitea.example.com"
 CONNECT_TIMEOUT_S = 5
 READ_TIMEOUT_S = 15
 # urllib applies a single socket timeout for connect+read; use the larger of

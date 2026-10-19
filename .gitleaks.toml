@@ -1,0 +1,13 @@
+# gitleaks configuration for Materia.
+# Extends the bundled rules and allow-lists only documented, intentionally fake
+# fixtures that exist to test secret redaction.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Secret-redaction test fixtures use obvious placeholder values"
+paths = [
+  '''backend/src/test/java/com/lectureprocessor/support/SupportAnswerValidatorTest\.java''',
+  '''backend/src/test/resources/.*''',
+]

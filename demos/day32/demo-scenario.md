@@ -11,7 +11,7 @@ Gitea pull request → webhook/polling trigger → commit-consistent code + docs
 - A Gitea instance with a personal access token in the environment as
   `GITEA_TOKEN` (scopes: `read:repository`, `write:issue`). Never commit it.
 - The reviewer repository is explicitly allow-listed
-  (`GITEA_ALLOWED_REPOS=example-org/materia`).
+  (`GITEA_ALLOWED_REPOS=your-org/materia`).
 - DeepSeek is optional but recommended for the primary reviewer; the API key is
   entered per installation in `/settings` (Day 32 preparation) and is never
   stored in git or returned by an API. Without it, the review falls back to the
@@ -24,8 +24,8 @@ export JAVA_HOME=/c/tools/jdk-25.0.2-full
 export PATH="$JAVA_HOME/bin:/c/tools/ffmpeg/ffmpeg-9.0.2-essentials_build/bin:/c/tools/whisper/bin/Release:$PATH"
 
 # Gitea integration (secrets come from the environment, not from files)
-export GITEA_BASE_URL=http://203.0.113.20:8108
-export GITEA_ALLOWED_REPOS=example-org/materia
+export GITEA_BASE_URL=https://gitea.example.com
+export GITEA_ALLOWED_REPOS=your-org/materia
 export GITEA_WEBHOOK_SECRET="$(head -c 24 /dev/urandom | base64 | tr -d '\n=+/' | head -c 32)"
 printf '%s' "$GITEA_WEBHOOK_SECRET" > /tmp/lp-day32-webhook.secret   # reuse for the Gitea hook
 
@@ -47,7 +47,7 @@ SECRET="$(cat /tmp/lp-day32-webhook.secret)"
 curl -s -X POST -H "Authorization: token $GITEA_TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{\"type\":\"gitea\",\"active\":true,\"events\":[\"pull_request\"],\"config\":{\"url\":\"http://<WINDOWS_LAN_IP>:8080/api/code-review/webhook/gitea\",\"content_type\":\"json\",\"secret\":\"$SECRET\"}}" \
-  http://203.0.113.20:8108/api/v1/repos/example-org/materia/hooks
+  https://gitea.example.com/api/v1/repos/your-org/materia/hooks
 ```
 
 The webhook endpoint is public (Gitea must reach it) but **rejects** any request
@@ -76,7 +76,7 @@ Create the PR (base = the Day 32 feature branch) via the Gitea API or UI:
 curl -s -X POST -H "Authorization: token $GITEA_TOKEN" -H 'Content-Type: application/json' \
   -d '{"head":"demo/day32-ai-review","base":"feature/week7-day32-code-review",
        "title":"Day 32 demo: pricing calculator","body":"Intentional defects, do not merge."}' \
-  http://203.0.113.20:8108/api/v1/repos/example-org/materia/pulls
+  https://gitea.example.com/api/v1/repos/your-org/materia/pulls
 ```
 
 ## 5. Expected result
