@@ -49,8 +49,8 @@
         <form th:if="${template.builtIn}" method="post"
               th:action="@{/settings/prompts/{id}/copy(id=${template.id})}">
             <input type="hidden" name="_csrf" th:value="${csrfToken}">
-            <label class="visually-hidden" th:for="'copy-name-' + ${template.id}">Название копии</label>
-            <input th:id="'copy-name-' + ${template.id}" type="text" name="name"
+            <label class="visually-hidden" th:for="${'copy-name-' + template.id}">Название копии</label>
+            <input th:id="${'copy-name-' + template.id}" type="text" name="name"
                    placeholder="Название копии" maxlength="200">
             <button type="submit" class="btn-secondary">Создать копию</button>
         </form>
@@ -59,13 +59,13 @@
               th:action="@{/settings/prompts/{id}/update(id=${template.id})}">
             <input type="hidden" name="_csrf" th:value="${csrfToken}">
             <p>
-                <label th:for="'title-' + ${template.id}">Название</label>
-                <input th:id="'title-' + ${template.id}" type="text" name="title"
+                <label th:for="${'title-' + template.id}">Название</label>
+                <input th:id="${'title-' + template.id}" type="text" name="title"
                        th:value="${template.name}" maxlength="200">
             </p>
             <p>
-                <label th:for="'body-' + ${template.id}">Текст шаблона</label>
-                <textarea th:id="'body-' + ${template.id}" name="body" rows="12"
+                <label th:for="${'body-' + template.id}">Текст шаблона</label>
+                <textarea th:id="${'body-' + template.id}" name="body" rows="12"
                           th:text="${template.body}"></textarea>
             </p>
             <button type="submit" class="btn btn-primary">Сохранить новую версию</button>
