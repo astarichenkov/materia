@@ -67,6 +67,7 @@ test.describe('nightly roadmap: covers and selective re-run', () => {
 });
 
 test('editor tabs are keyboard accessible and track unsaved changes', async ({ page }) => {
+  test.skip(!lectureId, 'set LP_E2E_LECTURE=<lecture-id> to run against a processed lecture');
   await page.goto(`/lectures/${lectureId}/editor`);
   const transcriptTab = page.getByRole('tab', { name: 'Оригинал' });
   await expect(transcriptTab).toHaveAttribute('aria-selected', 'true');

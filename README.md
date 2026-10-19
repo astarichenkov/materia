@@ -693,6 +693,8 @@ FFmpeg/Whisper/(Translation)/LLM/Slides → Markdown + DOCX → варианты
 
 ## Лицензия
 
-Файл `LICENSE` в репозитории отсутствует: лицензия пока не выбрана владельцем
-проекта. До её добавления код не следует распространять как open source —
-см. `SECURITY.md` и `CONTRIBUTING.md`.
+Materia распространяется по **Apache License, Version 2.0** — полный текст в
+`LICENSE`. Уведомления о сторонних компонентах — в `THIRD_PARTY_NOTICES.md` и
+`NOTICE`. Внешние инструменты (FFmpeg, whisper.cpp, yt-dlp, Ollama и модели)
+не входят в репозиторий и устанавливаются пользователем на условиях их
+собственных лицензий.

@@ -3,3 +3,5 @@
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
 mvnw text eol=lf
+LICENSE text eol=lf
+NOTICE text eol=lf
