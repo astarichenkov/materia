@@ -48,6 +48,8 @@ public class PipelineCoordinator {
     private final JobProgressRegistry progressRegistry;
     private final TimingRepository timings;
     private final FileStorageService storage;
+    private final PipelinePlanner planner;
+    private final com.lectureprocessor.repository.PipelineRunRepository runs;
 
     private final Map<String, CancellationToken> tokens = new ConcurrentHashMap<>();
     /**
@@ -60,7 +62,8 @@ public class PipelineCoordinator {
     public PipelineCoordinator(List<StageExecutor> stages, PipelineJobRepository jobRepository,
             StageCheckpointRepository checkpointRepository, LectureRepository lectureRepository,
             PipelineDataLoader loader, JobProgressRegistry progressRegistry, TimingRepository timings,
-            FileStorageService storage) {
+            FileStorageService storage, PipelinePlanner planner,
+            com.lectureprocessor.repository.PipelineRunRepository runs) {
         this.stages = stages.stream()
                 .sorted(Comparator.comparingInt(s -> s.id().ordinal()))
                 .toList();
@@ -71,6 +74,8 @@ public class PipelineCoordinator {
         this.progressRegistry = progressRegistry;
         this.timings = timings;
         this.storage = storage;
+        this.planner = planner;
+        this.runs = runs;
     }
 
     public boolean isRunning(String lectureId) {
@@ -136,7 +141,7 @@ public class PipelineCoordinator {
             log.debug("Lecture {} is already running in this process", lectureId);
             return;
         }
-        progressRegistry.set(JobProgress.queued(lectureId, stages.size()));
+        progressRegistry.set(JobProgress.queued(lectureId, stages.size(), null));
         com.lectureprocessor.process.CancellationContext.set(token);
         if (!jobRepository.claim(lectureId, owner, Instant.now().plus(LEASE_DURATION))) {
             log.info("Lecture {} is already leased by another run; skipping", lectureId);
@@ -150,9 +155,18 @@ public class PipelineCoordinator {
         long totalStart = System.nanoTime();
         JobContext context = new JobContext(lectureId, token);
         context.setLecture(loader.lecture(lectureId));
+        // Build the plan BEFORE the first stage so the UI can show what this run
+        // will actually do (and never inherit the previous run's 100%).
+        ensureContext(context);
+        java.util.List<PipelineStage> planned = new java.util.ArrayList<>(planner.plannedStages(context));
+        String runId = runs.create(lectureId, planned);
+        context.setRunId(runId);
+        progressRegistry.update(lectureId, p -> p == null ? null
+                : p.withRun(runId, JobState.QUEUED, 0, planned.size(), "Запуск создан"));
         try {
             // A cancel may have raced with the executor hand-off.
             if (pendingCancellations.remove(lectureId)) {
+                runs.finish(runId, JobState.CANCELLED, "Отменено пользователем", "Отменено пользователем");
                 checkpointRepository.cancelRunning(lectureId);
                 updateStatus(context, JobStatus.CANCELLED);
                 jobRepository.finish(lectureId, JobState.CANCELLED, "Отменено пользователем");
@@ -162,18 +176,39 @@ public class PipelineCoordinator {
                 return;
             }
             int index = 0;
+            int runDone = 0;
+            runs.start(runId);
             for (StageExecutor stage : stages) {
                 token.throwIfCancelled();
                 ensureContext(context);
                 jobRepository.renewLease(lectureId, owner, Instant.now().plus(LEASE_DURATION));
                 index++;
 
-                String fingerprint = stage.inputFingerprint(context);
-                if (isCheckpointValid(lectureId, stage, fingerprint)) {
-                    log.info("Lecture {} stage {} reused from checkpoint", lectureId, stage.id());
-                    updateProgress(lectureId, stage, index, "Пропущено (уже выполнено)");
+                PipelinePlanner.Evaluation evaluation = planner.evaluate(context, stage);
+                if (!evaluation.required()) {
+                    log.info("Lecture {} stage {} is not required", lectureId, stage.id());
+                    updateProgress(lectureId, stage, index, stage.id().title() + ": не требуется");
                     continue;
                 }
+                if (evaluation.reusable()) {
+                    log.info("Lecture {} stage {} reused from checkpoint", lectureId, stage.id());
+                    if (planned.contains(stage.id())) {
+                        runDone++;
+                    }
+                    final int doneNow = runDone;
+                    updateProgress(lectureId, stage, index, "Пропущено (уже выполнено)");
+                    progressRegistry.update(lectureId, p -> p == null ? null
+                            : p.withRun(runId, JobState.RUNNING, doneNow, planned.size(),
+                                    stage.id().title() + ": используется готовый результат"));
+                    continue;
+                }
+                if (!planned.contains(stage.id())) {
+                    // An upstream stage just ran and changed this stage's input.
+                    // Extend the persisted plan so preview/execution stay aligned.
+                    planned.add(stage.id());
+                    runs.setPlan(runId, planned);
+                }
+                String fingerprint = evaluation.fingerprint();
                 // No blanket invalidation of downstream checkpoints: every stage
                 // fingerprint covers its own inputs (transcript key, translation
                 // state, notes file, media key). A format-only change therefore
@@ -182,6 +217,12 @@ public class PipelineCoordinator {
                 updateStatus(context, statusFor(stage.id()));
                 jobRepository.updateProgress(lectureId, owner, stage.id());
                 updateProgress(lectureId, stage, index, stage.id().title());
+                runs.currentStage(runId, stage.id(), runDone, planned.size(), stage.id().title());
+                final int plannedSize = planned.size();
+                final int doneBeforeStage = runDone;
+                progressRegistry.update(lectureId, p -> p == null ? null
+                        : p.withRun(runId, JobState.RUNNING, doneBeforeStage, plannedSize,
+                                stage.id().title()));
                 log.info("Lecture {} -> stage {}", lectureId, stage.id());
 
                 StageResult result;
@@ -206,6 +247,14 @@ public class PipelineCoordinator {
                 if (result.state() == StageState.COMPLETED) {
                     checkpointRepository.complete(lectureId, stage.id(), result.manifest());
                     result.warnings().forEach(context::addWarning);
+                    runDone++;
+                    final int doneNow = runDone;
+                    final int totalPlanned = planned.size();
+                    runs.currentStage(runId, stage.id(), doneNow, totalPlanned,
+                            "Готово: " + stage.id().title());
+                    progressRegistry.update(lectureId, p -> p == null ? null
+                            : p.withRun(runId, JobState.RUNNING, doneNow, totalPlanned,
+                                    "Готово: " + stage.id().title()));
                     continue;
                 }
                 if (result.state() == StageState.CANCELLED) {
@@ -230,7 +279,13 @@ public class PipelineCoordinator {
             updateStatus(context, finalStatus);
             jobRepository.finish(lectureId, finalState, null);
             timings.record(lectureId, TimingRepository.TOTAL, elapsedMs(totalStart));
-            progressRegistry.update(lectureId, p -> p == null ? null : p.withState(finalState));
+            String finishMessage = context.partialSuccess()
+                    ? "Готово с предупреждениями: документы созданы"
+                    : "Готово: новый результат создан";
+            runs.finish(runId, finalState, finishMessage, null);
+            progressRegistry.update(lectureId, p -> p == null ? null
+                    : p.withRun(runId, finalState, planned.size(), planned.size(), finishMessage)
+                            .withState(finalState));
             log.info("Lecture {} finished with state {}", lectureId, finalState);
         } catch (ProcessCancelledException e) {
             log.info("Lecture {} cancelled", lectureId);
@@ -238,8 +293,10 @@ public class PipelineCoordinator {
             checkpointRepository.cancelRunning(lectureId);
             updateStatus(context, JobStatus.CANCELLED);
             jobRepository.finish(lectureId, JobState.CANCELLED, "Отменено пользователем");
+            runs.finish(runId, JobState.CANCELLED, "Отменено пользователем", "Отменено пользователем");
             progressRegistry.update(lectureId, p -> p == null ? null
-                    : p.withState(JobState.CANCELLED).withMessage("Отменено пользователем"));
+                    : p.withRun(runId, JobState.CANCELLED, 0, 0, "Отменено пользователем")
+                            .withState(JobState.CANCELLED));
         } catch (RuntimeException e) {
             log.error("Lecture {} pipeline failed: {}", lectureId, e.getMessage(), e);
             fail(context, lectureId, e.getMessage());
@@ -263,22 +320,6 @@ public class PipelineCoordinator {
         }
     }
 
-    private boolean isCheckpointValid(String lectureId, StageExecutor stage, String fingerprint) {
-        Optional<StageCheckpoint> checkpoint = checkpointRepository.find(lectureId, stage.id());
-        if (checkpoint.isEmpty()) {
-            return false;
-        }
-        StageCheckpoint cp = checkpoint.get();
-        if (cp.state() != StageState.COMPLETED) {
-            return false;
-        }
-        if (fingerprint == null || !fingerprint.equals(cp.fingerprint())) {
-            log.info("Lecture {} stage {} fingerprint changed; invalidating", lectureId, stage.id());
-            return false;
-        }
-        return cp.manifest().isValid(storage, lectureId);
-    }
-
     private int attemptNumber(String lectureId) {
         return jobRepository.find(lectureId).map(PipelineJob::attempts).orElse(1);
     }
@@ -295,8 +336,12 @@ public class PipelineCoordinator {
         updateStatus(context, JobStatus.FAILED);
         lectureRepository.save(loader.lecture(lectureId).withError(safeMessage));
         jobRepository.finish(lectureId, JobState.FAILED, safeMessage);
+        if (context.runId() != null) {
+            runs.finish(context.runId(), JobState.FAILED, "Ошибка: " + safeMessage, safeMessage);
+        }
         progressRegistry.update(lectureId, p -> p == null ? null
-                : p.withState(JobState.FAILED).withMessage(safeMessage));
+                : p.withRun(context.runId(), JobState.FAILED, 0, 0, "Ошибка: " + safeMessage)
+                        .withState(JobState.FAILED).withMessage(safeMessage));
     }
 
     private void updateProgress(String lectureId, StageExecutor stage, int index, String message) {

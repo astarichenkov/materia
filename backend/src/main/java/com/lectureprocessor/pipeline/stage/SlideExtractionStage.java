@@ -55,6 +55,11 @@ public class SlideExtractionStage implements StageExecutor {
     }
 
     @Override
+    public boolean isRequired(JobContext context) {
+        return context.lecture() != null && context.lecture().extractSlides();
+    }
+
+    @Override
     public String inputFingerprint(JobContext context) {
         AppProperties.Slides slides = properties.slides();
         boolean extract = context.lecture() != null && context.lecture().extractSlides();

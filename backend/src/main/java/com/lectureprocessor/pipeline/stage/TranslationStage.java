@@ -84,6 +84,14 @@ public class TranslationStage implements StageExecutor {
     }
 
     @Override
+    public boolean isRequired(JobContext context) {
+        if (!properties.enabled()) {
+            return false;
+        }
+        return resolvedLanguage(context).resolvedTranslationMode().wantsTranslation();
+    }
+
+    @Override
     public String inputFingerprint(JobContext context) {
         LectureLanguage language = resolvedLanguage(context);
         TranslationMode mode = language.resolvedTranslationMode();

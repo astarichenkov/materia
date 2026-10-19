@@ -17,6 +17,12 @@ public record StageResult(
         return new StageResult(stage, StageState.COMPLETED, manifest, null, durationMs, List.of());
     }
 
+    public static StageResult completed(PipelineStage stage, ArtifactManifest manifest, long durationMs,
+            List<String> warnings) {
+        return new StageResult(stage, StageState.COMPLETED, manifest, null, durationMs,
+                warnings == null ? List.of() : List.copyOf(warnings));
+    }
+
     public static StageResult failed(PipelineStage stage, String error, long durationMs) {
         return new StageResult(stage, StageState.FAILED, ArtifactManifest.empty(), error, durationMs,
                 List.of());

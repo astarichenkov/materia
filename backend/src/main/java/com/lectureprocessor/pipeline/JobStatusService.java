@@ -14,6 +14,7 @@ import com.lectureprocessor.domain.Lecture;
 import com.lectureprocessor.repository.DownloadStateRepository;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
+import com.lectureprocessor.repository.PipelineRunRepository;
 import com.lectureprocessor.repository.StageCheckpointRepository;
 
 /**
@@ -35,15 +36,18 @@ public class JobStatusService {
     private final StageCheckpointRepository checkpointRepository;
     private final DownloadStateRepository downloadStateRepository;
     private final JobProgressRegistry progressRegistry;
+    private final PipelineRunRepository runRepository;
 
     public JobStatusService(LectureRepository lectureRepository, PipelineJobRepository jobRepository,
             StageCheckpointRepository checkpointRepository,
-            DownloadStateRepository downloadStateRepository, JobProgressRegistry progressRegistry) {
+            DownloadStateRepository downloadStateRepository, JobProgressRegistry progressRegistry,
+            PipelineRunRepository runRepository) {
         this.lectureRepository = lectureRepository;
         this.jobRepository = jobRepository;
         this.checkpointRepository = checkpointRepository;
         this.downloadStateRepository = downloadStateRepository;
         this.progressRegistry = progressRegistry;
+        this.runRepository = runRepository;
     }
 
     public JobStatusView view(String lectureId) {
@@ -70,6 +74,11 @@ public class JobStatusService {
                 : (int) Math.round(completed * 100.0 / allStages.length);
         if (running) {
             progressPercent = (int) Math.round((current.ordinal() + 1) * 100.0 / allStages.length);
+        } else if (terminal && (effectiveJobState == JobState.COMPLETED
+                || effectiveJobState == JobState.PARTIAL)) {
+            // A successful lecture is 100% even when optional stages (translation,
+            // slides, RAG) have no checkpoint because they were not required.
+            progressPercent = 100;
         }
 
         List<JobStatusView.StageView> stageViews = new ArrayList<>();
@@ -94,6 +103,7 @@ public class JobStatusService {
                 .forEach(cp -> warnings.add(cp.stage() + ": " + cp.error()));
 
         String message = message(lecture, job, effectiveJobState, terminal);
+        JobStatusView.RunView run = buildRunView(lectureId, effectiveJobState, terminal);
 
         return new JobStatusView(lectureId, statusName(effectiveJobState, lecture.status()),
                 lecture.status().name(),
@@ -102,7 +112,83 @@ public class JobStatusService {
                 current == null ? null : current.name(),
                 current == null ? null : current.title(),
                 stageIndex, allStages.length, progressPercent, message, download, stageViews, warnings,
-                terminal);
+                terminal, run);
+    }
+
+    /**
+     * Builds the run-scoped view. Only the latest run is shown; its percentage is
+     * computed from its own planned stages so a reused pipeline never reads as a
+     * completed new generation.
+     */
+    private JobStatusView.RunView buildRunView(String lectureId,
+            JobState effectiveJobState, boolean terminal) {
+        Optional<PipelineRun> latest = runRepository.findLatest(lectureId);
+        if (latest.isEmpty()) {
+            return null;
+        }
+        PipelineRun run = latest.get();
+        Map<PipelineStage, StageCheckpoint> checkpointsByStage = checkpointRepository
+                .findByLecture(lectureId).stream()
+                .collect(Collectors.toMap(StageCheckpoint::stage, Function.identity(), (a, b) -> a));
+        boolean runTerminal = run.terminal();
+        List<JobStatusView.RunStageView> runStages = new ArrayList<>();
+        for (PipelineStage stage : run.plannedStages()) {
+            StageCheckpoint cp = checkpointsByStage.get(stage);
+            String state;
+            String detail = null;
+            boolean completedInThisRun = cp != null && cp.state() == StageState.COMPLETED
+                    && cp.finishedAt() != null && !cp.finishedAt().isBefore(run.createdAt());
+            if (run.currentStage() == stage && !runTerminal) {
+                state = "RUNNING";
+            } else if (completedInThisRun) {
+                state = "COMPLETED";
+            } else if (runTerminal) {
+                state = run.state() == JobState.CANCELLED ? "CANCELLED" : "SKIPPED";
+            } else {
+                state = "PENDING";
+            }
+            if (run.currentStage() == stage && run.stageTotal() > 0) {
+                detail = "обработано " + run.stageDone() + " из " + run.stageTotal() + " фрагментов";
+            }
+            runStages.add(new JobStatusView.RunStageView(stage.name(), stage.title(), state, detail));
+        }
+        int percent = run.percent();
+        if (run.currentStage() != null && !runTerminal && run.stageTotal() > 0) {
+            // Fine-grained chunk progress inside the current stage, blended with
+            // completed stages; never reaches 100 before the run succeeds.
+            int planned = Math.max(run.plannedStages().size(), 1);
+            double stageFraction = Math.min(0.99, (double) run.stageDone() / run.stageTotal());
+            int completedStages = (int) runStages.stream()
+                    .filter(s -> "COMPLETED".equals(s.state())).count();
+            percent = Math.min(99, (int) Math.round((completedStages + stageFraction) * 100.0 / planned));
+        }
+        String stateLabel = switch (run.state()) {
+            case QUEUED -> "Ожидает";
+            case RUNNING -> "Выполняется";
+            case COMPLETED -> "Готово";
+            case PARTIAL -> "Готово с предупреждениями";
+            case FAILED -> "Ошибка";
+            case CANCELLED -> "Отменён";
+            case INTERRUPTED -> "Прерван";
+        };
+        String message = run.message();
+        if (run.state() == JobState.COMPLETED && (message == null || message.isBlank())) {
+            message = "Готово: новый результат создан";
+        }
+        if (runTerminal && !run.succeeded() && effectiveJobState == JobState.COMPLETED) {
+            // The run is the authoritative terminal state for its own progress.
+            stateLabel = "Завершён";
+        }
+        String stageProgress = run.stageTotal() > 0
+                ? run.stageDone() + " из " + run.stageTotal() + " фрагментов" : null;
+        return new JobStatusView.RunView(run.id(), run.state() == null ? null : run.state().name(),
+                stateLabel, message,
+                run.currentStage() == null ? null : run.currentStage().name(),
+                run.currentStage() == null ? null : run.currentStage().title(),
+                percent, run.stageDone(), run.plannedStages().size(),
+                run.createdAt() == null ? null : run.createdAt().toString(),
+                run.finishedAt() == null ? null : run.finishedAt().toString(),
+                stageProgress, runStages);
     }
 
     /**
@@ -164,6 +250,8 @@ public class JobStatusService {
                         job == null ? null : job.error(), "Обработка завершилась ошибкой");
                 case INTERRUPTED -> nonBlank(lecture.errorMessage(),
                         job == null ? null : job.error(), "Обработка прервана");
+                case COMPLETED -> "Готово: документы созданы";
+                case PARTIAL -> "Готово с предупреждениями: документы созданы";
                 default -> "";
             };
         }

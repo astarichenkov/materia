@@ -8,6 +8,7 @@ import com.lectureprocessor.domain.Transcript;
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.media.MediaArtifact;
 import com.lectureprocessor.media.MediaSource;
+import com.lectureprocessor.processing.ProcessingProfile;
 import com.lectureprocessor.process.CancellationToken;
 import com.lectureprocessor.text.StructuredNotes;
 
@@ -28,6 +29,8 @@ public final class JobContext {
     private Transcript transcript;
     private StructuredNotes notes;
     private LlmRunConfig llmConfig;
+    private ProcessingProfile profileOverride;
+    private String runId;
     private boolean textProcessed;
     private boolean partialSuccess;
 
@@ -98,6 +101,24 @@ public final class JobContext {
 
     public void setLlmConfig(LlmRunConfig llmConfig) {
         this.llmConfig = llmConfig;
+    }
+
+    /** Requested profile used by previews; never set during a normal execution. */
+    public ProcessingProfile profileOverride() {
+        return profileOverride;
+    }
+
+    public void setProfileOverride(ProcessingProfile profileOverride) {
+        this.profileOverride = profileOverride;
+    }
+
+    /** Identifier of the persisted pipeline run this context belongs to. */
+    public String runId() {
+        return runId;
+    }
+
+    public void setRunId(String runId) {
+        this.runId = runId;
     }
 
     public boolean textProcessed() {

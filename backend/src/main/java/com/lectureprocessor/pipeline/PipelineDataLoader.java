@@ -29,6 +29,7 @@ public class PipelineDataLoader {
     public static final String NOTES_JSON = "notes.json";
     public static final String NOTES_MD = "notes.md";
     public static final String CLEANED_TXT = "cleaned.txt";
+    public static final String NOTES_QUALITY_JSON = "notes-quality.json";
     public static final String DOCX = "notes.docx";
     public static final String TRANSLATION_JSON = "translation.json";
     public static final String TRANSCRIPT_ORIGINAL_MD = "transcript.original.md";
@@ -102,6 +103,34 @@ public class PipelineDataLoader {
             String json = Files.readString(path, StandardCharsets.UTF_8);
             return transcriptParser.parse(json);
         } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** Persists the heuristic quality report next to the notes. */
+    public void writeQuality(String lectureId, com.lectureprocessor.text.TextQualityReport report) {
+        if (report == null) {
+            return;
+        }
+        Path path = storage.resolve(lectureId, NOTES_QUALITY_JSON);
+        try {
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, objectMapper.writeValueAsString(report),
+                    StandardCharsets.UTF_8);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Не удалось сохранить отчёт качества", e);
+        }
+    }
+
+    public com.lectureprocessor.text.TextQualityReport quality(String lectureId) {
+        Path path = storage.resolve(lectureId, NOTES_QUALITY_JSON);
+        if (!Files.isRegularFile(path)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(Files.readString(path, StandardCharsets.UTF_8),
+                    com.lectureprocessor.text.TextQualityReport.class);
+        } catch (RuntimeException | IOException e) {
             return null;
         }
     }

@@ -32,7 +32,12 @@ import com.lectureprocessor.pipeline.StageExecutor;
 import com.lectureprocessor.pipeline.StageResult;
 import com.lectureprocessor.repository.TimingRepository;
 import com.lectureprocessor.storage.FileStorageService;
+import com.lectureprocessor.pipeline.JobProgressRegistry;
+import com.lectureprocessor.pipeline.JobState;
+import com.lectureprocessor.repository.PipelineRunRepository;
+import com.lectureprocessor.text.ChunkProgressListener;
 import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.text.TextQualityReport;
 import com.lectureprocessor.text.StructuredNotes;
 import com.lectureprocessor.text.TextProcessingService;
 
@@ -57,12 +62,15 @@ public class TextProcessingStage implements StageExecutor {
     private final MultilingualProperties multilingual;
     private final ProcessingProfileService profiles;
     private final OutputVariantService variants;
+    private final JobProgressRegistry progressRegistry;
+    private final PipelineRunRepository runs;
 
     public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
             HeavyStageLimiter limiter, PipelineDataLoader loader, TranslationRepository translations,
             LectureLanguageRepository languageRepository, MultilingualProperties multilingual,
-            ProcessingProfileService profiles, OutputVariantService variants) {
+            ProcessingProfileService profiles, OutputVariantService variants,
+            JobProgressRegistry progressRegistry, PipelineRunRepository runs) {
         this.textProcessing = textProcessing;
         this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
@@ -75,6 +83,8 @@ public class TextProcessingStage implements StageExecutor {
         this.multilingual = multilingual;
         this.profiles = profiles;
         this.variants = variants;
+        this.progressRegistry = progressRegistry;
+        this.runs = runs;
     }
 
     @Override
@@ -84,14 +94,20 @@ public class TextProcessingStage implements StageExecutor {
 
     @Override
     public String inputFingerprint(JobContext context) {
-        LlmRunConfig config = llmSettings.current();
+        // The fingerprint must describe the configuration that will actually be
+        // used, not the global default: the task may resolve to another provider
+        // or model. Preview and execution therefore share this exact code path.
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
+        LlmRunConfig config = resolved.config();
         String transcriptKey = Fingerprints.mediaKey(
                 storage.resolve(context.lectureId(), PipelineDataLoader.TRANSCRIPT_JSON));
         String translationKey = translations.findLatest(context.lectureId())
                 .map(t -> t.id() + ":" + t.status() + ":" + t.segmentsTranslated())
                 .orElse("none");
-        ProcessingProfile profile = profiles.get(context.lectureId());
+        ProcessingProfile profile = context.profileOverride() != null
+                ? context.profileOverride() : profiles.get(context.lectureId());
         return Fingerprints.of("text-processing", transcriptKey, translationKey,
+                String.valueOf(resolved.providerId()),
                 String.valueOf(config.provider()),
                 String.valueOf(config.model()), String.valueOf(config.temperature()),
                 String.valueOf(config.maxTokens()), String.valueOf(config.contextWindow()),
@@ -131,28 +147,34 @@ public class TextProcessingStage implements StageExecutor {
 
         String cleaned = null;
         StructuredNotes notes;
+        TextQualityReport quality = TextQualityReport.empty();
+        ChunkProgressListener progress = chunkProgress(context);
         if (profile.outputFormat().cleanTranscript()) {
             final String prompt = notesPrompt;
             TextProcessingService.CleanedTranscriptDocument document = limiter.run(
                     context.cancellation(),
                     () -> textProcessing.cleanTranscriptDocument(resolved.provider(),
-                            source.segments(), options, prompt));
+                            source.segments(), options, prompt, progress));
             cleaned = document.cleanedText();
             notes = document.notes();
         } else {
             final String instructions = profile.instructions();
+            final String contract = profile.outputFormat().structureContract();
             cleaned = limiter.run(context.cancellation(),
                     () -> clean ? textProcessing.cleanTranscript(resolved.provider(),
                             source.segments(), options)
                             : null);
             context.cancellation().throwIfCancelled();
-            notes = limiter.run(context.cancellation(),
+            TextProcessingService.GeneratedNotes generated = limiter.run(context.cancellation(),
                     () -> textProcessing.generateStructuredNotes(resolved.provider(),
-                            source.segments(), options, notesPrompt, instructions));
+                            source.segments(), options, notesPrompt, instructions, contract, progress));
+            notes = generated.notes();
+            quality = generated.quality();
         }
         context.cancellation().throwIfCancelled();
 
         loader.writeNotes(context.lectureId(), notes);
+        loader.writeQuality(context.lectureId(), quality);
         if (cleaned != null) {
             loader.writeString(context.lectureId(), PipelineDataLoader.CLEANED_TXT, cleaned);
         }
@@ -165,8 +187,26 @@ public class TextProcessingStage implements StageExecutor {
         return StageResult.completed(id(),
                 ArtifactManifest.of(
                         ArtifactManifest.required("notes", PipelineDataLoader.NOTES_JSON),
-                        ArtifactManifest.optional("cleaned", PipelineDataLoader.CLEANED_TXT)),
-                System.currentTimeMillis() - start);
+                        ArtifactManifest.optional("cleaned", PipelineDataLoader.CLEANED_TXT),
+                        ArtifactManifest.optional("quality", PipelineDataLoader.NOTES_QUALITY_JSON)),
+                System.currentTimeMillis() - start, quality.warnings());
+    }
+
+    /**
+     * Reports real chunk progress into the current run. Only the count is
+     * reported — no invented percentage or ETA.
+     */
+    private ChunkProgressListener chunkProgress(JobContext context) {
+        return (completed, total) -> {
+            String runId = context.runId();
+            if (runId == null) {
+                return;
+            }
+            String message = "Обработка текста: " + completed + " из " + total + " фрагментов";
+            runs.currentStage(runId, PipelineStage.TEXT_PROCESSING, completed, total, message);
+            progressRegistry.update(context.lectureId(), p -> p == null ? null
+                    : p.withRun(runId, JobState.RUNNING, completed, total, message));
+        };
     }
 
     /**

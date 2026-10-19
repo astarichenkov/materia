@@ -32,4 +32,13 @@ public interface StageExecutor {
     default boolean requiredForExport() {
         return true;
     }
+
+    /**
+     * Whether the stage has any work to do for this lecture. A disabled stage is
+     * skipped by the coordinator and shown as SKIP in the re-run plan, so the
+     * preview and the execution agree.
+     */
+    default boolean isRequired(JobContext context) {
+        return true;
+    }
 }

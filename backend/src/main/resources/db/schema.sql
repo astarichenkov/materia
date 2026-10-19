@@ -490,3 +490,39 @@ CREATE TABLE IF NOT EXISTS lecture_output_variant (
 );
 CREATE INDEX IF NOT EXISTS idx_lecture_variant_lecture
     ON lecture_output_variant(lecture_id, id);
+
+-- Nightly sprint 2: per-run progress ledger and user prompt templates.
+CREATE TABLE IF NOT EXISTS pipeline_run (
+    id             TEXT PRIMARY KEY,
+    lecture_id     TEXT NOT NULL,
+    state          TEXT NOT NULL,
+    planned_stages TEXT NOT NULL,
+    current_stage  TEXT,
+    message        TEXT,
+    error          TEXT,
+    stage_done     INTEGER NOT NULL DEFAULT 0,
+    stage_total    INTEGER NOT NULL DEFAULT 0,
+    created_at     TEXT NOT NULL,
+    started_at     TEXT,
+    finished_at    TEXT,
+    FOREIGN KEY (lecture_id) REFERENCES lecture(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_lecture
+    ON pipeline_run(lecture_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS prompt_template (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT,
+    source_template TEXT,
+    body            TEXT NOT NULL,
+    version         INTEGER NOT NULL DEFAULT 1,
+    material_types  TEXT,
+    output_formats  TEXT,
+    built_in        INTEGER NOT NULL DEFAULT 1,
+    status          TEXT NOT NULL DEFAULT 'ACTIVE',
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prompt_template_builtin
+    ON prompt_template(built_in, updated_at);
