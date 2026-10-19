@@ -77,7 +77,7 @@ public class BenchmarkController {
                 .reduce("", (a, b) -> a + " " + b)
                 .strip();
         if (source.isEmpty()) {
-            throw new IllegalArgumentException("У лекции нет транскрипта для бенчмарка");
+            throw new IllegalArgumentException("У материала нет транскрипта для бенчмарка");
         }
         Path dir = benchmarkService.runAndPersist(config, source);
         return Map.of("resultsDir", dir.toString());

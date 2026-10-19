@@ -50,7 +50,7 @@
     <form hx-post="/assistant/help" hx-target="#answer" hx-swap="innerHTML"
           th:with="assistantSession=${#strings.randomAlphanumeric(12)}">
         <input type="hidden" name="session" th:value="${assistantSession}"/>
-        <textarea name="question" rows="3" placeholder="/help Из чего состоит пайплайн обработки лекции?"></textarea>
+        <textarea name="question" rows="3" placeholder="/help Из чего состоит пайплайн обработки материала?"></textarea>
         <button type="submit">Спросить</button>
     </form>
 </div>

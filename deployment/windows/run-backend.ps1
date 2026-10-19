@@ -1,4 +1,4 @@
-# Runs the Lecture Processor backend on Windows.
+# Runs the Materia backend on Windows.
 # Usage: ./deployment/windows/run-backend.ps1
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '../..')

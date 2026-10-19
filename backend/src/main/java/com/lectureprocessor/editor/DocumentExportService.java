@@ -97,7 +97,7 @@ public class DocumentExportService {
                             segments, slideImages, null);
                     writeStringAtomic(storage.resolve(lectureId, variant.markdownArtifact()),
                             markdownBuilder.transcriptMarkdown(lecture,
-                                    new Transcript(segments, ""), "Расшифровка лекции (оригинал)",
+                                    new Transcript(segments, ""), "Расшифровка материала (оригинал)",
                                     "Расшифровка"));
                 }
                 case RUSSIAN -> {
@@ -115,7 +115,7 @@ public class DocumentExportService {
                             slideImages, "Перевод: русский");
                     writeStringAtomic(storage.resolve(lectureId, variant.markdownArtifact()),
                             markdownBuilder.transcriptMarkdown(lecture, new Transcript(visible, ""),
-                                    "Расшифровка лекции (перевод на русский)", "Перевод"));
+                                    "Расшифровка материала (перевод на русский)", "Перевод"));
                 }
                 case BILINGUAL -> {
                     LectureDocumentRevision transcript = ensure(lectureId, DocumentType.TRANSCRIPT);

@@ -19,11 +19,17 @@
 
         <div class="rerun-summary">
             <p>
-                <b>Профиль:</b>
-                <span th:text="${rerunPlan.requested.outputFormat().label()}">Формат</span>
+                <b>Сценарий:</b>
+                <span th:text="${rerunPlan.requested.scenario() != null
+                    ? rerunPlan.requested.scenario().title() : 'Без сценария'}">Сценарий</span>
+                <span class="muted" th:text="' · ' + ${rerunPlan.requested.outputFormat().label()}"></span>
                 <span class="muted" th:text="' · ' + ${rerunPlan.requested.materialType().label()}"></span>
                 <span class="muted" th:text="' · ' + ${rerunPlan.requested.detailLevel().label()}"></span>
-                <span class="muted" th:text="' · шаблон: ' + ${rerunPlan.requested.resolvedPrompt()}"></span>
+                <span class="muted" th:if="${rerunPlan.requested.usesLlm()}"
+                      th:text="' · шаблон: ' + ${rerunPlan.requested.resolvedPrompt()}"></span>
+                <span class="muted" th:unless="${rerunPlan.requested.usesLlm()}">
+                    · LLM не используется
+                </span>
             </p>
             <p th:if="${rerunPlan.needsRerun()}">
                 <b>Будут выполнены стадии:</b>

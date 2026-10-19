@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Lecture Processor</title>
+    <title>materia — контент, который работает на вас</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -20,11 +20,13 @@
 
 <section class="hero" aria-labelledby="overview-title">
     <div class="hero__content">
-        <h1 id="overview-title">Lecture Processor</h1>
+        <h1 id="overview-title">materia</h1>
+        <p class="hero__tagline">Контент, который работает на вас.</p>
         <p class="hero__lead">
-            Добавьте лекцию или видео по ссылке — приложение распознает речь,
-            подготовит конспект и сохранит документ. Результат можно прочитать,
-            отредактировать и скачать.
+            Загружайте. Обрабатывайте. Используйте.
+            Materia — интеллектуальная библиотека для видео, аудио и других
+            поддерживаемых материалов: расшифровка, перевод, структурирование,
+            редактирование и готовые документы.
         </p>
         <div class="hero__actions">
             <a class="btn btn-primary btn-lg" href="/add">Добавить материал</a>
@@ -40,16 +42,25 @@
             <p class="field-help">Поддерживаются YouTube, VK Видео, VK и Rutube. Параметры загрузки выбираются на следующем шаге.</p>
         </form>
         <ul class="hero__features">
-            <li>распознавание речи</li>
-            <li>конспект и DOCX</li>
-            <li>перевод и редактор</li>
+            <li>расшифровка и таймкоды</li>
+            <li>конспект, рецепт, диалоги, инструкция</li>
+            <li>перевод, редактор и DOCX/Markdown</li>
         </ul>
+        <div class="hero__scenarios" aria-label="Что можно сделать с материалом">
+            <span class="badge">Конспект</span>
+            <span class="badge">Краткий пересказ</span>
+            <span class="badge">Рецепт</span>
+            <span class="badge">Диалоги</span>
+            <span class="badge">Инструкция</span>
+            <span class="badge">Только перевод</span>
+            <span class="badge">Без изменений</span>
+        </div>
     </div>
 </section>
 
 <div class="empty-state" th:if="${!anyLectures}">
     <h2>Пока нет ни одного материала</h2>
-    <p>Начните с видеофайла или ссылки — обработка запустится автоматически, а результат появится в библиотеке.</p>
+    <p>Начните с видео, аудио или ссылки — выберите, что сделать с материалом, и результат появится в библиотеке.</p>
     <div class="actions actions--center">
         <a class="btn btn-primary" href="/add">Добавить материал</a>
         <a class="btn btn-secondary" href="/library">Открыть библиотеку</a>

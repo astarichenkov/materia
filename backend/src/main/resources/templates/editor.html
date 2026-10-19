@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор лекции</title>
+    <title th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор материала</title>
     <script type="application/json" id="editor-view" th:utext="${viewJson}"></script>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
@@ -19,7 +19,7 @@
 
 <h1 th:text="'Редактор: ' + ${view.lecture.originalFilename}">Редактор</h1>
 <div class="bar">
-    <a th:href="@{/lectures/{id}(id=${view.lecture.id})}">← Карточка лекции</a>
+    <a th:href="@{/lectures/{id}(id=${view.lecture.id})}">← Карточка материала</a>
     <span class="muted" th:text="'Язык: ' + (${view.detectedLanguage} ?: 'не определён')
             + ' → ' + ${view.targetLanguage} + ' (' + ${view.translationMode} + ')'"></span>
 </div>
@@ -31,7 +31,7 @@
     <span class="muted">Версии:
         <span th:text="'оригинал ' + ${revisionNumbers['TRANSCRIPT']}"></span>,
         <span th:text="'перевод ' + ${revisionNumbers['TRANSLATION']}"></span>,
-        <span th:text="'конспект ' + ${revisionNumbers['NOTES']}"></span>
+        <span th:text="${documentLabel + ' ' + revisionNumbers['NOTES']}"></span>
     </span>
     <a class="btn btn-ghost btn-sm" th:href="@{/lectures/{id}(id=${view.lecture.id})}">К карточке материала</a>
 </div>
@@ -50,7 +50,7 @@
         Состояние документов:
         <span th:text="'оригинал: ' + ${stateStatus['TRANSCRIPT']}"></span>,
         <span th:text="'перевод: ' + ${stateStatus['TRANSLATION']}"></span>,
-        <span th:text="'конспект: ' + ${stateStatus['NOTES']}"></span>.
+        <span th:text="${documentLabel + ': ' + stateStatus['NOTES']}"></span>.
     </p>
 </div>
 
@@ -91,7 +91,7 @@
             data-tab="translation">Перевод</button>
     <button type="button" class="tab" role="tab" id="tab-notes"
             aria-selected="false" aria-controls="panel-notes" tabindex="-1"
-            data-tab="notes">Конспект</button>
+            data-tab="notes" th:text="${documentLabel}">Результат</button>
     <button type="button" class="tab" role="tab" id="tab-slides"
             aria-selected="false" aria-controls="panel-slides" tabindex="-1"
             data-tab="slides">Слайды</button>
@@ -143,7 +143,7 @@
               th:text="'Модель: ' + ${view.translation.provider} + ' / ' + ${view.translation.model}"></span>
     </div>
     <p class="muted" th:if="${view.translation.translationId == null}">
-        Перевод ещё не создан. Сначала запустите обработку лекции.
+        Перевод ещё не создан. Сначала запустите обработку материала.
     </p>
     <div id="translation-list">
         <div class="seg translation-seg" th:each="segment : ${view.translation.segments}"
@@ -174,9 +174,9 @@
     <div class="bar">
         <label>Описание правки <input id="notes-description" size="42"
                                      placeholder="например: уточнён заголовок"></label>
-        <button id="save-notes">Сохранить конспект</button>
+        <button id="save-notes" th:text="${'Сохранить: ' + documentLabel}">Сохранить результат</button>
         <button id="preview-notes">Предпросмотр</button>
-        <button id="regenerate-notes">Пересоздать конспект из перевода</button>
+        <button id="regenerate-notes" th:text="${'Пересоздать: ' + documentLabel}">Пересоздать результат</button>
         <span class="muted">Версия: <span id="notes-revision"
             th:text="${revisionNumbers['NOTES']}"></span></span>
     </div>
@@ -207,7 +207,7 @@
                     + '] · слайд ' + slide.sequence}"></div>
         </div>
         <p th:if="${#lists.isEmpty(view.slides)}" class="muted">
-            Слайды не извлекались (лекция обработана без опции «извлечь слайды»).
+            Слайды не извлекались (материал обработан без опции «извлечь слайды»).
         </p>
     </div>
 </div>
@@ -219,7 +219,7 @@
             <select id="history-type">
                 <option value="TRANSCRIPT">Оригинал</option>
                 <option value="TRANSLATION">Перевод</option>
-                <option value="NOTES">Конспект</option>
+                <option value="NOTES" th:text="${documentLabel}">Результат</option>
             </select>
         </label>
         <label>От <select id="history-from"></select></label>
@@ -348,7 +348,7 @@
                 initialText.transcript[edit.sequence] = edit.text;
             });
             flash('Расшифровка сохранена как версия #' + revision.revisionNumber
-                + '. Зависимые перевод и конспект помечены как устаревшие.', false);
+                + '. Зависимые перевод и результат помечены как устаревшие.', false);
         } catch (e) { flash(e.message, true); }
     });
     document.getElementById('reset-transcript').addEventListener('click', () => {
@@ -495,7 +495,7 @@
             state.notesRevision = revision.revisionNumber;
             document.getElementById('notes-revision').textContent = revision.revisionNumber;
             initialText.notes = markdown;
-            flash('Конспект сохранён как версия #' + revision.revisionNumber, false);
+            flash('Результат сохранён как версия #' + revision.revisionNumber, false);
         } catch (e) { flash(e.message, true); }
     });
     async function previewNotes() {
@@ -507,14 +507,14 @@
     }
     document.getElementById('preview-notes').addEventListener('click', previewNotes);
     document.getElementById('regenerate-notes').addEventListener('click', async () => {
-        if (!confirm('Пересоздать конспект из перевода? Текущая версия останется в истории.')) { return; }
+        if (!confirm('Пересоздать результат из перевода? Текущая версия останется в истории.')) { return; }
         try {
             const revision = await api('/notes/regenerate', {method: 'POST'});
             state.notesRevision = revision.revisionNumber;
             document.getElementById('notes-revision').textContent = revision.revisionNumber;
             document.getElementById('notes-markdown').value = revision.content;
             initialText.notes = revision.content;
-            flash('Конспект пересоздан как версия #' + revision.revisionNumber
+            flash('Результат пересоздан как версия #' + revision.revisionNumber
                 + ' (сравните с предыдущей в истории).', false);
             previewNotes();
         } catch (e) { flash(e.message, true); }

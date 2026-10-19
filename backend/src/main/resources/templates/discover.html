@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Поиск видео — Lecture Processor</title>
+    <title>Поиск видео — materia</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -32,14 +32,14 @@
 <div class="card">
     <h2>Поиск</h2>
     <p class="muted">
-        Поиск по теме или по уже обработанной лекции. Запросы формируются из темы,
+        Поиск по теме или по уже обработанному материалу. Запросы формируются из темы,
         без персональных данных. Онлайн-релевантность считается по названию и описанию —
         содержимое найденных видео не скачивается.
     </p>
     <form method="get" action="/discover">
         <div class="grid">
             <div>
-                <label>Лекция (для похожих и запросов)</label>
+                <label>Материал (для похожих и запросов)</label>
                 <select name="lectureId">
                     <option value="">— не выбрана —</option>
                     <option th:each="lecture : ${lectures}" th:value="${lecture.id}"
@@ -94,9 +94,9 @@
 </div>
 
 <div class="card" th:if="${similarLectures != null}">
-    <h2>Похожие лекции в библиотеке</h2>
+    <h2>Похожие материалы в библиотеке</h2>
     <table th:if="${!#lists.isEmpty(similarLectures)}">
-        <thead><tr><th>Лекция</th><th>Похожесть</th><th>Язык</th><th>Длительность</th><th>Общие темы</th></tr></thead>
+        <thead><tr><th>Материал</th><th>Похожесть</th><th>Язык</th><th>Длительность</th><th>Общие темы</th></tr></thead>
         <tbody>
         <tr th:each="s : ${similarLectures}">
             <td><a th:href="@{/lectures/{id}(id=${s.lectureId})}" th:text="${s.title}"></a></td>
@@ -108,7 +108,7 @@
         </tr>
         </tbody>
     </table>
-    <p th:if="${#lists.isEmpty(similarLectures)}" class="muted">Похожих лекций не найдено.</p>
+    <p th:if="${#lists.isEmpty(similarLectures)}" class="muted">Похожих материалов не найдено.</p>
 </div>
 
 <div class="card" th:if="${search != null}">

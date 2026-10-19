@@ -34,6 +34,25 @@
     ORIGINAL_ONLY: "только оригинал"
   };
 
+  function selectedScenario(form) {
+    return form ? form.querySelector('input[name="scenario"]:checked') : null;
+  }
+
+  function updateScenarioHint(form) {
+    var selected = selectedScenario(form);
+    var hint = form ? form.querySelector("[data-scenario-summary]") : null;
+    if (!hint) return;
+    if (!selected) {
+      hint.textContent = "";
+      return;
+    }
+    hint.textContent = selected.getAttribute("data-title") + ": "
+      + selected.getAttribute("data-hint") + ". "
+      + (selected.getAttribute("data-llm") === "true"
+        ? "Используется выбранная модель."
+        : "LLM не используется: документ собирается из транскрипции.");
+  }
+
   function formatBytes(bytes) {
     if (!bytes || bytes < 0) return "0 Б";
     if (bytes >= 1024 * 1024 * 1024) {
@@ -95,13 +114,21 @@
       rows.push(["Ссылка", value]);
       rows.push(["Качество", selectValue(form, "quality") || "по умолчанию"]);
     }
+    var scenario = selectedScenario(form);
+    if (scenario) {
+      rows.push(["Сценарий", scenario.getAttribute("data-title")]);
+    }
     rows.push(["Язык оригинала", languageLabels[selectValue(form, "languageMode")] || "авто"]);
-    rows.push(["Результат", resultLabels[selectValue(form, "translationMode")] || "по умолчанию"]);
+    rows.push(["Перевод", resultLabels[selectValue(form, "translationMode")] || "по умолчанию"]);
     var extras = [];
     Array.prototype.slice.call(form.querySelectorAll('input[type="checkbox"]:checked'))
       .forEach(function (input) { extras.push(checkboxLabel(input)); });
     rows.push(["Дополнительно", extras.length ? extras.join(", ") : "не выбрано"]);
-    rows.push(["Что получится", "транскрипт, конспект, документы Markdown и DOCX"]);
+    rows.push(["Результат", scenario
+      ? scenario.getAttribute("data-hint")
+      : "транскрипт и документы Markdown/DOCX"]);
+    rows.push(["Обработка", scenario && scenario.getAttribute("data-llm") === "false"
+      ? "без LLM" : "LLM"]);
 
     list.textContent = "";
     rows.forEach(function (row) {
@@ -179,6 +206,17 @@
   wizard.addEventListener("change", function (event) {
     if (event.target && event.target.matches("[data-source-option]")) {
       showSource(event.target.value, true);
+    }
+    if (event.target && event.target.matches("[data-scenario-option]")) {
+      var form = event.target.closest("form");
+      var translation = form ? form.querySelector("[data-translation-mode]") : null;
+      // Translation-only scenario needs translation enabled; the user can still
+      // change it explicitly afterwards.
+      if (event.target.value === "translation" && translation) {
+        translation.value = "TRANSLATE_TO_RUSSIAN";
+      }
+      updateScenarioHint(form);
+      updateSummary();
     }
   });
 
@@ -301,8 +339,14 @@
       }
     });
     if (fileInput) validateFile();
+    Array.prototype.slice.call(wizard.querySelectorAll("[data-import-form]")).forEach(function (form) {
+      updateScenarioHint(form);
+    });
     updateSummary();
   });
 
+  Array.prototype.slice.call(wizard.querySelectorAll("[data-import-form]")).forEach(function (form) {
+    updateScenarioHint(form);
+  });
   showSource(wizard.getAttribute("data-source") === "url" ? "url" : "file");
 })();

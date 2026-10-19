@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Библиотека — Lecture Processor</title>
+    <title>Библиотека — materia</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -140,6 +140,11 @@
                                th:text="${item.title()}">Материал</a>
                         </h2>
                         <p class="muted">
+                            <span th:text="${item.title()}">Название</span>
+                            <span th:text="' · ' + ${item.scenarioLabel()}"></span>
+                            <span th:if="${item.scenario() != null}"
+                                  th:text="' · ' + ${item.formatLabel()}"></span>
+                            <br>
                             <span th:text="${item.filename}">file.mp4</span>
                             <span th:if="${item.detectedLanguage != null}"
                                   th:text="' · ' + ${item.detectedLanguage}"></span>

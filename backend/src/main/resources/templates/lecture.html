@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="'Лекция: ' + ${lecture.originalFilename ?: lecture.id}">Лекция</title>
+    <title th:text="'Материал: ' + ${lecture.originalFilename ?: lecture.id}">Материал</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
 <a class="skip-link" href="#main">К содержимому</a>
-<header th:replace="~{fragments/layout :: appbar('library', 'Карточка лекции')}"></header>
+<header th:replace="~{fragments/layout :: appbar('library', 'Карточка материала')}"></header>
 <div class="app-shell">
 <aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
 <main id="main" class="content" tabindex="-1">
@@ -58,10 +58,10 @@
         <button type="submit" class="btn-secondary">Отменить</button>
     </form>
     <a th:href="@{/lectures/{id}/editor(id=${lecture.id})}"><b>Редактор и проверка качества</b></a>
-    <a th:href="@{/lectures/{id}/chat(id=${lecture.id})}">Чат по лекции</a>
+    <a th:href="@{/lectures/{id}/chat(id=${lecture.id})}">Чат по материалу</a>
     <form method="post" th:action="@{/lectures/{id}/delete(id=${lecture.id})}">
         <button type="submit" class="btn-danger"
-                data-confirm="Удалить лекцию и все её результаты? Действие необратимо.">Удалить</button>
+                data-confirm="Удалить материал и все её результаты? Действие необратимо.">Удалить</button>
     </form>
 </div>
 
@@ -182,7 +182,8 @@
     <h2 id="result-profile-title">Результат и шаблон</h2>
     <p class="muted">
         Текущий профиль:
-        <b th:text="${profile.outputFormat().label()}">Формат</b>
+        <b th:text="${profile.scenario() != null ? profile.scenario().title() : 'Без сценария'}">Сценарий</b>
+        <span th:text="' · ' + ${profile.outputFormat().label()}"></span>
         <span th:text="' · ' + ${profile.materialType().label()}"></span>
         <span th:text="' · ' + ${profile.detailLevel().label()}"></span>
         <span class="muted" th:if="${!profile.explicit()}"> (используется настройка по умолчанию)</span>
@@ -190,6 +191,18 @@
     <form method="post" th:action="@{/lectures/{id}/rerun(id=${lecture.id})}">
         <input type="hidden" name="_csrf" th:value="${csrf}">
         <div class="grid">
+            <div class="field">
+                <label for="profile-scenario">Что сделать с материалом</label>
+                <select id="profile-scenario"
+                    th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
+                    hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="scenario">
+                    <option value="">Без сценария (только формат)</option>
+                    <option th:each="s : ${scenarios}" th:value="${s.id()}"
+                            th:text="${s.title() + (s.usesLlm() ? '' : ' · без LLM')}"
+                            th:selected="${profile.scenario() != null and s == profile.scenario()}"></option>
+                </select>
+                <p class="field-help">Сценарий задаёт рекомендуемый формат, шаблон и правила проверки.</p>
+            </div>
             <div class="field">
                 <label for="profile-material">Тип исходного материала</label>
                 <select id="profile-material"
@@ -221,11 +234,11 @@
                 </select>
             </div>
             <div class="field">
-                <label for="profile-prompt">Prompt Template</label>
+                <label for="profile-prompt">Шаблон промпта</label>
                 <select id="profile-prompt"
                     th:attr="hx-get=@{/lectures/{id}/rerun-plan(id=${lecture.id})}"
                     hx-target="#rerun-plan" hx-swap="innerHTML" hx-include="closest form" name="promptTemplate">
-                    <option value="">По формату (рекомендуется)</option>
+                    <option value="">По сценарию/формату (рекомендуется)</option>
                     <option th:each="template : ${promptTemplates}" th:value="${template.name()}"
                             th:text="${template.label()}"
                             th:selected="${profile.promptTemplate() != null and template.name() == profile.promptTemplate()}"></option>
@@ -235,6 +248,8 @@
         <p class="muted">
             <span th:text="${profile.outputFormat().description()}"></span>
             <span th:text="' ' + ${profile.materialType().description()}"></span>
+            <span th:if="${profile.scenario() != null}"
+                  th:text="' Сценарий: ' + ${profile.scenario().description()}"></span>
         </p>
         <div class="actions actions--start">
             <button type="submit" class="btn btn-primary">Пересоздать результат</button>
@@ -259,6 +274,7 @@
         <thead>
         <tr>
             <th scope="col">Дата</th>
+            <th scope="col">Сценарий</th>
             <th scope="col">Формат</th>
             <th scope="col">Шаблон</th>
             <th scope="col">Модель</th>
@@ -268,6 +284,7 @@
         <tbody>
         <tr th:each="variant : ${variants}">
             <td th:text="${#strings.substring(variant.createdAt().toString(), 0, 16)}">2026-01-01</td>
+            <td th:text="${variant.scenario() != null ? variant.scenario().title() : 'Без сценария'}">Сценарий</td>
             <td>
                 <span th:text="${variant.outputFormat().label()}">Формат</span>
                 <div class="muted" th:text="${variant.materialType().label()} + ' · ' + ${variant.detailLevel().label()}"></div>
@@ -293,11 +310,14 @@
 <ul>
     <li><a th:href="@{/api/lectures/{id}/download/transcript.json(id=${lecture.id})}">Сырой транскрипт (JSON)</a></li>
     <li><a th:href="@{/api/lectures/{id}/download/transcript.original.md(id=${lecture.id})}">Оригинальная расшифровка (Markdown)</a></li>
-    <li><a th:href="@{/api/lectures/{id}/download/notes.md(id=${lecture.id})}">Конспект (Markdown)</a></li>
-    <li><a th:href="@{/api/lectures/{id}/download/notes.docx(id=${lecture.id})}">Конспект (DOCX)</a></li>
+    <li><a th:href="@{/api/lectures/{id}/download/notes.md(id=${lecture.id})}"
+           th:text="${documentLabel + ' (Markdown)'}">Результат (Markdown)</a></li>
+    <li><a th:href="@{/api/lectures/{id}/download/notes.docx(id=${lecture.id})}"
+           th:text="${documentLabel + ' (DOCX)'}">Результат (DOCX)</a></li>
     <li><a th:href="@{/api/lectures/{id}/download/notes.original.docx(id=${lecture.id})}">Оригинал (DOCX, расшифровка)</a></li>
     <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
-        <a th:href="@{/api/lectures/{id}/download/notes.ru.docx(id=${lecture.id})}">Русский конспект (DOCX)</a></li>
+        <a th:href="@{/api/lectures/{id}/download/notes.ru.docx(id=${lecture.id})}"
+           th:text="${'Русский вариант: ' + documentLabel + ' (DOCX)'}">Русский результат (DOCX)</a></li>
     <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
         <a th:href="@{/api/lectures/{id}/download/transcript.ru.md(id=${lecture.id})}">Русская расшифровка (Markdown)</a></li>
     <li th:if="${translation != null and translation.translation != null and translation.translation.segmentsTranslated > 0}">
@@ -307,7 +327,7 @@
     <li><a th:href="@{/api/lectures/{id}/download/translation.json(id=${lecture.id})}">Перевод (JSON)</a></li>
 </ul>
 
-<h2>Похожие лекции в библиотеке</h2>
+<h2>Похожие материалы в библиотеке</h2>
 <ul th:if="${similarLectures != null and !#lists.isEmpty(similarLectures)}">
     <li th:each="similar : ${similarLectures}">
         <a th:href="@{/lectures/{id}(id=${similar.lectureId})}" th:text="${similar.title}"></a>
@@ -319,10 +339,10 @@
     </li>
 </ul>
 <p th:if="${similarLectures == null or #lists.isEmpty(similarLectures)}" class="muted">
-    Похожих лекций пока нет (нужны обработанные лекции с embeddings).
+    Похожих материалов пока нет (нужны обработанные материалы с embeddings).
 </p>
 
-<h2>Конспект</h2>
+<h2 th:text="${documentLabel}">Результат обработки</h2>
 <pre th:if="${lecture.notesMarkdown}" th:text="${lecture.notesMarkdown}"></pre>
 
 </main>

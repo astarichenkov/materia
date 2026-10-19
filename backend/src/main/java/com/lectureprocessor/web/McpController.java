@@ -69,7 +69,7 @@ public class McpController {
         info.put("server", "lecture-processor");
         info.put("protocol", "mcp-jsonrpc-2.0");
         info.put("protocolVersion", "2025-06-18");
-        info.put("description", "Read-only MCP tool surface for the Lecture Processor project");
+        info.put("description", "Read-only MCP tool surface for the Materia project");
         info.put("authentication", properties.mcp().apiKey() != null
                 && !properties.mcp().apiKey().isBlank() ? "X-MCP-Key header" : "none (local)");
         info.put("tools", registry.tools().stream()

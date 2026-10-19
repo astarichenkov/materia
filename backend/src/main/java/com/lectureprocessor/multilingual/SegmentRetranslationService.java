@@ -58,7 +58,7 @@ public class SegmentRetranslationService {
     public RetranslationSuggestion suggest(String lectureId, int sequence) {
         LectureTranslation translation = translations.findLatest(lectureId)
                 .orElseThrow(() -> EditorRetranslationException.unavailable(
-                        "Для этой лекции ещё нет перевода"));
+                        "Для этого материала ещё нет перевода"));
         List<TranslationSegment> segments = translations.segments(translation.id());
         TranslationSegment target = segments.stream()
                 .filter(s -> s.sequence() == sequence).findFirst()

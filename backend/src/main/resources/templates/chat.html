@@ -8,26 +8,26 @@
 </head>
 <body>
 <a class="skip-link" href="#main">К содержимому</a>
-<header th:replace="~{fragments/layout :: appbar('library', 'Чат по лекции')}"></header>
+<header th:replace="~{fragments/layout :: appbar('library', 'Чат по материалу')}"></header>
 <div class="app-shell">
 <aside th:replace="~{fragments/layout :: sidebar('library')}"></aside>
 <main id="main" class="content" tabindex="-1">
-<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', 'Чат по лекции')}"></nav>
+<nav th:replace="~{fragments/layout :: breadcrumbs('Библиотека', '/library', 'Чат по материалу')}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
 <noscript><div class="alert alert--warning" role="alert">Часть интерактивных действий (обновление статуса, превью ссылки, чат) требует JavaScript. Обычные формы работают без него.</div></noscript>
 
-<h1 th:text="'Чат по лекции: ' + ${lecture.originalFilename}"></h1>
+<h1 th:text="'Чат по материалу: ' + ${lecture.originalFilename}"></h1>
 
 
 <form th:attr="hx-post='/lectures/' + ${lecture.id} + '/chat'"
       hx-target="#answer" hx-swap="innerHTML">
     <input type="hidden" name="session" th:value="${sessionId}"/>
-    <textarea name="question" maxlength="2000" placeholder="Задайте вопрос по лекции..." required></textarea>
+    <textarea name="question" maxlength="2000" placeholder="Задайте вопрос по материалу..." required></textarea>
     <button type="submit">Спросить</button>
 </form>
 
 <div id="answer">
-    <p>Задайте вопрос. Ответ будет основан на найденных фрагментах лекции.</p>
+    <p>Задайте вопрос. Ответ будет основан на найденных фрагментах материала.</p>
 </div>
 
 </main>

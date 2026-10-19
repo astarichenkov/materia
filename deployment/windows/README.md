@@ -1,4 +1,4 @@
-# Windows deployment — Lecture Processor (Days 27–29)
+# Windows deployment — Materia (Days 27–29)
 
 ## Prerequisites
 

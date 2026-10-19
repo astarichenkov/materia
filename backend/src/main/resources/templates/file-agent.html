@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>File Agent — Lecture Processor</title>
+    <title>File Agent — materia</title>
     <meta th:if="${selected != null and !selected.status.terminal()
             and selected.status.name() != 'AWAITING_APPROVAL'}"
           http-equiv="refresh" content="4"/>
@@ -50,7 +50,7 @@
                     <option th:each="w : ${workspaces}" th:value="${w.name()}"
                             th:text="${w.displayName()} + ' (' + ${w.name()} + ')'"></option>
                 </select>
-                <input type="text" name="lectureId" placeholder="ID лекции (только для LECTURE_WORKSPACE)"
+                <input type="text" name="lectureId" placeholder="ID материала (только для LECTURE_WORKSPACE)"
                        style="width:100%;box-sizing:border-box;margin-top:.4rem"/>
                 <button type="submit" style="margin-top:.5rem">Analyze</button>
             </form>

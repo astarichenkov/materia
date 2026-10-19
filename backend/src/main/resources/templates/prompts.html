@@ -23,6 +23,29 @@
 </p>
 <div th:if="${error}" class="alert alert--danger" role="alert" th:text="${error}"></div>
 
+<section class="card" aria-labelledby="scenario-prompts-title">
+    <h2 id="scenario-prompts-title">Сценарии и рекомендуемые шаблоны</h2>
+    <p class="muted">
+        Сценарий выбирает рекомендуемый шаблон автоматически. Несовместимые комбинации
+        блокируются до запуска; скрытых замен шаблона нет.
+    </p>
+    <div class="table-scroll">
+        <table class="table">
+            <thead><tr><th scope="col">Сценарий</th><th scope="col">Результат</th><th scope="col">Шаблон</th></tr></thead>
+            <tbody>
+            <tr th:each="s : ${scenarios}">
+                <th scope="row" th:text="${s.title()}">Сценарий</th>
+                <td th:text="${s.outputHint()}">Результат</td>
+                <td>
+                    <span th:if="${s.usesLlm()}" th:text="${s.recommendedPrompt()}">template</span>
+                    <span th:unless="${s.usesLlm()}">LLM не применяется</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <section class="card" th:each="template : ${templates}" th:attr="data-template-id=${template.id}">
     <h2>
         <span th:text="${template.label}">Шаблон</span>
@@ -32,7 +55,7 @@
     </h2>
     <p class="muted" th:text="${template.description}">Описание</p>
     <p>
-        <b>Для форматов:</b>
+        <b>Рекомендуется для сценариев/форматов:</b>
         <span th:text="${template.recommendedFor}">Назначение</span>
     </p>
     <p class="muted" th:text="'ID: ' + ${template.name}"></p>

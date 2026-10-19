@@ -1,12 +1,12 @@
 ﻿<#
 .SYNOPSIS
-  Builds and starts the current Lecture Processor backend exactly once.
+  Builds and starts the current Materia backend exactly once.
 
 .DESCRIPTION
   A single, reproducible local launcher for Windows:
    - verifies Java and the Maven wrapper;
    - detects whether the target port is already owned by another process;
-   - refuses to start a second Lecture Processor instance unless -Restart is used;
+   - refuses to start a second Materia instance unless -Restart is used;
    - always builds the current working tree (unless -SkipBuild);
    - stamps the build with the current Git commit;
    - uses an explicit storage root (default: <repo>\data);
@@ -80,9 +80,9 @@ function Stop-LectureProcessor {
     $info = Get-ProcessInfo -ProcessId $ProcessId
     if (-not $info) { return }
     if (-not $info.IsLectureProcessor) {
-        throw "Отказ: процесс PID $ProcessId не является Lecture Processor. Остановите его вручную."
+        throw "Отказ: процесс PID $ProcessId не является Materia. Остановите его вручную."
     }
-    Write-Host "Останавливаю Lecture Processor PID $($info.Id) (started $($info.Created))"
+    Write-Host "Останавливаю Materia PID $($info.Id) (started $($info.Created))"
     Stop-Process -Id $info.Id -Force
 }
 
@@ -105,7 +105,7 @@ if ($listener -ne 0) {
         throw "Порт $Port занят посторонним процессом PID $listener. Остановите его отдельно; launcher ничего не убивает без подтверждения."
     }
     if (-not $Restart) {
-        Write-Host "Lecture Processor уже запущен: PID $($info.Id), старт $($info.Created), порт $Port."
+        Write-Host "Materia уже запущен: PID $($info.Id), старт $($info.Created), порт $Port."
         Write-Host "Команда: $($info.CommandLine)"
         try {
             $version = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/app/version" -TimeoutSec 5
@@ -244,7 +244,7 @@ if (-not $ready) {
 
 $runtime = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/app/version" -TimeoutSec 5
 Write-Host ""
-Write-Host "Lecture Processor готов: http://localhost:$Port/"
+Write-Host "Materia готов: http://localhost:$Port/"
 Write-Host "Версия: $($runtime.version) commit $($runtime.commitShort) java $($runtime.javaVersion) pid $($runtime.pid)"
 Write-Host "Проверка версии: http://localhost:$Port/api/app/version"
 Write-Host "Диагностика:    http://localhost:$Port/diagnostics"

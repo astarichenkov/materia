@@ -9,6 +9,26 @@
   the LLM model is read-only because per-job selection does not exist.
 -->
 <th:block th:fragment="options(mode)">
+    <fieldset class="fieldset scenario-picker">
+        <legend>Что сделать с материалом?</legend>
+        <p class="field-help">
+            Сценарий определяет результат. Рекомендуемые формат и шаблон применяются
+            автоматически; языковые параметры можно изменить ниже.
+        </p>
+        <div class="scenario-grid" role="radiogroup" aria-label="Сценарий обработки">
+            <label class="scenario-card" th:each="s : ${scenarios}">
+                <input type="radio" name="scenario" th:value="${s.id()}"
+                       th:checked="${s.id() == defaultScenario}"
+                       data-scenario-option
+                       th:attr="data-title=${s.title()},data-hint=${s.outputHint()},data-format=${s.recommendedFormat().label()},data-llm=${s.usesLlm()}">
+                <span class="scenario-card__title" th:text="${s.title()}">Сценарий</span>
+                <span class="scenario-card__desc" th:text="${s.description()}">Описание</span>
+                <span class="scenario-card__out" th:text="${'Результат: ' + s.outputHint()}">Результат</span>
+            </label>
+        </div>
+        <p class="field-help" data-scenario-summary aria-live="polite"></p>
+    </fieldset>
+
     <fieldset class="fieldset">
         <legend>Что получить</legend>
         <div class="grid">
@@ -19,8 +39,8 @@
                     <option value="RUSSIAN" th:selected="${defaultLanguageMode == 'RUSSIAN'}">Русский</option>
                 </select>
             </label>
-            <label class="field">Результат
-                <select name="translationMode">
+            <label class="field">Перевод
+                <select name="translationMode" data-translation-mode>
                     <option value="TRANSLATE_TO_RUSSIAN"
                             th:selected="${defaultTranslationMode == 'TRANSLATE_TO_RUSSIAN'}">Перевести на русский</option>
                     <option value="BILINGUAL"
@@ -57,14 +77,15 @@
             </label>
             <label class="check">
                 <input type="checkbox" name="autoTranslate" th:checked="${autoTranslateDefault}"
-                       data-summary-label="авто-перевод английских лекций">
-                Авто-перевод английских лекций
+                       data-summary-label="авто-перевод английских материалов">
+                Авто-перевод английских материалов
             </label>
         </div>
         <p class="field-help">
             Модель обработки: <strong th:text="${modelLabel}">Ollama / qwen3</strong>.
             Выбор модели для отдельного материала пока не поддерживается — модель меняется для всех
             новых задач в <a href="/settings">настройках</a>.
+            Для сценариев «Без изменений» и «Только перевод» генеративная модель не используется.
         </p>
     </details>
 </th:block>

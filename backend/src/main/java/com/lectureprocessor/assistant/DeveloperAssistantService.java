@@ -115,7 +115,7 @@ public class DeveloperAssistantService {
                 .map(tool -> "- `%s` — %s".formatted(tool.name(), tool.description()))
                 .collect(Collectors.joining("\n"));
         String answer = """
-                Я — ассистент разработчика Lecture Processor.
+                Я — ассистент разработчика Materia.
 
                 Использование:
                 - `/help <вопрос>` — ответ по документации проекта (README, docs) и контексту.
@@ -123,7 +123,7 @@ public class DeveloperAssistantService {
                 Доступные read-only MCP-инструменты:
                 %s
 
-                Примеры: «Из чего состоит пайплайн обработки лекции?», «Как запустить backend?»,
+                Примеры: «Из чего состоит пайплайн обработки материала?», «Как запустить backend?»,
                 «Какая сейчас git-ветка и есть ли незакоммиченные изменения?»
                 """.formatted(toolList);
         return new AssistantAnswer(answer.strip(), List.of(), List.of(), true);
@@ -132,7 +132,7 @@ public class DeveloperAssistantService {
     private String buildUserPrompt(String sessionId, String question, List<DocSearchResult> retrieved,
             String branch, String status) {
         StringBuilder context = new StringBuilder();
-        context.append("Проект: Lecture Processor (локальный AI-пайплайн для лекций).\n\n");
+        context.append("Проект: Materia (локальный AI-пайплайн для видео, аудио и других материалов).\n\n");
         context.append("Текущий git-контекст (MCP):\n");
         context.append("git_current_branch: ").append(branch == null || branch.isBlank() ? "(нет данных)" : branch.strip()).append('\n');
         context.append("git_status:\n").append(status == null || status.isBlank() ? "(нет данных)" : status.strip()).append("\n\n");

@@ -13,7 +13,7 @@ public record RagAnswer(String text, List<SourceRef> sources, boolean grounded) 
 
     public static RagAnswer noEvidence() {
         return new RagAnswer(
-                "В лекции не найдено информации, достаточной для ответа на этот вопрос.",
+                "В материале не найдено информации, достаточной для ответа на этот вопрос.",
                 List.of(), false);
     }
 }

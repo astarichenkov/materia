@@ -86,7 +86,7 @@ public class DiagnosticsService {
             return new Check("storage", "Каталог данных", status,
                     root + " (свободно " + formatBytes(usable) + ")",
                     status == Status.OK ? null
-                            : "Мало свободного места: удалите старые лекции или перенесите "
+                            : "Мало свободного места: удалите старые материалы или перенесите "
                                     + "LECTURE_STORAGE_ROOT на другой диск.");
         } catch (IOException e) {
             return new Check("storage", "Каталог данных", Status.FAILED, root + ": " + e.getMessage(),

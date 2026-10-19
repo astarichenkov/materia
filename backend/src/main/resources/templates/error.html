@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="${status} + ' — Lecture Processor'">Ошибка</title>
+    <title th:text="${status} + ' — materia'">Ошибка</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -11,7 +11,7 @@
 <main id="main" class="content page-narrow" tabindex="-1">
 <div th:replace="~{fragments/layout :: flash}"></div>
 
-<h1>Lecture Processor</h1>
+<h1>materia</h1>
 <div class="card">
     <div class="status" th:text="${status} + ' ' + ${error}">500</div>
     <p th:text="${message}">Произошла ошибка.</p>
@@ -22,7 +22,7 @@
         Correlation ID: <code th:text="${correlationId}"></code> — укажите его при разборе лога.
     </p>
     <p>
-        <a href="/">← Библиотека лекций</a>
+        <a href="/">← Библиотека</a>
         · <a href="/diagnostics">Диагностика установки</a>
     </p>
 </div>

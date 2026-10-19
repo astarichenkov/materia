@@ -60,10 +60,10 @@ public class SupportDeterministicAnswerer {
                 actions.add("Проверить журнал приложения и повторить стадию " + failed.stage());
             }
         } else if ("COMPLETED".equalsIgnoreCase(lectureStatus) || "SUCCEEDED".equalsIgnoreCase(jobState)) {
-            answer.append("Обработка лекции завершена успешно.");
+            answer.append("Обработка материала завершена успешно.");
             actions.add("Открыть конспект и экспортированный документ");
         } else if (lectureStatus != null) {
-            answer.append("Статус лекции: ").append(lectureStatus);
+            answer.append("Статус материала: ").append(lectureStatus);
             if (currentStage != null) {
                 answer.append(", текущая стадия ").append(currentStage);
             }

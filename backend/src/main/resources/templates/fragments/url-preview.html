@@ -38,7 +38,7 @@
         </p>
         <p class="alert alert--info" th:if="${existingLectureId}">
             Это видео уже есть в библиотеке — повторное добавление не нужно.
-            <a th:href="@{/lectures/{id}(id=${existingLectureId})}">Открыть существующую лекцию</a>
+            <a th:href="@{/lectures/{id}(id=${existingLectureId})}">Открыть существующий материал</a>
         </p>
         <p class="alert alert--success" th:unless="${existingLectureId}">
             Ссылка поддерживается. Проверьте параметры ниже и добавьте материал.

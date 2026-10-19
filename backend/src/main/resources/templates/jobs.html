@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Задачи обработки — Lecture Processor</title>
+    <title>Задачи обработки — materia</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -14,7 +14,7 @@
 <main id="main" class="content" tabindex="-1">
 <nav th:replace="~{fragments/layout :: breadcrumbs('Задачи обработки', '', '')}"></nav>
 <div th:replace="~{fragments/layout :: flash}"></div>
-<noscript><div class="alert alert--warning" role="alert">Список задач работает без JavaScript; обновление статуса на карточке лекции требует JavaScript.</div></noscript>
+<noscript><div class="alert alert--warning" role="alert">Список задач работает без JavaScript; обновление статуса на карточке материала требует JavaScript.</div></noscript>
 
 <div class="page-header">
     <div>
@@ -30,7 +30,7 @@
 
 <div class="empty-state" th:if="${#lists.isEmpty(jobs)}">
     <h2>Задач пока нет</h2>
-    <p>Добавьте лекцию, чтобы увидеть здесь ход обработки.</p>
+    <p>Добавьте материал, чтобы увидеть здесь ход обработки.</p>
     <a class="btn btn-primary" href="/add">Добавить материал</a>
 </div>
 

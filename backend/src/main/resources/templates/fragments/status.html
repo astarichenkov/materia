@@ -21,7 +21,7 @@
         Статус:
         <span th:replace="~{fragments/status-badge :: badge(${displayStatus})}"></span>
         <span class="muted" th:if="${job != null and job.rawStatus != null and job.rawStatus != job.status}"
-              th:text="'· в базе лекции: ' + ${job.rawStatus}"></span>
+              th:text="'· в базе: ' + ${job.rawStatus}"></span>
     </p>
 
     <div th:if="${job != null}">

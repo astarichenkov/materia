@@ -31,9 +31,9 @@
     </style>
 </head>
 <body>
-<h1>Поддержка Lecture Processor</h1>
+<h1>Поддержка materia</h1>
 <p class="muted">
-    <a href="/">← К лекциям</a> ·
+    <a href="/">← К материалм</a> ·
     <a href="/assistant">Ассистент разработчика</a> ·
     <a href="/mcp">MCP endpoint</a>
 </p>
@@ -63,7 +63,7 @@
                 <select name="category" style="width:100%;margin-top:.4rem">
                     <option th:each="c : ${categories}" th:value="${c}" th:text="${c.label()}"></option>
                 </select>
-                <input type="text" name="lectureId" placeholder="ID лекции (необязательно)"
+                <input type="text" name="lectureId" placeholder="ID материала (необязательно)"
                        th:value="${lectureId}" style="width:100%;margin-top:.4rem"/>
                 <button type="submit" style="margin-top:.5rem">Создать</button>
             </form>
@@ -76,7 +76,7 @@
                     <a th:href="@{/support/tickets/{id}(id=${t.id})}" th:text="${t.subject}"></a><br>
                     <span class="badge" th:classappend="'status-' + ${t.status}" th:text="${t.status.label()}"></span>
                     <span class="muted" th:text="${t.category.label()}"></span>
-                    <span class="muted" th:if="${t.lectureId}">· лекция <span th:text="${t.lectureId}"></span></span>
+                    <span class="muted" th:if="${t.lectureId}">· материал <span th:text="${t.lectureId}"></span></span>
                 </li>
                 <li th:if="${#lists.isEmpty(tickets)}" class="muted">Обращений пока нет.</li>
             </ul>
@@ -99,7 +99,7 @@
             </h3>
             <p class="muted">
                 Категория: <span th:text="${selected.category.label()}"></span> ·
-                <span th:if="${selected.lectureId}">Лекция <span th:text="${selected.lectureId}"></span> · </span>
+                <span th:if="${selected.lectureId}">Материал <span th:text="${selected.lectureId}"></span> · </span>
                 создано <span th:text="${selected.createdAt}"></span>
             </p>
             <form method="post" th:action="@{/support/tickets/{id}/resolve(id=${selected.id})}" style="display:inline">
@@ -124,7 +124,7 @@
                        th:value="${selected != null ? selected.id : ''}"/>
                 <input type="hidden" name="lectureId" th:value="${lectureId}"/>
                 <textarea name="question" rows="3"
-                          placeholder="Почему обработка этой лекции остановилась?"></textarea>
+                          placeholder="Почему обработка этого материала остановилась?"></textarea>
                 <button type="submit">Спросить</button>
                 <span class="htmx-indicator muted">…обрабатываю</span>
             </form>

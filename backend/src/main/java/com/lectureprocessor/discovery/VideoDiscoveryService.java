@@ -79,7 +79,7 @@ public class VideoDiscoveryService {
         List<String> queries = queries(context, request.query());
         if (queries.isEmpty()) {
             return new DiscoverySearchResponse(null, List.of(), List.of(),
-                    List.of("Не удалось сформировать поисковый запрос: укажите тему или обработайте лекцию"),
+                    List.of("Не удалось сформировать поисковый запрос: укажите тему или обработайте материал"),
                     providerStatuses(List.of()), "NONE", false);
         }
         List<VideoSearchProvider> selected = selectedProviders(request.platform());
@@ -187,7 +187,7 @@ public class VideoDiscoveryService {
             return new TopicContext(null, null, null, null);
         }
         Lecture lecture = lectures.findById(request.lectureId())
-                .orElseThrow(() -> new IllegalArgumentException("Лекция не найдена: "
+                .orElseThrow(() -> new IllegalArgumentException("Материал не найден: "
                         + request.lectureId()));
         LectureTopic topic = topics.ensure(lecture.id());
         MediaSource source = mediaSources.findByLecture(lecture.id()).orElse(null);

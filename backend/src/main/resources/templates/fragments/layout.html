@@ -3,7 +3,7 @@
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="${title}">Lecture Processor</title>
+    <title th:text="${title} + ' — materia'">materia</title>
     <th:block th:replace="~{fragments/layout :: assets}"></th:block>
 </head>
 <body>
@@ -24,8 +24,8 @@
         <span aria-hidden="true">☰</span>
     </button>
     <a class="appbar__brand" href="/">
-        <span class="appbar__logo" aria-hidden="true">LP</span>
-        <span>Lecture Processor</span>
+        <span class="appbar__logo" aria-hidden="true">M</span>
+        <span>materia</span>
     </a>
     <span class="appbar__title" th:text="${title}">Раздел</span>
     <span class="appbar__spacer"></span>

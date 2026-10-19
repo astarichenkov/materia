@@ -143,7 +143,7 @@ public class BenchmarkRunService {
             }
             List<TranscriptSegment> lectureSegments = segments.findByLecture(request.lectureId());
             if (lectureSegments.isEmpty()) {
-                throw new IllegalArgumentException("У лекции нет транскрипта для бенчмарка");
+                throw new IllegalArgumentException("У материала нет транскрипта для бенчмарка");
             }
             int maxChars = properties.processing().llmChunkChars();
             int overlap = properties.processing().llmChunkOverlapChars();

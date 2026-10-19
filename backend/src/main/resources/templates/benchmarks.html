@@ -26,7 +26,7 @@
     <form method="post" action="/benchmarks/run">
         <div class="grid">
             <div>
-                <label>Лекция / тестовый вход</label>
+                <label>Материал / тестовый вход</label>
                 <select name="lectureId" required>
                     <option th:each="l : ${lectures}"
                             th:value="${l.id}"

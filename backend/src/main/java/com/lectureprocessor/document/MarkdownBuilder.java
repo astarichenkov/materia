@@ -12,7 +12,7 @@ import com.lectureprocessor.domain.Transcript;
 public class MarkdownBuilder {
 
     public String rawTranscriptMarkdown(Lecture lecture, Transcript transcript) {
-        return transcriptMarkdown(lecture, transcript, "Расшифровка лекции", "Расшифровка");
+        return transcriptMarkdown(lecture, transcript, "Расшифровка материала", "Расшифровка");
     }
 
     /** Transcript document with an explicit document title and section label. */
@@ -36,7 +36,7 @@ public class MarkdownBuilder {
         java.util.Map<Integer, String> bySequence = new java.util.HashMap<>();
         translated.forEach(segment -> bySequence.put(segment.sequence(), segment.translatedText()));
         StringBuilder md = new StringBuilder();
-        md.append("# Расшифровка лекции (оригинал + перевод)\n\n");
+        md.append("# Расшифровка материала (оригинал + перевод)\n\n");
         md.append("**Файл:** ").append(lecture.originalFilename()).append("\n\n");
         for (var segment : original.segments()) {
             md.append("**[").append(Transcript.formatTimestamp(segment.startMs())).append("]**\n\n");
