@@ -18,8 +18,14 @@ import org.springframework.stereotype.Component;
 public class PromptTemplates {
 
     private final Map<String, String> cache = new ConcurrentHashMap<>();
+    /** User-owned template bodies registered from the database at startup/update. */
+    private final Map<String, String> custom = new ConcurrentHashMap<>();
 
     public String get(String name) {
+        String customBody = custom.get(name);
+        if (customBody != null) {
+            return customBody;
+        }
         return cache.computeIfAbsent(name, key -> {
             String resource = "/prompts/" + key + ".txt";
             try (InputStream in = PromptTemplates.class.getResourceAsStream(resource)) {
@@ -31,6 +37,29 @@ public class PromptTemplates {
                 throw new UncheckedIOException("Cannot read prompt template: " + resource, e);
             }
         });
+    }
+
+    /** Registers (or replaces) a user-owned template body. */
+    public void registerCustom(String name, String body) {
+        if (name == null || body == null || body.isBlank()) {
+            return;
+        }
+        custom.put(name, body.strip());
+    }
+
+    public void unregisterCustom(String name) {
+        custom.remove(name);
+    }
+
+    public String builtIn(String name) {
+        String previous = custom.remove(name);
+        try {
+            return get(name);
+        } finally {
+            if (previous != null) {
+                custom.put(name, previous);
+            }
+        }
     }
 
     /** Currently shipped prompt versions, used by the benchmark module. */
@@ -105,6 +134,11 @@ public class PromptTemplates {
     }
 
     public boolean exists(String name) {
-        return list().stream().anyMatch(t -> t.name().equals(name));
+        return custom.containsKey(name) || list().stream().anyMatch(t -> t.name().equals(name));
+    }
+
+    /** True when the template body comes from the database (user copy). */
+    public boolean isCustom(String name) {
+        return custom.containsKey(name);
     }
 }

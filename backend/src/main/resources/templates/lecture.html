@@ -163,6 +163,21 @@
 </details>
 
 
+<section class="card" th:if="${quality != null and quality.hasWarnings()}"
+         aria-labelledby="quality-title">
+    <h2 id="quality-title">Качество документа</h2>
+    <p class="muted">
+        Проверка структуры и повторов. Это эвристика: предупреждение не означает, что документ
+        непригоден, но его стоит просмотреть перед публикацией.
+    </p>
+    <ul class="warn">
+        <li th:each="warning : ${quality.warnings()}" th:text="${warning}"></li>
+    </ul>
+    <p class="muted" th:text="'Разделов: ' + ${quality.sectionCount()}
+        + ' · удалено повторов: ' + ${quality.duplicateBlocksRemoved()}
+        + ' · удалено повторных вопросов: ' + ${quality.duplicateQuestionsRemoved()}"></p>
+</section>
+
 <section class="card" id="result-profile" aria-labelledby="result-profile-title">
     <h2 id="result-profile-title">Результат и шаблон</h2>
     <p class="muted">
@@ -173,6 +188,7 @@
         <span class="muted" th:if="${!profile.explicit()}"> (используется настройка по умолчанию)</span>
     </p>
     <form method="post" th:action="@{/lectures/{id}/rerun(id=${lecture.id})}">
+        <input type="hidden" name="_csrf" th:value="${csrf}">
         <div class="grid">
             <div class="field">
                 <label for="profile-material">Тип исходного материала</label>

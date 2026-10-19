@@ -20,7 +20,8 @@ public record RerunPlan(
         List<String> producedArtifacts,
         boolean manualEditsPresent,
         String manualEditsWarning,
-        List<String> warnings) {
+        List<String> warnings,
+        List<TemplateCompatibility.Issue> compatibility) {
 
     /** What will happen to one pipeline stage. */
     public enum Decision {
@@ -58,6 +59,16 @@ public record RerunPlan(
 
     public boolean needsRerun() {
         return stages.stream().anyMatch(StagePlan::reruns);
+    }
+
+    /** A fully no-op plan must not start a job or create a duplicate variant. */
+    public boolean noop() {
+        return !needsRerun();
+    }
+
+    public boolean hasIncompatibleTemplate() {
+        return compatibility != null && compatibility.stream()
+                .anyMatch(issue -> issue.severity() == TemplateCompatibility.Severity.INCOMPATIBLE);
     }
 
     public List<StagePlan> rerunStages() {

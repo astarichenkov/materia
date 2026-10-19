@@ -5,7 +5,8 @@
   Server-computed preview of a selective re-run. Nothing here starts a job:
   every row comes from persisted checkpoints and artifacts.
 -->
-<div th:fragment="plan" class="rerun-plan">
+<div th:fragment="plan" class="rerun-plan"
+     th:attr="data-plan-noop=${rerunPlan != null and !rerunPlan.needsRerun()}">
     <div th:if="${rerunPlan == null}" class="alert alert--warning" role="alert">
         Не удалось рассчитать план. Проверьте состояние обработки на карточке материала.
     </div>
@@ -32,7 +33,8 @@
                 </span>
             </p>
             <p class="muted" th:unless="${rerunPlan.needsRerun()}">
-                Всё уже готово для выбранного профиля — запуск не требуется.
+                Всё уже готово для выбранного профиля — запуск не требуется,
+                новые файлы и варианты создаваться не будут.
             </p>
         </div>
 
@@ -40,6 +42,19 @@
             <b>Ручные правки.</b>
             <span th:text="${rerunPlan.manualEditsWarning}">Предупреждение</span>
             <a th:href="@{/lectures/{id}/editor(id=${rerunPlan.lectureId})}">Открыть редактор</a>
+        </div>
+
+        <div class="alert alert--warning" role="alert"
+             th:if="${rerunPlan.compatibility != null and !#lists.isEmpty(rerunPlan.compatibility)}">
+            <b>Совместимость шаблона.</b>
+            <ul>
+                <li th:each="issue : ${rerunPlan.compatibility}"
+                    th:attr="data-severity=${issue.severity().name()}">
+                    <span th:text="${issue.message()}"></span>
+                    <span class="muted" th:if="${issue.recommendedTemplate() != null}"
+                          th:text="' Рекомендуемый шаблон: ' + ${issue.recommendedTemplate()}"></span>
+                </li>
+            </ul>
         </div>
 
         <ul class="rerun-warnings" th:if="${!#lists.isEmpty(rerunPlan.warnings)}">
@@ -81,9 +96,12 @@
             </div>
             <div>
                 <b>Будет создано</b>
-                <ul>
+                <ul th:if="${!#lists.isEmpty(rerunPlan.producedArtifacts)}">
                     <li th:each="artifact : ${rerunPlan.producedArtifacts}" th:text="${artifact}"></li>
                 </ul>
+                <p class="muted" th:if="${#lists.isEmpty(rerunPlan.producedArtifacts)}">
+                    Ничего создаваться не будет — выбранный профиль уже применён.
+                </p>
             </div>
         </div>
     </th:block>

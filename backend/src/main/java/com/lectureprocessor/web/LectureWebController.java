@@ -42,6 +42,8 @@ import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.LectureLanguageService;
 import com.lectureprocessor.pipeline.JobStatusService;
+import com.lectureprocessor.pipeline.PipelineDataLoader;
+import com.lectureprocessor.editor.EditorAccessService;
 import com.lectureprocessor.pipeline.PipelineJob;
 import com.lectureprocessor.processing.OutputFormat;
 import com.lectureprocessor.processing.OutputVariantService;
@@ -53,6 +55,7 @@ import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
 import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.text.PromptTemplateService;
 import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
 import com.lectureprocessor.thumbnail.ThumbnailService;
 import com.lectureprocessor.web.ui.JobRow;
@@ -91,6 +94,9 @@ public class LectureWebController {
     private final RerunPlanService rerunPlans;
     private final OutputVariantService variants;
     private final PromptTemplates promptTemplates;
+    private final PromptTemplateService promptTemplateService;
+    private final PipelineDataLoader pipelineDataLoader;
+    private final EditorAccessService access;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -104,7 +110,8 @@ public class LectureWebController {
             ImportCapabilitiesService importCapabilities, ThumbnailService thumbnails,
             ThumbnailJobQueue thumbnailQueue, ProcessingProfileService profiles,
             RerunPlanService rerunPlans, OutputVariantService variants,
-            PromptTemplates promptTemplates) {
+            PromptTemplates promptTemplates, PromptTemplateService promptTemplateService,
+            PipelineDataLoader pipelineDataLoader, EditorAccessService access) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -129,6 +136,9 @@ public class LectureWebController {
         this.rerunPlans = rerunPlans;
         this.variants = variants;
         this.promptTemplates = promptTemplates;
+        this.promptTemplateService = promptTemplateService;
+        this.pipelineDataLoader = pipelineDataLoader;
+        this.access = access;
     }
 
     /**
@@ -330,8 +340,10 @@ public class LectureWebController {
     }
 
     @GetMapping("/lectures/{id}")
-    public String lecture(@PathVariable String id, Model model) {
+    public String lecture(@PathVariable String id, Model model,
+            jakarta.servlet.http.HttpServletRequest request) {
         Lecture lecture = lectureService.getRequired(id);
+        model.addAttribute("csrf", access.csrfToken(request.getSession(true)));
         model.addAttribute("lecture", lecture);
         model.addAttribute("job", jobStatusService.view(id));
         model.addAttribute("language", languages.get(id));
@@ -374,6 +386,11 @@ public class LectureWebController {
         model.addAttribute("promptTemplates", notesPrompts());
         model.addAttribute("variants", variants.list(id));
         try {
+            model.addAttribute("quality", pipelineDataLoader.quality(id));
+        } catch (RuntimeException e) {
+            model.addAttribute("quality", null);
+        }
+        try {
             model.addAttribute("rerunPlan", rerunPlans.plan(id, profile));
         } catch (RuntimeException e) {
             log.warn("Rerun plan unavailable for {}: {}", id, e.getMessage());
@@ -383,11 +400,7 @@ public class LectureWebController {
 
     /** Prompt templates that can produce a document (assistant/translation excluded). */
     private List<PromptTemplates.Template> notesPrompts() {
-        return promptTemplates.list().stream()
-                .filter(t -> t.name().startsWith("notes-")
-                        || t.name().startsWith("clean-transcript")
-                        || t.name().startsWith("structured-notes"))
-                .toList();
+        return promptTemplateService.selectable();
     }
 
     /** Preview of the re-run plan for a profile that is not saved yet. */
@@ -418,8 +431,14 @@ public class LectureWebController {
             @RequestParam(name = "outputFormat", required = false) String outputFormat,
             @RequestParam(name = "detailLevel", required = false) String detailLevel,
             @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
+            jakarta.servlet.http.HttpServletRequest request,
             RedirectAttributes redirect) {
         lectureService.getRequired(id);
+        if (!access.csrfValid(request)) {
+            redirect.addFlashAttribute("error",
+                    "Недействительный CSRF-токен. Обновите страницу и повторите пересоздание.");
+            return "redirect:/lectures/" + id;
+        }
         try {
             ProcessingProfile profile = profiles.save(id, materialType, outputFormat, detailLevel,
                     promptTemplate);
@@ -427,6 +446,14 @@ public class LectureWebController {
             if (plan.blocked()) {
                 redirect.addFlashAttribute("error", "Пересоздание не запущено: "
                         + plan.blockedReason());
+                return "redirect:/lectures/" + id;
+            }
+            if (plan.noop()) {
+                // Nothing to regenerate: do not start a job and do not create a
+                // duplicate document variant just to show a COMPLETED run.
+                redirect.addFlashAttribute("message",
+                        "Профиль сохранён. Все документы уже соответствуют выбранному шаблону — "
+                                + "пересоздавать нечего.");
                 return "redirect:/lectures/" + id;
             }
             boolean submitted = jobService.submit(id);

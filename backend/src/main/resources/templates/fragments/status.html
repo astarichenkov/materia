@@ -25,6 +25,45 @@
     </p>
 
     <div th:if="${job != null}">
+        <!--
+          Current-run block: progress of THIS regeneration, not the accumulated
+          pipeline history. `data-run-id` lets tests/UI follow the actual run.
+        -->
+        <div class="run-progress" th:if="${job.run != null}"
+             th:attr="data-run-id=${job.run.id},data-run-state=${job.run.state}">
+            <p>
+                <b>Текущий запуск</b>
+                <span class="badge badge--neutral" th:text="${job.run.stateLabel}">Состояние</span>
+                <span class="muted" th:text="' · ID ' + ${#strings.substring(job.run.id, 0, 8)}"></span>
+            </p>
+            <p th:if="${job.run.currentStageTitle != null}">
+                Этап:
+                <b th:text="${job.run.currentStageTitle}"></b>
+                <span class="muted" th:text="' · ' + ${job.run.doneStages} + ' из ' + ${job.run.totalStages} + ' стадий'"></span>
+            </p>
+            <p class="muted" th:if="${job.run.stageProgress != null}"
+               th:text="'Прогресс этапа: ' + ${job.run.stageProgress}"></p>
+            <progress th:value="${job.run.percent}" max="100"
+                      th:attr="aria-label='Прогресс текущего запуска'"></progress>
+            <span th:text="${job.run.percent} + '%'"></span>
+            <p th:if="${job.run.message != null and !#strings.isEmpty(job.run.message)}"
+               th:text="${job.run.message}"></p>
+            <ul class="run-stages" th:if="${job.run.stages != null and !job.run.stages.isEmpty()}">
+                <li th:each="runStage : ${job.run.stages}"
+                    th:attr="data-stage=${runStage.stage},data-state=${runStage.state}">
+                    <span th:text="${runStage.title}"></span>
+                    <span th:switch="${runStage.state}">
+                        <span th:case="'COMPLETED'" class="muted"> — готово</span>
+                        <span th:case="'RUNNING'" class="muted"> — выполняется</span>
+                        <span th:case="'PENDING'" class="muted"> — ожидает</span>
+                        <span th:case="'CANCELLED'" class="muted"> — отменено</span>
+                        <span th:case="*" class="muted"> — не выполнялось</span>
+                    </span>
+                    <span class="muted" th:if="${runStage.detail != null}" th:text="' · ' + ${runStage.detail}"></span>
+                </li>
+            </ul>
+        </div>
+
         <p>
             <span th:text="${job.terminal ? 'Последний этап:' : 'Этап:'}">Этап:</span>
             <span th:if="${job.currentStageTitle != null}" th:text="${job.currentStageTitle}">—</span>
@@ -36,7 +75,7 @@
         <progress th:value="${job.progressPercent}" max="100"
                   th:attr="aria-label=${job.terminal ? 'Достигнутый прогресс обработки' : 'Прогресс обработки'}"></progress>
         <span th:text="${job.progressPercent} + '%'"></span>
-        <span class="muted" th:if="${job.terminal}"> · обработка остановлена, дальнейшие этапы не запускались</span>
+        <span class="muted" th:if="${job.terminal and job.status != 'COMPLETED' and job.status != 'PARTIAL'}"> · обработка остановлена, дальнейшие этапы не запускались</span>
 
         <div th:if="${job.download != null}">
             <p>

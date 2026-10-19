@@ -94,6 +94,36 @@
     }
   });
 
+  // A no-op re-run plan must not invite a pointless job: disable the submit
+  // button and explain why. Re-enabled as soon as the plan needs work again.
+  function syncRerunButton(container) {
+    if (!container) return;
+    var form = container.closest("form");
+    if (!form) return;
+    var button = form.querySelector("button[type=submit]");
+    if (!button) return;
+    var plan = container.querySelector("[data-plan-noop]");
+    var noop = plan && plan.getAttribute("data-plan-noop") === "true";
+    button.disabled = !!noop;
+    button.setAttribute("aria-disabled", noop ? "true" : "false");
+    var hint = form.querySelector("[data-rerun-noop-hint]");
+    if (noop && !hint) {
+      hint = document.createElement("span");
+      hint.className = "muted";
+      hint.setAttribute("data-rerun-noop-hint", "true");
+      hint.textContent = " Всё уже готово — пересоздавать нечего.";
+      button.insertAdjacentElement("afterend", hint);
+    } else if (!noop && hint) {
+      hint.remove();
+    }
+  }
+  document.addEventListener("htmx:afterSwap", function (event) {
+    syncRerunButton(event.detail ? event.detail.target : null);
+  });
+  document.addEventListener("DOMContentLoaded", function () {
+    syncRerunButton(document.getElementById("rerun-plan"));
+  });
+
   // HTMX errors should be visible and never replace the whole page silently.
   document.addEventListener("htmx:responseError", function (event) {
     var detail = event.detail || {};
