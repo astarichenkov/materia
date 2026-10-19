@@ -49,12 +49,14 @@ public class RerunPlanService {
     private final DocumentRevisionRepository revisions;
     private final PipelinePlanner planner;
     private final TemplateCompatibility compatibility;
+    private final com.lectureprocessor.scenario.ScenarioCompatibility scenarioCompatibility;
 
     public RerunPlanService(ProcessingProfileService profiles, OutputVariantService variants,
             PipelineJobRepository jobs, LectureRepository lectures,
             TranslationRepository translations, LectureLanguageRepository languages,
             MultilingualProperties multilingual, DocumentRevisionRepository revisions,
-            PipelinePlanner planner, TemplateCompatibility compatibility) {
+            PipelinePlanner planner, TemplateCompatibility compatibility,
+            com.lectureprocessor.scenario.ScenarioCompatibility scenarioCompatibility) {
         this.profiles = profiles;
         this.variants = variants;
         this.jobs = jobs;
@@ -65,6 +67,7 @@ public class RerunPlanService {
         this.revisions = revisions;
         this.planner = planner;
         this.compatibility = compatibility;
+        this.scenarioCompatibility = scenarioCompatibility;
     }
 
     public RerunPlan plan(String lectureId, ProcessingProfile requested) {
@@ -105,7 +108,7 @@ public class RerunPlanService {
                 decision = RerunPlan.Decision.SKIP;
                 reason = stage == PipelineStage.TRANSLATION
                         ? "Перевод отключён в настройках языка"
-                        : "Извлечение слайдов отключено для этой лекции";
+                        : "Извлечение слайдов отключено для этого материала";
             } else if (evaluation != null && evaluation.reusable()) {
                 decision = RerunPlan.Decision.REUSE;
                 reason = reuseReason(stage, profileChanged, wantsTranslation);
@@ -161,7 +164,8 @@ public class RerunPlanService {
         if (!translationUsable && wantsTranslation) {
             warnings.add("Перевод ещё не готов: конспект может быть создан по оригиналу.");
         }
-        List<TemplateCompatibility.Issue> compatibilityIssues = compatibility.evaluate(requested);
+        List<TemplateCompatibility.Issue> compatibilityIssues = scenarioCompatibility
+                .evaluate(requested);
         for (TemplateCompatibility.Issue issue : compatibilityIssues) {
             if (issue.severity() != TemplateCompatibility.Severity.INFO) {
                 warnings.add(issue.message());
@@ -322,7 +326,8 @@ public class RerunPlanService {
     private ProcessingProfile appliedProfile(String lectureId) {
         return variants.latest(lectureId)
                 .map(variant -> ProcessingProfile.explicit(variant.materialType(),
-                        variant.outputFormat(), variant.detailLevel(), variant.promptTemplate()))
+                        variant.outputFormat(), variant.detailLevel(), variant.promptTemplate(),
+                        variant.scenario()))
                 .orElseGet(() -> profiles.get(lectureId));
     }
 }

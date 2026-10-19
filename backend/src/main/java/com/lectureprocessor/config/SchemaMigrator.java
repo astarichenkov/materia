@@ -43,7 +43,8 @@ public class SchemaMigrator implements ApplicationRunner {
             new Migration(8, "db/migration/V8__multilingual_video_discovery.sql"),
             new Migration(9, "db/migration/V9__day35_lecture_editor.sql"),
             new Migration(10, "db/migration/V10__nightly_thumbnails_profiles.sql"),
-            new Migration(11, "db/migration/V11__nightly_prompt_quality.sql"));
+            new Migration(11, "db/migration/V11__nightly_prompt_quality.sql"),
+            new Migration(12, "db/migration/V12__materia_scenarios.sql"));
 
     private final JdbcTemplate jdbc;
 

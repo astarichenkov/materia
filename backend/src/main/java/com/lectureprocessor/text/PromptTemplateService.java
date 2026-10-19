@@ -11,6 +11,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.stereotype.Service;
 
 import com.lectureprocessor.processing.OutputFormat;
+import com.lectureprocessor.scenario.ProcessingScenario;
 
 /**
  * Prompt template catalogue and user-owned copies.
@@ -205,7 +206,8 @@ public class PromptTemplateService {
     private boolean isDocumentTemplate(PromptTemplates.Template template) {
         return template.name().startsWith("notes-")
                 || template.name().startsWith("clean-transcript")
-                || template.name().startsWith("structured-notes");
+                || template.name().startsWith("structured-notes")
+                || template.name().startsWith("scenario-");
     }
 
     private String labelFor(String name) {
@@ -214,11 +216,17 @@ public class PromptTemplateService {
     }
 
     private String recommendedFor(String name) {
-        return java.util.Arrays.stream(OutputFormat.values())
-                .filter(format -> format.defaultPrompt().equals(name))
+        java.util.List<String> targets = new java.util.ArrayList<>();
+        java.util.Arrays.stream(OutputFormat.values())
+                .filter(format -> java.util.Objects.equals(format.defaultPrompt(), name))
                 .map(OutputFormat::label)
-                .findFirst()
-                .orElse("дополнительные сценарии");
+                .forEach(targets::add);
+        java.util.Arrays.stream(ProcessingScenario.values())
+                .filter(scenario -> java.util.Objects.equals(scenario.recommendedPrompt(), name))
+                .map(ProcessingScenario::title)
+                .forEach(targets::add);
+        return targets.isEmpty() ? "дополнительные сценарии"
+                : String.join(", ", new java.util.LinkedHashSet<>(targets));
     }
 
     private String structureFor(String name) {
@@ -226,7 +234,7 @@ public class PromptTemplateService {
             return "Структура задаётся шаблоном пользователя.";
         }
         return java.util.Arrays.stream(OutputFormat.values())
-                .filter(format -> format.defaultPrompt().equals(name))
+                .filter(format -> java.util.Objects.equals(format.defaultPrompt(), name))
                 .map(OutputFormat::structureContract)
                 .findFirst()
                 .orElse("Структура описана в тексте шаблона.");

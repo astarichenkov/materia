@@ -46,6 +46,10 @@ public class TemplateCompatibility {
         boolean interviewTemplate = PromptTemplates.NOTES_INTERVIEW.equals(prompt);
         boolean faqTemplate = PromptTemplates.NOTES_FAQ.equals(prompt);
         boolean cleanTemplate = prompt != null && prompt.startsWith("clean-transcript");
+        if (prompt == null || prompt.isBlank()) {
+            // No-LLM scenarios have no template: nothing to compare.
+            return issues;
+        }
 
         if ((interviewTemplate || faqTemplate) && !INTERVIEW_LIKE.contains(material)) {
             issues.add(new Issue(Severity.WARNING,
@@ -93,7 +97,7 @@ public class TemplateCompatibility {
                             + prompt + ". Итог может не соответствовать формату.",
                     recommended));
         }
-        if (prompt != null && !prompts.exists(prompt)) {
+        if (!prompts.exists(prompt)) {
             issues.add(new Issue(Severity.INCOMPATIBLE,
                     "Шаблон " + prompt + " не найден. Будет использован " + recommended + ".",
                     recommended));

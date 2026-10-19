@@ -22,6 +22,10 @@ import com.lectureprocessor.multilingual.TranslationStatus;
 import com.lectureprocessor.processing.OutputVariantService;
 import com.lectureprocessor.processing.ProcessingProfile;
 import com.lectureprocessor.processing.ProcessingProfileService;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
+import com.lectureprocessor.scenario.ScenarioOutputValidator;
+import com.lectureprocessor.scenario.TranscriptDocumentBuilder;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.HeavyStageLimiter;
@@ -64,13 +68,18 @@ public class TextProcessingStage implements StageExecutor {
     private final OutputVariantService variants;
     private final JobProgressRegistry progressRegistry;
     private final PipelineRunRepository runs;
+    private final ScenarioCatalog scenarios;
+    private final ScenarioOutputValidator validator;
+    private final TranscriptDocumentBuilder transcriptDocuments;
 
     public TextProcessingStage(TextProcessingService textProcessing, LlmTaskResolver taskResolver,
             LlmSettingsService llmSettings, FileStorageService storage, TimingRepository timings,
             HeavyStageLimiter limiter, PipelineDataLoader loader, TranslationRepository translations,
             LectureLanguageRepository languageRepository, MultilingualProperties multilingual,
             ProcessingProfileService profiles, OutputVariantService variants,
-            JobProgressRegistry progressRegistry, PipelineRunRepository runs) {
+            JobProgressRegistry progressRegistry, PipelineRunRepository runs,
+            ScenarioCatalog scenarios, ScenarioOutputValidator validator,
+            TranscriptDocumentBuilder transcriptDocuments) {
         this.textProcessing = textProcessing;
         this.taskResolver = taskResolver;
         this.llmSettings = llmSettings;
@@ -85,6 +94,9 @@ public class TextProcessingStage implements StageExecutor {
         this.variants = variants;
         this.progressRegistry = progressRegistry;
         this.runs = runs;
+        this.scenarios = scenarios;
+        this.validator = validator;
+        this.transcriptDocuments = transcriptDocuments;
     }
 
     @Override
@@ -119,14 +131,6 @@ public class TextProcessingStage implements StageExecutor {
     @Override
     public StageResult execute(JobContext context) {
         long start = System.currentTimeMillis();
-        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
-        if (!resolved.provider().isAvailable()) {
-            return StageResult.failed(id(),
-                    "LLM provider недоступен: " + resolved.providerId()
-                            + ". Для локального режима запустите Ollama и загрузите модель "
-                            + "(OLLAMA_BASE_URL / OLLAMA_CHAT_MODEL); для облака добавьте API key.",
-                    System.currentTimeMillis() - start);
-        }
         Transcript transcript = context.transcript();
         if (transcript == null) {
             transcript = loader.transcript(context.lectureId());
@@ -135,31 +139,72 @@ public class TextProcessingStage implements StageExecutor {
             return StageResult.failed(id(), "Транскрипция недоступна для обработки текста",
                     System.currentTimeMillis() - start);
         }
-        // Snapshot the resolved configuration so a running job is never affected
-        // by later settings changes and its checkpoint stays reproducible.
-        LlmRunConfig config = resolved.config();
-        context.setLlmConfig(config);
-        LlmOptions options = resolved.options();
-        ProcessingProfile profile = profiles.get(context.lectureId());
-        String notesPrompt = profile.resolvedPrompt();
-        boolean clean = context.lecture() != null && context.lecture().cleanTranscript();
+        ProcessingProfile profile = context.profileOverride() != null
+                ? context.profileOverride() : profiles.get(context.lectureId());
+        ProcessingScenario scenario = profile.scenario();
         final Transcript source = translatedTranscript(context, transcript);
 
         String cleaned = null;
         StructuredNotes notes;
         TextQualityReport quality = TextQualityReport.empty();
         ChunkProgressListener progress = chunkProgress(context);
+
+        if (scenario != null && !scenario.usesLlm()) {
+            // Verbatim / translation-only: no LLM call at all. The document is
+            // assembled from the stored segments so nothing can be paraphrased,
+            // reordered or dropped by a model.
+            boolean translated = scenario == ProcessingScenario.TRANSLATION
+                    && translationUsable(context);
+            TranscriptDocumentBuilder.Result result = transcriptDocuments.build(scenario,
+                    source.segments(), translated);
+            notes = result.notes();
+            quality = quality.withWarnings(result.warnings());
+            loader.writeNotes(context.lectureId(), notes);
+            loader.writeQuality(context.lectureId(), quality);
+            variants.archive(context.lectureId(), profile, null, notes.markdown());
+            context.setNotes(notes);
+            context.setTextProcessed(true);
+            timings.record(context.lectureId(), TimingRepository.LLM,
+                    System.currentTimeMillis() - start);
+            return StageResult.completed(id(),
+                    ArtifactManifest.of(
+                            ArtifactManifest.required("notes", PipelineDataLoader.NOTES_JSON),
+                            ArtifactManifest.optional("quality",
+                                    PipelineDataLoader.NOTES_QUALITY_JSON)),
+                    System.currentTimeMillis() - start, quality.warnings());
+        }
+
+        ResolvedLlmTask resolved = taskResolver.resolve(LlmTaskType.LECTURE_PROCESSING);
+        if (!resolved.provider().isAvailable()) {
+            return StageResult.failed(id(),
+                    "LLM provider недоступен: " + resolved.providerId()
+                            + ". Для локального режима запустите Ollama и загрузите модель "
+                            + "(OLLAMA_BASE_URL / OLLAMA_CHAT_MODEL); для облака добавьте API key.",
+                    System.currentTimeMillis() - start);
+        }
+        // Snapshot the resolved configuration so a running job is never affected
+        // by later settings changes and its checkpoint stays reproducible.
+        LlmRunConfig config = resolved.config();
+        context.setLlmConfig(config);
+        LlmOptions options = resolved.options();
+        String notesPrompt = profile.resolvedPrompt();
+        boolean clean = context.lecture() != null && context.lecture().cleanTranscript();
+        String documentTitle = profile.documentLabel();
+
         if (profile.outputFormat().cleanTranscript()) {
             final String prompt = notesPrompt;
             TextProcessingService.CleanedTranscriptDocument document = limiter.run(
                     context.cancellation(),
                     () -> textProcessing.cleanTranscriptDocument(resolved.provider(),
-                            source.segments(), options, prompt, progress));
+                            source.segments(), options, prompt, documentTitle, progress));
             cleaned = document.cleanedText();
             notes = document.notes();
         } else {
             final String instructions = profile.instructions();
             final String contract = profile.outputFormat().structureContract();
+            final com.lectureprocessor.text.AssemblyPolicy policy = scenario == null
+                    ? com.lectureprocessor.text.AssemblyPolicy.SEMANTIC : scenario.assemblyPolicy();
+            final boolean includeSummary = scenario == null || scenario.includeSummary();
             cleaned = limiter.run(context.cancellation(),
                     () -> clean ? textProcessing.cleanTranscript(resolved.provider(),
                             source.segments(), options)
@@ -167,11 +212,17 @@ public class TextProcessingStage implements StageExecutor {
             context.cancellation().throwIfCancelled();
             TextProcessingService.GeneratedNotes generated = limiter.run(context.cancellation(),
                     () -> textProcessing.generateStructuredNotes(resolved.provider(),
-                            source.segments(), options, notesPrompt, instructions, contract, progress));
+                            source.segments(), options, notesPrompt, instructions, contract,
+                            policy, documentTitle, includeSummary, progress));
             notes = generated.notes();
             quality = generated.quality();
         }
         context.cancellation().throwIfCancelled();
+
+        // Scenario-specific validation: warnings are persisted, an empty result
+        // is already a hard failure inside the generation call.
+        quality = quality.withWarnings(validator.validate(scenario, notes.markdown(),
+                source.segments()));
 
         loader.writeNotes(context.lectureId(), notes);
         loader.writeQuality(context.lectureId(), quality);
@@ -214,6 +265,15 @@ public class TextProcessingStage implements StageExecutor {
      * lecture is configured for translation. Missing segments fall back to the
      * original text, so a partial translation never loses content.
      */
+    private boolean translationUsable(JobContext context) {
+        return translations.findLatest(context.lectureId())
+                .filter(t -> "ru".equals(t.targetLanguage()))
+                .filter(t -> t.status() == TranslationStatus.COMPLETED
+                        || t.status() == TranslationStatus.PARTIAL)
+                .filter(t -> t.segmentsTranslated() > 0)
+                .isPresent();
+    }
+
     private Transcript translatedTranscript(JobContext context, Transcript original) {
         LectureLanguage language = languageRepository.findOrDefault(context.lectureId(), multilingual);
         if (!language.resolvedTranslationMode().wantsTranslation()) {

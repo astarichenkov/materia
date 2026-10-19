@@ -22,6 +22,7 @@ import com.lectureprocessor.multilingual.TranslationRepository;
 import com.lectureprocessor.multilingual.TranslationSegment;
 import com.lectureprocessor.multilingual.TranslationStatus;
 import com.lectureprocessor.processing.OutputVariantService;
+import com.lectureprocessor.processing.ProcessingProfileService;
 import com.lectureprocessor.pipeline.ArtifactManifest;
 import com.lectureprocessor.pipeline.Fingerprints;
 import com.lectureprocessor.pipeline.JobContext;
@@ -57,12 +58,14 @@ public class ExportStage implements StageExecutor {
     private final LectureLanguageRepository languageRepository;
     private final MultilingualProperties multilingual;
     private final OutputVariantService variants;
+    private final ProcessingProfileService profiles;
 
     public ExportStage(MarkdownBuilder markdownBuilder, DocxExporter docxExporter,
             SlideRepository slideRepository, LectureRepository lectureRepository,
             FileStorageService storage, TimingRepository timings, PipelineDataLoader loader,
             TranslationRepository translations, LectureLanguageRepository languageRepository,
-            MultilingualProperties multilingual, OutputVariantService variants) {
+            MultilingualProperties multilingual, OutputVariantService variants,
+            ProcessingProfileService profiles) {
         this.markdownBuilder = markdownBuilder;
         this.docxExporter = docxExporter;
         this.slideRepository = slideRepository;
@@ -74,6 +77,7 @@ public class ExportStage implements StageExecutor {
         this.languageRepository = languageRepository;
         this.multilingual = multilingual;
         this.variants = variants;
+        this.profiles = profiles;
     }
 
     @Override
@@ -115,7 +119,8 @@ public class ExportStage implements StageExecutor {
         Lecture lecture = context.lecture() != null ? context.lecture() : loader.lecture(context.lectureId());
         LectureLanguage language = languageRepository.findOrDefault(context.lectureId(), multilingual);
         String cleaned = loader.cleanedText(context.lectureId());
-        String title = "Конспект: " + (lecture.originalFilename() == null
+        String documentLabel = profiles.get(context.lectureId()).documentLabel();
+        String title = documentLabel + ": " + (lecture.originalFilename() == null
                 || lecture.originalFilename().isBlank() ? lecture.id() : lecture.originalFilename());
 
         List<SlideImage> slideImages = slideRepository.findByLecture(context.lectureId()).stream()
@@ -124,7 +129,7 @@ public class ExportStage implements StageExecutor {
 
         // Original transcript is always exported and never replaced.
         String originalMd = markdownBuilder.transcriptMarkdown(lecture, transcript,
-                "Расшифровка лекции (оригинал)", "Расшифровка");
+                "Расшифровка материала (оригинал)", "Расшифровка");
         loader.writeString(context.lectureId(), PipelineDataLoader.TRANSCRIPT_MD, originalMd);
         loader.writeString(context.lectureId(), PipelineDataLoader.TRANSCRIPT_ORIGINAL_MD, originalMd);
         loader.writeString(context.lectureId(), PipelineDataLoader.NOTES_MD, notes.markdown());
@@ -166,7 +171,7 @@ public class ExportStage implements StageExecutor {
             Transcript russian = new Transcript(aligned.stream()
                     .map(TranslationSegment::toTranscriptSegment).toList(), transcript.rawJson());
             String ruMd = markdownBuilder.transcriptMarkdown(lecture, russian,
-                    "Расшифровка лекции (перевод на русский)", "Перевод");
+                    "Расшифровка материала (перевод на русский)", "Перевод");
             String bilingualMd = markdownBuilder.bilingualTranscriptMarkdown(lecture, transcript,
                     aligned);
             loader.writeString(context.lectureId(), PipelineDataLoader.TRANSCRIPT_RU_MD, ruMd);

@@ -65,6 +65,25 @@ public class NotesAssembler {
     }
 
     public Assembly assemble(List<SegmentChunk> chunks, List<String> outputs) {
+        return assemble(chunks, outputs, AssemblyPolicy.SEMANTIC);
+    }
+
+    /**
+     * Assembles chunk outputs with the policy required by the scenario. Semantic
+     * (notes) keeps deduplication; chronological/structured keep every block in
+     * order; dialogue keeps the raw sequence including repetitions.
+     */
+    public Assembly assemble(List<SegmentChunk> chunks, List<String> outputs,
+            AssemblyPolicy policy) {
+        if (policy == null) {
+            policy = AssemblyPolicy.SEMANTIC;
+        }
+        if (policy == AssemblyPolicy.DIALOGUE) {
+            return assembleDialogue(chunks, outputs);
+        }
+        if (!policy.deduplicates()) {
+            return assembleOrdered(chunks, outputs);
+        }
         Map<String, SectionBuilder> sections = new LinkedHashMap<>();
         Set<String> globalParagraphs = new HashSet<>();
         Set<String> recentKeys = new LinkedHashSet<>();
@@ -193,6 +212,127 @@ public class NotesAssembler {
                 duplicateBlocks, duplicateQuestions, promptLeakLines, truncated,
                 repeatedSentences, warnings);
         return new Assembly(markdown.toString().strip(), noteSections, report);
+    }
+
+    /** Chronological/structured assembly: order and repetitions are preserved. */
+    private Assembly assembleOrdered(List<SegmentChunk> chunks, List<String> outputs) {
+        Map<String, SectionBuilder> sections = new LinkedHashMap<>();
+        int promptLeakLines = 0;
+        int truncated = 0;
+        for (int i = 0; i < outputs.size(); i++) {
+            SegmentChunk chunk = i < chunks.size() ? chunks.get(i)
+                    : new SegmentChunk(i, 0, 0, "");
+            String output = outputs.get(i) == null ? "" : outputs.get(i);
+            if (isTruncated(output)) {
+                truncated++;
+            }
+            for (Block block : splitBlocks(output)) {
+                String heading = normalizeHeading(block.heading());
+                if (heading == null) {
+                    heading = "Основное";
+                }
+                if (leakKind(heading) != null) {
+                    promptLeakLines++;
+                    continue;
+                }
+                SectionBuilder section = sections.computeIfAbsent(heading,
+                        key -> new SectionBuilder(block.heading() == null ? "Основное"
+                                : block.heading().strip(), chunk.startMs(), chunk.endMs()));
+                section.endMs = Math.max(section.endMs, chunk.endMs());
+                for (String paragraph : splitParagraphs(block.body())) {
+                    String leak = leakKind(paragraph);
+                    if (leak != null) {
+                        promptLeakLines++;
+                        continue;
+                    }
+                    if (paragraph.isBlank()) {
+                        continue;
+                    }
+                    // No deduplication: repeated ingredients, steps and statements
+                    // may be meaningful in the source material.
+                    section.paragraphs.add(paragraph.strip());
+                }
+            }
+        }
+        return finish(chunks, sections, promptLeakLines, truncated, 0, 0);
+    }
+
+    /** Dialogue assembly: raw order per chunk, no heading merge, no dedupe. */
+    private Assembly assembleDialogue(List<SegmentChunk> chunks, List<String> outputs) {
+        List<NoteSection> sections = new ArrayList<>();
+        StringBuilder markdown = new StringBuilder();
+        int promptLeakLines = 0;
+        int truncated = 0;
+        for (int i = 0; i < outputs.size(); i++) {
+            SegmentChunk chunk = i < chunks.size() ? chunks.get(i)
+                    : new SegmentChunk(i, 0, 0, "");
+            String output = outputs.get(i) == null ? "" : outputs.get(i);
+            if (isTruncated(output)) {
+                truncated++;
+            }
+            List<String> kept = new ArrayList<>();
+            for (String line : output.split("\\R")) {
+                if (leakKind(line) != null) {
+                    promptLeakLines++;
+                    continue;
+                }
+                kept.add(line);
+            }
+            String text = String.join("\n", kept).strip();
+            if (text.isBlank()) {
+                continue;
+            }
+            String block = text.startsWith("#") ? text : "## Диалог\n\n" + text;
+            sections.add(new NoteSection(sections.size() + 1, chunk.startMs(), chunk.endMs(),
+                    block));
+            markdown.append(block).append("\n\n");
+        }
+        List<String> warnings = new ArrayList<>();
+        if (promptLeakLines > 0) {
+            warnings.add("Удалены строки, похожие на эхо инструкций модели: " + promptLeakLines + ".");
+        }
+        if (truncated > 0) {
+            warnings.add("Часть фрагментов выглядит обрезанной (" + truncated
+                    + "). Проверьте полноту диалога.");
+        }
+        if (sections.isEmpty()) {
+            warnings.add("Модель не вернула содержательных реплик.");
+        }
+        return new Assembly(markdown.toString().strip(), sections,
+                new TextQualityReport(chunks.size(), sections.size(), 0, 0, promptLeakLines,
+                        truncated, 0, warnings));
+    }
+
+    private Assembly finish(List<SegmentChunk> chunks, Map<String, SectionBuilder> sections,
+            int promptLeakLines, int truncated, int duplicateBlocks, int duplicateQuestions) {
+        int sectionCount = 0;
+        List<NoteSection> noteSections = new ArrayList<>();
+        StringBuilder markdown = new StringBuilder();
+        for (SectionBuilder section : sections.values()) {
+            if (section.paragraphs.isEmpty()) {
+                continue;
+            }
+            String body = String.join("\n\n", section.paragraphs);
+            String block = "## " + section.heading.strip() + "\n\n" + body;
+            markdown.append(block).append("\n\n");
+            noteSections.add(new NoteSection(noteSections.size() + 1, section.startMs,
+                    section.endMs, block));
+            sectionCount++;
+        }
+        List<String> warnings = new ArrayList<>();
+        if (promptLeakLines > 0) {
+            warnings.add("Удалены строки, похожие на эхо инструкций модели: " + promptLeakLines + ".");
+        }
+        if (truncated > 0) {
+            warnings.add("Часть фрагментов выглядит обрезанной (" + truncated
+                    + "). Проверьте полноту документа.");
+        }
+        if (sectionCount == 0) {
+            warnings.add("Модель не вернула содержательных разделов.");
+        }
+        return new Assembly(markdown.toString().strip(), noteSections,
+                new TextQualityReport(chunks.size(), sectionCount, duplicateBlocks,
+                        duplicateQuestions, promptLeakLines, truncated, 0, warnings));
     }
 
     private record Block(String heading, String body) {

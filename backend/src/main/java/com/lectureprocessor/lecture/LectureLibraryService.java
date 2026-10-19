@@ -34,7 +34,8 @@ public class LectureLibraryService {
                    t.id AS translation_id, t.status AS translation_status,
                    t.segments_translated, t.segments_total,
                    tp.title AS topic_title, tp.keywords AS topic_keywords,
-                   th.status AS thumbnail_status, th.relative_path AS thumbnail_path
+                   th.status AS thumbnail_status, th.relative_path AS thumbnail_path,
+                   pp.scenario AS scenario_id, pp.output_format AS profile_output_format
             """;
 
     private static final String FROM_JOINS = """
@@ -42,6 +43,7 @@ public class LectureLibraryService {
             LEFT JOIN lecture_language ll ON ll.lecture_id = l.id
             LEFT JOIN lecture_topic tp ON tp.lecture_id = l.id
             LEFT JOIN lecture_thumbnail th ON th.lecture_id = l.id
+            LEFT JOIN lecture_processing_profile pp ON pp.lecture_id = l.id
             LEFT JOIN lecture_translation t ON t.id = (
                 SELECT MAX(id) FROM lecture_translation WHERE lecture_id = l.id)
             """;
@@ -203,7 +205,12 @@ public class LectureLibraryService {
                 rs.getString("topic_title"),
                 rs.getString("topic_keywords"),
                 rs.getString("thumbnail_status"),
-                rs.getString("thumbnail_path"));
+                rs.getString("thumbnail_path"),
+                rs.getString("scenario_id"),
+                com.lectureprocessor.scenario.ProcessingScenario.fromId(
+                        rs.getString("scenario_id")),
+                com.lectureprocessor.processing.OutputFormat.from(
+                        rs.getString("profile_output_format")));
     }
 
     private static String escapeLike(String value) {
@@ -247,7 +254,10 @@ public class LectureLibraryService {
             String topicTitle,
             String topicKeywords,
             String thumbnailStatus,
-            String thumbnailPath) {
+            String thumbnailPath,
+            String scenarioId,
+            com.lectureprocessor.scenario.ProcessingScenario scenario,
+            com.lectureprocessor.processing.OutputFormat outputFormat) {
 
         public boolean hasThumbnail() {
             return "READY".equals(thumbnailStatus) && thumbnailPath != null;
@@ -260,6 +270,15 @@ public class LectureLibraryService {
 
         public String title() {
             return topicTitle == null || topicTitle.isBlank() ? filename : topicTitle;
+        }
+
+        /** Scenario title for the card, or a generic label for legacy material. */
+        public String scenarioLabel() {
+            return scenario == null ? "Без сценария" : scenario.title();
+        }
+
+        public String formatLabel() {
+            return outputFormat == null ? "" : outputFormat.documentLabel();
         }
     }
 }

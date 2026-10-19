@@ -57,7 +57,7 @@ public class OutputVariantService {
                     profile.outputFormat(), profile.detailLevel(), prompt,
                     config == null ? null : config.provider(),
                     config == null ? null : config.model(), markdown, null, null,
-                    FileChecksum.sha256(markdown), Instant.now()));
+                    FileChecksum.sha256(markdown), Instant.now(), profile.scenario()));
             String relative = VARIANTS_DIR + "/" + STAMP.format(Instant.now()) + "-" + id + "-"
                     + profile.outputFormat().name().toLowerCase(java.util.Locale.ROOT) + ".md";
             write(lectureId, relative, markdown.getBytes(StandardCharsets.UTF_8));

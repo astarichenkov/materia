@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.text.PromptTemplates;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
+import com.lectureprocessor.scenario.ScenarioResolver;
 
 /**
  * Resolves the effective output profile for a lecture. When the user has never
@@ -19,12 +22,17 @@ public class ProcessingProfileService {
     private final ProcessingProfileRepository repository;
     private final LlmSettingsService llmSettings;
     private final PromptTemplates prompts;
+    private final ScenarioCatalog scenarios;
+    private final ScenarioResolver resolver;
 
     public ProcessingProfileService(ProcessingProfileRepository repository,
-            LlmSettingsService llmSettings, PromptTemplates prompts) {
+            LlmSettingsService llmSettings, PromptTemplates prompts, ScenarioCatalog scenarios,
+            ScenarioResolver resolver) {
         this.repository = repository;
         this.llmSettings = llmSettings;
         this.prompts = prompts;
+        this.scenarios = scenarios;
+        this.resolver = resolver;
     }
 
     public ProcessingProfile get(String lectureId) {
@@ -49,24 +57,43 @@ public class ProcessingProfileService {
      */
     public ProcessingProfile save(String lectureId, String materialType, String outputFormat,
             String detailLevel, String promptTemplate) {
-        OutputFormat format = OutputFormat.from(outputFormat);
-        String template = promptTemplate == null || promptTemplate.isBlank()
-                ? null : promptTemplate.strip();
-        if (template != null && !prompts.exists(template)) {
-            throw new IllegalArgumentException("Неизвестный шаблон промпта: " + template);
-        }
-        ProcessingProfile profile = ProcessingProfile.explicit(MaterialType.from(materialType),
-                format, DetailLevel.from(detailLevel), template);
+        return save(lectureId, materialType, outputFormat, detailLevel, promptTemplate, null);
+    }
+
+    /**
+     * Persists a scenario selection. Blank overrides fall back to the scenario
+     * recommendation; an explicitly selected template must exist.
+     */
+    public ProcessingProfile save(String lectureId, String materialType, String outputFormat,
+            String detailLevel, String promptTemplate, String scenarioId) {
+        ProcessingProfile profile = resolver.resolve(scenarioId, materialType, outputFormat,
+                detailLevel, promptTemplate);
+        validateTemplate(profile.promptTemplate());
         repository.save(lectureId, profile);
         return profile;
     }
 
     public ProcessingProfile preview(String materialType, String outputFormat, String detailLevel,
             String promptTemplate) {
-        String template = promptTemplate == null || promptTemplate.isBlank()
-                ? null : promptTemplate.strip();
-        return ProcessingProfile.explicit(MaterialType.from(materialType),
-                OutputFormat.from(outputFormat), DetailLevel.from(detailLevel), template);
+        return preview(materialType, outputFormat, detailLevel, promptTemplate, null);
+    }
+
+    public ProcessingProfile preview(String materialType, String outputFormat, String detailLevel,
+            String promptTemplate, String scenarioId) {
+        ProcessingProfile profile = resolver.resolve(scenarioId, materialType, outputFormat,
+                detailLevel, promptTemplate);
+        validateTemplate(profile.promptTemplate());
+        return profile;
+    }
+
+    private void validateTemplate(String template) {
+        if (template != null && !template.isBlank() && !prompts.exists(template)) {
+            throw new IllegalArgumentException("Неизвестный шаблон промпта: " + template);
+        }
+    }
+
+    public List<ProcessingScenario> scenarios() {
+        return scenarios.all();
     }
 
     public List<MaterialType> materialTypes() {

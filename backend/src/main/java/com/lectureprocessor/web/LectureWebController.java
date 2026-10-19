@@ -54,6 +54,8 @@ import com.lectureprocessor.processing.RerunPlanService;
 import com.lectureprocessor.repository.LectureRepository;
 import com.lectureprocessor.repository.PipelineJobRepository;
 import com.lectureprocessor.repository.SegmentRepository;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
 import com.lectureprocessor.text.PromptTemplates;
 import com.lectureprocessor.text.PromptTemplateService;
 import com.lectureprocessor.thumbnail.ThumbnailJobQueue;
@@ -97,6 +99,7 @@ public class LectureWebController {
     private final PromptTemplateService promptTemplateService;
     private final PipelineDataLoader pipelineDataLoader;
     private final EditorAccessService access;
+    private final ScenarioCatalog scenarios;
 
     public LectureWebController(LectureService lectureService, RemoteLectureService remoteLectureService,
             LectureJobService jobService, JobStatusService jobStatusService,
@@ -111,7 +114,8 @@ public class LectureWebController {
             ThumbnailJobQueue thumbnailQueue, ProcessingProfileService profiles,
             RerunPlanService rerunPlans, OutputVariantService variants,
             PromptTemplates promptTemplates, PromptTemplateService promptTemplateService,
-            PipelineDataLoader pipelineDataLoader, EditorAccessService access) {
+            PipelineDataLoader pipelineDataLoader, EditorAccessService access,
+            ScenarioCatalog scenarios) {
         this.lectureService = lectureService;
         this.remoteLectureService = remoteLectureService;
         this.jobService = jobService;
@@ -139,6 +143,7 @@ public class LectureWebController {
         this.promptTemplateService = promptTemplateService;
         this.pipelineDataLoader = pipelineDataLoader;
         this.access = access;
+        this.scenarios = scenarios;
     }
 
     /**
@@ -205,6 +210,10 @@ public class LectureWebController {
             @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
             String translationMode,
             @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
+            @RequestParam(name = "scenario", required = false) String scenario,
+            @RequestParam(name = "outputFormat", required = false) String outputFormat,
+            @RequestParam(name = "detailLevel", required = false) String detailLevel,
+            @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
             @RequestParam(name = "requestId", required = false) String requestId,
             RedirectAttributes redirect) {
         Optional<String> previous = importDeduplication.previousRequest(requestId);
@@ -226,7 +235,8 @@ public class LectureWebController {
                     "Не удалось сохранить файл. Проверьте свободное место и повторите попытку.");
         }
         importDeduplication.remember(requestId, lecture.id());
-        return openCreatedLecture(lecture.id(), "Лекция загружена", redirect);
+        applyScenario(lecture.id(), scenario, outputFormat, detailLevel, promptTemplate);
+        return openCreatedLecture(lecture.id(), "Материал загружен", redirect);
     }
 
     @PostMapping("/lectures/from-url")
@@ -239,6 +249,10 @@ public class LectureWebController {
             @RequestParam(name = "translationMode", defaultValue = "TRANSLATE_TO_RUSSIAN")
             String translationMode,
             @RequestParam(name = "autoTranslate", defaultValue = "true") boolean autoTranslate,
+            @RequestParam(name = "scenario", required = false) String scenario,
+            @RequestParam(name = "outputFormat", required = false) String outputFormat,
+            @RequestParam(name = "detailLevel", required = false) String detailLevel,
+            @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
             @RequestParam(name = "requestId", required = false) String requestId,
             RedirectAttributes redirect) {
         Optional<String> previous = importDeduplication.previousRequest(requestId);
@@ -250,7 +264,7 @@ public class LectureWebController {
         Optional<String> existing = importDeduplication.existingLectureForUrl(url);
         if (existing.isPresent()) {
             redirect.addFlashAttribute("message",
-                    "Это видео уже есть в библиотеке — открыта существующая лекция.");
+                    "Это видео уже есть в библиотеке — открыт существующий материал.");
             return "redirect:/lectures/" + existing.get();
         }
         Lecture lecture;
@@ -271,6 +285,7 @@ public class LectureWebController {
                     "Не удалось добавить видео по ссылке. Проверьте диагностику и повторите попытку.");
         }
         importDeduplication.remember(requestId, lecture.id());
+        applyScenario(lecture.id(), scenario, outputFormat, detailLevel, promptTemplate);
         return openCreatedLecture(lecture.id(), "Видео принято в обработку", redirect);
     }
 
@@ -290,6 +305,23 @@ public class LectureWebController {
                     + ", но очередь обработки переполнена. Запустите обработку с карточки материала позже.");
         }
         return "redirect:/lectures/" + lectureId;
+    }
+
+    /**
+     * Persists the scenario selected in the import wizard. A blank scenario keeps
+     * the legacy profile (configured default prompt) instead of silently assigning
+     * a new scenario to the material.
+     */
+    private void applyScenario(String lectureId, String scenario, String outputFormat,
+            String detailLevel, String promptTemplate) {
+        if (scenario == null || scenario.isBlank()) {
+            return;
+        }
+        try {
+            profiles.save(lectureId, null, outputFormat, detailLevel, promptTemplate, scenario);
+        } catch (IllegalArgumentException e) {
+            log.warn("Scenario selection ignored for {}: {}", lectureId, e.getMessage());
+        }
     }
 
     /**
@@ -380,10 +412,14 @@ public class LectureWebController {
     private void addProcessingProfileModel(String id, Model model) {
         ProcessingProfile profile = profiles.get(id);
         model.addAttribute("profile", profile);
+        model.addAttribute("documentLabel", profile.documentLabel());
         model.addAttribute("materialTypes", profiles.materialTypes());
         model.addAttribute("outputFormats", profiles.outputFormats());
         model.addAttribute("detailLevels", profiles.detailLevels());
         model.addAttribute("promptTemplates", notesPrompts());
+        model.addAttribute("scenarios", scenarios.all());
+        model.addAttribute("scenarioCategories",
+                com.lectureprocessor.scenario.ScenarioCategory.values());
         model.addAttribute("variants", variants.list(id));
         try {
             model.addAttribute("quality", pipelineDataLoader.quality(id));
@@ -398,6 +434,14 @@ public class LectureWebController {
         }
     }
 
+    private String firstIncompatible(RerunPlan plan) {
+        return plan.compatibility().stream()
+                .filter(issue -> issue.severity() == com.lectureprocessor.processing
+                        .TemplateCompatibility.Severity.INCOMPATIBLE)
+                .map(com.lectureprocessor.processing.TemplateCompatibility.Issue::message)
+                .findFirst().orElse("несовместимая комбинация сценария и шаблона.");
+    }
+
     /** Prompt templates that can produce a document (assistant/translation excluded). */
     private List<PromptTemplates.Template> notesPrompts() {
         return promptTemplateService.selectable();
@@ -410,13 +454,15 @@ public class LectureWebController {
             @RequestParam(name = "outputFormat", required = false) String outputFormat,
             @RequestParam(name = "detailLevel", required = false) String detailLevel,
             @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
+            @RequestParam(name = "scenario", required = false) String scenario,
             Model model) {
         lectureService.getRequired(id);
         ProcessingProfile preview = profiles.preview(materialType, outputFormat, detailLevel,
-                promptTemplate);
+                promptTemplate, scenario);
         model.addAttribute("previewProfile", preview);
         model.addAttribute("rerunPlan", rerunPlans.plan(id, preview));
         model.addAttribute("promptTemplates", notesPrompts());
+        model.addAttribute("scenarios", scenarios.all());
         return "fragments/rerun-plan :: plan";
     }
 
@@ -431,6 +477,7 @@ public class LectureWebController {
             @RequestParam(name = "outputFormat", required = false) String outputFormat,
             @RequestParam(name = "detailLevel", required = false) String detailLevel,
             @RequestParam(name = "promptTemplate", required = false) String promptTemplate,
+            @RequestParam(name = "scenario", required = false) String scenario,
             jakarta.servlet.http.HttpServletRequest request,
             RedirectAttributes redirect) {
         lectureService.getRequired(id);
@@ -440,8 +487,18 @@ public class LectureWebController {
             return "redirect:/lectures/" + id;
         }
         try {
+            ProcessingProfile requested = profiles.preview(materialType, outputFormat, detailLevel,
+                    promptTemplate, scenario);
+            // Fail fast: never start a generation with an incompatible template and
+            // never silently substitute a different template behind the user's back.
+            RerunPlan previewPlan = rerunPlans.plan(id, requested);
+            if (previewPlan.hasIncompatibleTemplate()) {
+                redirect.addFlashAttribute("error",
+                        "Пересоздание не запущено: " + firstIncompatible(previewPlan));
+                return "redirect:/lectures/" + id;
+            }
             ProcessingProfile profile = profiles.save(id, materialType, outputFormat, detailLevel,
-                    promptTemplate);
+                    promptTemplate, scenario);
             RerunPlan plan = rerunPlans.plan(id, profile);
             if (plan.blocked()) {
                 redirect.addFlashAttribute("error", "Пересоздание не запущено: "

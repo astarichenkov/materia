@@ -96,6 +96,13 @@ public class PromptTemplates {
     public static final String NOTES_FAQ = "notes-faq-v1";
     public static final String NOTES_MEETING = "notes-meeting-v1";
 
+    /** Materia scenario prompts (universal content processing). */
+    public static final String SCENARIO_NOTES = "scenario-notes-v1";
+    public static final String SCENARIO_SUMMARY = "scenario-summary-v1";
+    public static final String SCENARIO_RECIPE = "scenario-recipe-v1";
+    public static final String SCENARIO_DIALOGUE = "scenario-dialogue-v1";
+    public static final String SCENARIO_INSTRUCTION = "scenario-instruction-v1";
+
     /** A versioned prompt template exposed to the benchmark UI. */
     public record Template(String name, String label, String description) {
     }
@@ -130,7 +137,17 @@ public class PromptTemplates {
                 new Template(NOTES_FAQ, "notes-faq-v1",
                         "FAQ: вопросы и ответы строго по материалу."),
                 new Template(NOTES_MEETING, "notes-meeting-v1",
-                        "Протокол встречи: повестка, решения, задачи, открытые вопросы."));
+                        "Протокол встречи: повестка, решения, задачи, открытые вопросы."),
+                new Template(SCENARIO_NOTES, "scenario-notes-v1",
+                        "Конспект материала: темы, идеи, факты и выводы только из источника."),
+                new Template(SCENARIO_SUMMARY, "scenario-summary-v1",
+                        "Краткий пересказ: содержание и события в порядке изложения."),
+                new Template(SCENARIO_RECIPE, "scenario-recipe-v1",
+                        "Рецепт: ингредиенты, количества и шаги без выдуманных деталей."),
+                new Template(SCENARIO_DIALOGUE, "scenario-dialogue-v1",
+                        "Диалоги: реплики в исходном порядке без выдуманных участников."),
+                new Template(SCENARIO_INSTRUCTION, "scenario-instruction-v1",
+                        "Инструкция: цель, подготовка, шаги и проверка результата."));
     }
 
     public boolean exists(String name) {

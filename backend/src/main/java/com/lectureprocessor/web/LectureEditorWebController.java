@@ -15,6 +15,8 @@ import com.lectureprocessor.editor.EditorAccessService;
 import com.lectureprocessor.editor.EditorView;
 import com.lectureprocessor.editor.LectureEditorService;
 import com.lectureprocessor.lecture.LectureService;
+import com.lectureprocessor.processing.ProcessingProfile;
+import com.lectureprocessor.processing.ProcessingProfileService;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -26,13 +28,16 @@ public class LectureEditorWebController {
     private final LectureService lectures;
     private final EditorAccessService access;
     private final ObjectMapper objectMapper;
+    private final ProcessingProfileService profiles;
 
     public LectureEditorWebController(LectureEditorService editor, LectureService lectures,
-            EditorAccessService access, ObjectMapper objectMapper) {
+            EditorAccessService access, ObjectMapper objectMapper,
+            ProcessingProfileService profiles) {
         this.editor = editor;
         this.lectures = lectures;
         this.access = access;
         this.objectMapper = objectMapper;
+        this.profiles = profiles;
     }
 
     @GetMapping("/lectures/{id}/editor")
@@ -41,6 +46,10 @@ public class LectureEditorWebController {
         model.addAttribute("lecture", lectures.getRequired(id));
         model.addAttribute("view", view);
         model.addAttribute("csrf", access.csrfToken(session));
+        ProcessingProfile profile = profiles.get(id);
+        model.addAttribute("documentLabel", profile.documentLabel());
+        model.addAttribute("scenarioTitle",
+                profile.scenario() == null ? null : profile.scenario().title());
         Map<String, Integer> revisionNumbers = new LinkedHashMap<>();
         for (DocumentType type : DocumentType.values()) {
             revisionNumbers.put(type.name(), editor.latestRevisionNumber(id, type));

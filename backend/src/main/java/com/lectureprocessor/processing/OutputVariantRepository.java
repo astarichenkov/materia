@@ -10,6 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import com.lectureprocessor.scenario.ProcessingScenario;
+
 /** Persistence for produced document variants. */
 @Repository
 public class OutputVariantRepository {
@@ -28,7 +30,8 @@ public class OutputVariantRepository {
                     rs.getString("markdown_artifact"),
                     rs.getString("docx_artifact"),
                     rs.getString("content_hash"),
-                    Instant.parse(rs.getString("created_at")));
+                    Instant.parse(rs.getString("created_at")),
+                    ProcessingScenario.fromId(rs.getString("scenario")));
 
     private final JdbcTemplate jdbc;
 
@@ -40,13 +43,14 @@ public class OutputVariantRepository {
         jdbc.update("""
                 INSERT INTO lecture_output_variant (lecture_id, material_type, output_format,
                         detail_level, prompt_template, provider, model, notes_markdown,
-                        markdown_artifact, docx_artifact, content_hash, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                        markdown_artifact, docx_artifact, content_hash, created_at, scenario)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, variant.lectureId(), variant.materialType().name(),
                 variant.outputFormat().name(), variant.detailLevel().name(),
                 variant.promptTemplate(), variant.provider(), variant.model(),
                 variant.notesMarkdown(), variant.markdownArtifact(), variant.docxArtifact(),
-                variant.contentHash(), variant.createdAt().toString());
+                variant.contentHash(), variant.createdAt().toString(),
+                variant.scenario() == null ? null : variant.scenario().id());
         Long id = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
         return id == null ? 0 : id;
     }

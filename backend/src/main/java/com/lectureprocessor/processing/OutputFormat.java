@@ -34,7 +34,22 @@ public enum OutputFormat {
             "notes-meeting-v1", false),
     INTERVIEW_QA("Вопросы и ответы",
             "Вопросы ведущего и ответы участников без выдуманных реплик.",
-            "notes-interview-v1", false);
+            "notes-interview-v1", false),
+    SHORT_SUMMARY("Краткий пересказ",
+            "Содержание и развитие событий/идей без академической структуры.",
+            "scenario-summary-v1", false),
+    RECIPE("Рецепт",
+            "Ингредиенты, количества и последовательность приготовления из материала.",
+            "scenario-recipe-v1", false),
+    DIALOGUE("Диалоги",
+            "Реплики в исходном порядке без выдуманной атрибуции говорящих.",
+            "scenario-dialogue-v1", false),
+    VERBATIM_TRANSCRIPT("Транскрипция без изменений",
+            "Текст распознавания с временными метками, без LLM-редактирования.",
+            null, true),
+    TRANSLATION_ONLY("Только перевод",
+            "Переведённая транскрипция с сохранением сегментов и времени.",
+            null, false);
 
     private final String label;
     private final String description;
@@ -61,9 +76,34 @@ public enum OutputFormat {
         return defaultPrompt;
     }
 
-    /** True when the deliverable is the cleaned transcript itself. */
+    /** True when the deliverable is the transcript itself. */
     public boolean cleanTranscript() {
         return cleanTranscript;
+    }
+
+    /** True when producing this format requires a language model. */
+    public boolean usesLlm() {
+        return this != VERBATIM_TRANSCRIPT && this != TRANSLATION_ONLY;
+    }
+
+    /** Short human label of the produced document (used in the editor/export). */
+    public String documentLabel() {
+        return switch (this) {
+            case DETAILED_NOTES -> "Конспект";
+            case BRIEF_NOTES -> "Краткий конспект";
+            case STEP_BY_STEP -> "Инструкция";
+            case CLEAN_TRANSCRIPT -> "Очищенная транскрипция";
+            case METHODICAL_GUIDE -> "Методическое пособие";
+            case ARTICLE -> "Статья";
+            case FAQ -> "FAQ";
+            case MEETING_PROTOCOL -> "Протокол встречи";
+            case INTERVIEW_QA -> "Вопросы и ответы";
+            case SHORT_SUMMARY -> "Краткий пересказ";
+            case RECIPE -> "Рецепт";
+            case DIALOGUE -> "Диалоги";
+            case VERBATIM_TRANSCRIPT -> "Транскрипция";
+            case TRANSLATION_ONLY -> "Перевод";
+        };
     }
 
     /**
@@ -110,6 +150,26 @@ public enum OutputFormat {
                     Формат результата: ВОПРОСЫ И ОТВЕТЫ.
                     Только вопросы, которые действительно обсуждались. Не создавай фиктивных участников,
                     не повторяй вопросы и не добавляй раздел о разногласиях, если их нет.""";
+            case SHORT_SUMMARY -> """
+                    Формат результата: КРАТКИЙ ПЕРЕСКАЗ.
+                    Структура: краткое содержание, основные события/идеи в порядке изложения,
+                    важные детали, итог (если он есть). Без академических разделов, определений
+                    и контрольных вопросов. Не переставляй события."""; 
+            case RECIPE -> """
+                    Формат результата: РЕЦЕПТ.
+                    Структура: блюдо, ингредиенты с количествами (или «количество не указано»),
+                    подготовка, последовательность приготовления, замечания автора.
+                    Запрещено выдумывать ингредиенты, граммовки, температуру, время и шаги."""; 
+            case DIALOGUE -> """
+                    Формат результата: ДИАЛОГ.
+                    Реплики в порядке произнесения, с исходными повторами и метками времени.
+                    Не придумывай имена и роли говорящих. Не превращай диалог в FAQ или конспект."""; 
+            case VERBATIM_TRANSCRIPT -> """
+                    Формат результата: ТРАНСКРИПЦИЯ БЕЗ ИЗМЕНЕНИЙ.
+                    LLM не применяется: текст распознавания сохраняется программно."""; 
+            case TRANSLATION_ONLY -> """
+                    Формат результата: ТОЛЬКО ПЕРЕВОД.
+                    Документ собирается из переведённых сегментов без генерации конспекта.""";
         };
     }
 

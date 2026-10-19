@@ -9,6 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import com.lectureprocessor.scenario.ProcessingScenario;
+
 /** Persisted per-lecture output profile (one row per lecture). */
 @Repository
 public class ProcessingProfileRepository {
@@ -18,7 +20,8 @@ public class ProcessingProfileRepository {
                     MaterialType.from(rs.getString("material_type")),
                     OutputFormat.from(rs.getString("output_format")),
                     DetailLevel.from(rs.getString("detail_level")),
-                    rs.getString("prompt_template"));
+                    rs.getString("prompt_template"),
+                    ProcessingScenario.fromId(rs.getString("scenario")));
 
     private final JdbcTemplate jdbc;
 
@@ -34,16 +37,19 @@ public class ProcessingProfileRepository {
     public void save(String lectureId, ProcessingProfile profile) {
         jdbc.update("""
                 INSERT INTO lecture_processing_profile (lecture_id, material_type, output_format,
-                        detail_level, prompt_template, updated_at)
-                VALUES (?,?,?,?,?,?)
+                        detail_level, prompt_template, scenario, updated_at)
+                VALUES (?,?,?,?,?,?,?)
                 ON CONFLICT(lecture_id) DO UPDATE SET
                         material_type = excluded.material_type,
                         output_format = excluded.output_format,
                         detail_level = excluded.detail_level,
                         prompt_template = excluded.prompt_template,
+                        scenario = excluded.scenario,
                         updated_at = excluded.updated_at
                 """, lectureId, profile.materialType().name(), profile.outputFormat().name(),
-                profile.detailLevel().name(), profile.promptTemplate(), Instant.now().toString());
+                profile.detailLevel().name(), profile.promptTemplate(),
+                profile.scenario() == null ? null : profile.scenario().id(),
+                Instant.now().toString());
     }
 
     public void deleteByLecture(String lectureId) {

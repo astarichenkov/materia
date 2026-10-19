@@ -12,6 +12,8 @@ import com.lectureprocessor.importing.ImportCapabilitiesService;
 import com.lectureprocessor.llm.LlmRunConfig;
 import com.lectureprocessor.llm.LlmSettingsService;
 import com.lectureprocessor.multilingual.MultilingualProperties;
+import com.lectureprocessor.scenario.ProcessingScenario;
+import com.lectureprocessor.scenario.ScenarioCatalog;
 
 /**
  * The single entry point for adding material (UX-4 import wizard).
@@ -27,12 +29,15 @@ public class AddMaterialWebController {
     private final ImportCapabilitiesService capabilities;
     private final MultilingualProperties multilingual;
     private final LlmSettingsService llmSettings;
+    private final ScenarioCatalog scenarios;
 
     public AddMaterialWebController(ImportCapabilitiesService capabilities,
-            MultilingualProperties multilingual, LlmSettingsService llmSettings) {
+            MultilingualProperties multilingual, LlmSettingsService llmSettings,
+            ScenarioCatalog scenarios) {
         this.capabilities = capabilities;
         this.multilingual = multilingual;
         this.llmSettings = llmSettings;
+        this.scenarios = scenarios;
     }
 
     @GetMapping("/add")
@@ -54,6 +59,13 @@ public class AddMaterialWebController {
         model.addAttribute("autoTranslateDefault", multilingual.autoTranslate());
         model.addAttribute("qualities", MediaQuality.values());
         model.addAttribute("modelLabel", modelLabel());
+        model.addAttribute("scenarios", scenarios.all());
+        model.addAttribute("scenarioCategories",
+                com.lectureprocessor.scenario.ScenarioCategory.values());
+        model.addAttribute("scenarioCatalog", scenarios);
+        // Default scenario shown as selected in the wizard (a recommendation, not
+        // a hidden choice: the form always submits the selected value).
+        model.addAttribute("defaultScenario", ProcessingScenario.NOTES.id());
         return "add";
     }
 

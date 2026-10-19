@@ -26,6 +26,19 @@ public record TextQualityReport(
         return !warnings.isEmpty();
     }
 
+    /** Returns a copy with additional scenario-specific warnings appended. */
+    public TextQualityReport withWarnings(List<String> additional) {
+        if (additional == null || additional.isEmpty()) {
+            return this;
+        }
+        java.util.List<String> merged = new java.util.ArrayList<>(warnings);
+        additional.stream().filter(w -> w != null && !w.isBlank() && !merged.contains(w))
+                .forEach(merged::add);
+        return new TextQualityReport(chunkCount, sectionCount, duplicateBlocksRemoved,
+                duplicateQuestionsRemoved, promptLeakLinesRemoved, truncatedChunks,
+                repeatedSentences, merged);
+    }
+
     public static TextQualityReport empty() {
         return new TextQualityReport(0, 0, 0, 0, 0, 0, 0, List.of());
     }

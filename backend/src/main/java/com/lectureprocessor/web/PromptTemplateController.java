@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.lectureprocessor.scenario.ScenarioCatalog;
 import com.lectureprocessor.text.PromptTemplateService;
 import com.lectureprocessor.web.security.AdminAccessService;
 
@@ -27,15 +28,19 @@ public class PromptTemplateController {
 
     private final PromptTemplateService templates;
     private final AdminAccessService access;
+    private final ScenarioCatalog scenarios;
 
-    public PromptTemplateController(PromptTemplateService templates, AdminAccessService access) {
+    public PromptTemplateController(PromptTemplateService templates, AdminAccessService access,
+            ScenarioCatalog scenarios) {
         this.templates = templates;
         this.access = access;
+        this.scenarios = scenarios;
     }
 
     @GetMapping
     public String catalog(Model model, HttpServletRequest request) {
         model.addAttribute("templates", templates.catalog());
+        model.addAttribute("scenarios", scenarios.all());
         model.addAttribute("csrfToken", access.csrfToken(request.getSession(true)));
         model.addAttribute("adminTokenConfigured", access.tokenConfigured());
         return "prompts";
