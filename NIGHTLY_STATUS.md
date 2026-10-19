@@ -89,3 +89,57 @@ ignored by project policy).
 - `POST /lectures`, `/lectures/from-url` and the new `/lectures/{id}/rerun`
   remain without CSRF, consistent with the pre-existing lecture endpoints; this
   is a documented risk, not a regression.
+
+---
+
+# Nightly Sprint 2 — prompt quality & regeneration progress
+
+- Branch: `feature/nightly-prompt-quality` (base `feature/nightly-roadmap` @ `95f7b1b`).
+- Journal: `docs/nightly/quality-progress.md`; baseline: `docs/nightly/prompt-quality-baseline.md`.
+
+## Done
+
+1. **PROGRESS-1 (DONE)** — run-scoped progress. New table `pipeline_run`
+   (migration V11) records the stages of each run; `JobStatusView.RunView`
+   exposes run id, state, per-stage states and real chunk progress
+   (`Обработка текста: 7 из 18 фрагментов`). A new run never inherits the old
+   100%; 100% is shown only after the run succeeds.
+2. **BUG-2 (DONE)** — "обработка остановлена" is no longer rendered for
+   COMPLETED/PARTIAL; success message is "Готово: документы созданы".
+3. **PIPELINE-1b (DONE)** — `PipelinePlanner` is shared by preview and execution.
+   Text-processing fingerprint uses the resolved provider/model/temperature, not
+   the global default. Plan propagates dependent stages (TEXT → EXPORT) and
+   no-op plans create no job and no duplicate variant.
+4. **PROMPT-QUALITY (DONE)** — `NotesAssembler` merges headings, removes
+   exact/near-duplicate paragraphs, repeated questions/bullets and echoed
+   instructions. Quality report is persisted to `notes-quality.json` and shown
+   on the lecture card. Format contracts are appended to the system prompt;
+   transcript stays in `<transcript>` as data only.
+5. **Compatibility matrix (DONE)** — `TemplateCompatibility` warns about
+   interview/FAQ templates on non-interview material and mismatched formats,
+   recommends a template, never switches silently.
+6. **PROMPT-1C (DONE)** — `/settings/prompts`: built-in catalogue, copy, edit
+   with versioning, restore, delete, validation. Custom templates are usable in
+   the lecture profile and in the pipeline.
+7. **Rerun CSRF (DONE)** — `/lectures/{id}/rerun` requires the session
+   `_csrf` token; the lecture form now sends it.
+
+## Verification
+
+- `./mvnw verify -Dspring-boot.repackage.skip=true` — BUILD SUCCESS,
+  508 backend tests (1 skipped) + 28 private-ai tests (2026-10-19).
+  Repackage skipped only because the owner's app holds the jar.
+- Real E2E on isolated :18120 / `target/e2e-nightly2` with real FFmpeg,
+  whisper.cpp and qwen3:1.7b: fresh pipeline → format change preview →
+  rerun (`TEXT_PROCESSING,EXPORT`) → observed chunk progress → COMPLETED →
+  new variant 2, old variant 1 preserved, no repeated Baseline Q&A; no-op rerun
+  created nothing; custom template version 2 used by the pipeline.
+- `scripts/smoke-ui.py` OK; Playwright 25 passed / 4 skipped.
+
+## Not done / limitations
+
+- CSRF for `/process`, `/resume`, `/delete`, `/language` (unchanged from before).
+- UX-6 side-by-side diff / variant comparison and retention policy are not
+  started.
+- Quality heuristics are signals, not a hard gate; a small local model may still
+  produce imperfect structure, which is reported in the quality panel.
